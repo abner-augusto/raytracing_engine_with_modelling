@@ -2,6 +2,7 @@
 #define HITTABLE_H
 
 #include "ray.h"
+#include "vec3.h"
 
 class hit_record {
 public:
@@ -9,8 +10,9 @@ public:
     vec3 normal;
     double t;
     bool front_face;
+    color obj_color;
 
-    void set_face_normal(const ray& r, const vec3& outward_normal) {
+    inline void set_face_normal(const ray& r, const vec3& outward_normal) {
         // Sets the hit record normal vector.
         // NOTE: the parameter `outward_normal` is assumed to have unit length.
 
@@ -23,7 +25,7 @@ class hittable {
 public:
     virtual ~hittable() = default;
 
-    virtual bool hit(const ray& r, double ray_tmin, double ray_tmax, hit_record& rec) const = 0;
+    virtual bool hit(const ray& r, interval ray_t, hit_record& rec) const = 0;
 };
 
 #endif
