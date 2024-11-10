@@ -3,17 +3,18 @@
 #include "hittable.h"
 #include "hittable_list.h"
 #include "sphere.h"
+#include "plane.h"
 
 #include <SDL2/SDL.h>
 #include <cmath>
 
 color phong_shading(const vec3& normal, const color& obj_color) {
     // Fixed light direction and color
-    vec3 light_dir = unit_vector(vec3(0.3, 0.8, -1.0)); // Light coming from the viewer's direction
+    vec3 light_dir = unit_vector(vec3(0.3, 0.8, 1.0)); // Light coming from the viewer's direction
     color light_color(1.0, 1.0, 1.0); // White light
 
     // Phong shading parameters
-    double ambient_strength = 0.5;
+    double ambient_strength = 0.3;
     double diffuse_strength = 0.5;
 
     // Ambient component
@@ -82,9 +83,10 @@ int main(int argc, char* argv[]) {
     // Allocate pixel buffer
     Uint32* pixels = new Uint32[image_width * image_height];
 
-    // Sphere Colors
+    // Object Colors
     color sphereColor1(1.0, 0.0, 0.0);
     color sphereColor2(0.0, 1.0, 0.0);
+    color planeColor(0.69, 0.49, 0.38);
     //color bgColor(100.0 / 255, 100.0 / 255, 100.0 / 255);
     
     // World
@@ -93,7 +95,8 @@ int main(int argc, char* argv[]) {
 
     auto moving_sphere = make_shared<sphere>(point3(0, 0, -1), 0.5, sphereColor1);
     world.add(moving_sphere);
-    world.add(make_shared<sphere>(point3(0, -100.5, -1), 100, sphereColor2));
+    world.add(make_shared<sphere>(point3(-0.9, -0.15, -1), 0.3, sphereColor2));
+    world.add(make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), planeColor));
 
     // Camera
     auto viewport_height = 2.0;
