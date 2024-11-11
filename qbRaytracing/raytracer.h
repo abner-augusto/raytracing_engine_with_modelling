@@ -5,6 +5,7 @@
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <algorithm>
 
 // C++ Std Usings
 

@@ -8,31 +8,81 @@
 #include <SDL2/SDL.h>
 #include <cmath>
 
-color phong_shading(const vec3& normal, const color& obj_color) {
-    // Fixed light direction and color
-    vec3 light_dir = unit_vector(vec3(0.3, 0.8, 1.0)); // Light coming from the viewer's direction
-    color light_color(1.0, 1.0, 1.0); // White light
-
-    // Phong shading parameters
-    double ambient_strength = 0.3;
-    double diffuse_strength = 0.5;
-
-    // Ambient component
-    color ambient = ambient_strength * light_color;
-
-    // Diffuse component
-    double diff = std::max(dot(normal, light_dir), 0.0);
-    color diffuse = diffuse_strength * diff * light_color;
-
-    // Combine ambient and diffuse components
-    return obj_color * (ambient + diffuse);
+color clamp(const color& c, double minVal, double maxVal) {
+    return color(
+        std::max(minVal, std::min(c.x(), maxVal)),
+        std::max(minVal, std::min(c.y(), maxVal)),
+        std::max(minVal, std::min(c.z(), maxVal))
+    );
 }
 
-color ray_color(const ray& r, const hittable& world) {
+struct Light {
+    vec3 position;
+    double intensity; // Scalar intensity
+    color light_color; // Renamed to avoid conflict with type name 'color'
+
+    Light(const point3& pos, double inten, const color& col)
+        : position(pos), intensity(inten), light_color(col) {}
+};
+
+color phong_shading(const hit_record& rec, const vec3& view_dir, const std::vector<Light>& lights, const hittable& world, double shininess = 10.0) {
+    // Ambient light parameters
+    double ambient_light_intensity = 0.8;  // Adjust based on scene requirements
+    double k_ambient = 0.7; // Ambient reflection coefficient for the object
+
+    // Ambient component
+    color ambient = k_ambient * ambient_light_intensity * rec.obj_color;
+
+    // Initialize diffuse and specular colors
+    color diffuse(0, 0, 0);
+    color specular(0, 0, 0);
+
+    // Coefficients for diffuse and specular reflection
+    double k_diffuse = 0.7;  // Diffuse reflection coefficient
+    double k_specular = 1.0; // Specular reflection coefficient
+
+    // Loop through each light and accumulate diffuse and specular contributions
+    for (const auto& light : lights) {
+        // Calculate direction to light and distance to light
+        vec3 light_dir = unit_vector(light.position - rec.p);
+        double light_distance = (light.position - rec.p).length();
+
+        // Shadow check: cast a shadow ray from the intersection point towards the light
+        ray shadow_ray(rec.p + rec.normal * 1e-3, light_dir); // Offset origin slightly to avoid self-intersection
+        hit_record shadow_rec;
+
+        // If there's an intersection with any object before reaching the light, skip this light's contribution
+        if (world.hit(shadow_ray, interval(0.001, light_distance), shadow_rec)) {
+            continue;
+        }
+
+        // Diffuse component
+        double diff = std::max(dot(rec.normal, light_dir), 0.0);
+        diffuse += k_diffuse * diff * rec.obj_color * light.light_color * light.intensity;
+
+        // Specular component (do not multiply by rec.obj_color)
+        vec3 reflect_dir = reflect(-light_dir, rec.normal);
+        double spec = std::pow(std::max(dot(view_dir, reflect_dir), 0.0), shininess);
+        specular += k_specular * spec * light.light_color * light.intensity;
+    }
+
+    // Combine the components
+    color final_color = ambient + diffuse + specular;
+
+    // Clamp color values between 0 and 1
+    final_color = clamp(final_color, 0.0, 1.0);
+
+    return final_color;
+}
+
+color cast_ray(const ray& r, const hittable& world, const std::vector<Light>& lights) {
     hit_record rec;
     if (world.hit(r, interval(0.001, infinity), rec)) {
-        return phong_shading(rec.normal, rec.obj_color);
+        vec3 view_dir = unit_vector(-r.direction());
+        return phong_shading(rec, view_dir, lights, world);
     }
+
+    // Background gradient
     vec3 unit_direction = unit_vector(r.direction());
     auto a = 0.5 * (unit_direction.y() + 1.0);
     return (1.0 - a) * color(1.0, 1.0, 1.0) + a * color(0.5, 0.7, 1.0);
@@ -42,8 +92,9 @@ int main(int argc, char* argv[]) {
 
     // Image
 
-    auto aspect_ratio = 16.0 / 9.0;
-    int image_width = 800;
+    //auto aspect_ratio = 16.0 / 9.0;
+    auto aspect_ratio = 1;
+    int image_width = 500;
 
     // Calculate the image height, and ensure that it's at least 1.
     int image_height = int(image_width / aspect_ratio);
@@ -56,7 +107,7 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    SDL_Window* window = SDL_CreateWindow("Raytracing CG1 (atividade 1) - Abner Augusto", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, image_width, image_height, SDL_WINDOW_SHOWN);
+    SDL_Window* window = SDL_CreateWindow("Raytracing CG1 (atividade 3) - Abner Augusto", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, image_width, image_height, SDL_WINDOW_SHOWN);
     if (!window) {
         std::cerr << "Failed to create window: " << SDL_GetError() << std::endl;
         SDL_Quit();
@@ -84,10 +135,10 @@ int main(int argc, char* argv[]) {
     Uint32* pixels = new Uint32[image_width * image_height];
 
     // Object Colors
-    color sphereColor1(1.0, 0.0, 0.0);
+    color sphereColor1(0.7, 0.2, 0.2);
     color sphereColor2(0.0, 1.0, 0.0);
-    color planeColor(0.69, 0.49, 0.38);
-    //color bgColor(100.0 / 255, 100.0 / 255, 100.0 / 255);
+    color planeColor(0.2, 0.7, 0.2);
+    color planeColor2(0.3, 0.3, 0.7);
     
     // World
 
@@ -95,13 +146,20 @@ int main(int argc, char* argv[]) {
 
     auto moving_sphere = make_shared<sphere>(point3(0, 0, -1), 0.5, sphereColor1);
     world.add(moving_sphere);
-    world.add(make_shared<sphere>(point3(-0.9, -0.15, -1), 0.3, sphereColor2));
+    //world.add(make_shared<sphere>(point3(-0.9, -0.15, -1), 0.3, sphereColor2));
     world.add(make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), planeColor));
+    world.add(make_shared<plane>(point3(0, 0, -2), vec3(0, 0, 1), planeColor2));
+
+    //Light
+    std::vector<Light> lights = {
+        Light(vec3(0, 1, -0.3), 0.7, color(1.0, 1.0, 1.0)),
+        //Light(vec3(2, 2, -2), 0.7, color(1.0, 1.0, 1.0)) 
+    };
 
     // Camera
     auto viewport_height = 2.0;
     auto viewport_width = aspect_ratio * viewport_height;
-    auto focal_length = 1.0;
+    auto focal_length = 0.6;
 
     auto origin = point3(0, 0, 0);
     auto horizontal = vec3(viewport_width, 0, 0);
@@ -124,18 +182,19 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // Update sphere position
+        // Animate sphere position
         time += 0.01;
         point3 sphereCenter(0, 0, -1 + amplitude * sin(speed * time));
         moving_sphere->set_center(sphereCenter);
 
         // Render
+#pragma omp parallel for
         for (int l = 0; l < image_height; ++l) {
             for (int c = 0; c < image_width; ++c) {
                 auto u = double(c) / (image_width - 1);
                 auto v = double(l) / (image_height - 1);
                 ray r(origin, lower_left_corner + u * horizontal + v * vertical - origin);
-                color pixel_color = ray_color(r, world);
+                color pixel_color = cast_ray(r, world, lights);
 
                 write_color(pixels, c, l, image_width, image_height, pixel_color);
             }
