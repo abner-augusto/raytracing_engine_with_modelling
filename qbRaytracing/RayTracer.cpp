@@ -1,75 +1,52 @@
 #include "raytracer.h"
 
-#include "hittable.h"
-#include "hittable_list.h"
+#include "light.h"
 #include "sphere.h"
 #include "plane.h"
 
 #include <SDL2/SDL.h>
-#include <cmath>
 
-color clamp(const color& c, double minVal, double maxVal) {
-    return color(
-        std::max(minVal, std::min(c.x(), maxVal)),
-        std::max(minVal, std::min(c.y(), maxVal)),
-        std::max(minVal, std::min(c.z(), maxVal))
-    );
-}
+color phong_shading(const hit_record& rec, const vec3& view_dir, const std::vector<Light>& lights, const hittable& world) {
+    // Parâmetros de luz ambiente
+    double ambient_light_intensity = 0.8;  // Ajustar conforme os requisitos da cena
+    double k_ambient = 0.7; // Coeficiente de reflexão ambiente para o objeto
 
-struct Light {
-    vec3 position;
-    double intensity; // Scalar intensity
-    color light_color; // Renamed to avoid conflict with type name 'color'
+    // Componente ambiente
+    color ambient = k_ambient * ambient_light_intensity * rec.material->diffuse_color;
 
-    Light(const point3& pos, double inten, const color& col)
-        : position(pos), intensity(inten), light_color(col) {}
-};
-
-color phong_shading(const hit_record& rec, const vec3& view_dir, const std::vector<Light>& lights, const hittable& world, double shininess = 10.0) {
-    // Ambient light parameters
-    double ambient_light_intensity = 0.8;  // Adjust based on scene requirements
-    double k_ambient = 0.7; // Ambient reflection coefficient for the object
-
-    // Ambient component
-    color ambient = k_ambient * ambient_light_intensity * rec.obj_color;
-
-    // Initialize diffuse and specular colors
+    // Inicializa cores difusa e especular
     color diffuse(0, 0, 0);
     color specular(0, 0, 0);
 
-    // Coefficients for diffuse and specular reflection
-    double k_diffuse = 0.7;  // Diffuse reflection coefficient
-    double k_specular = 1.0; // Specular reflection coefficient
-
-    // Loop through each light and accumulate diffuse and specular contributions
+    // Loop através de cada luz e acumula contribuições difusas e especulares
     for (const auto& light : lights) {
-        // Calculate direction to light and distance to light
+        // Calcula a direção da luz e a distância até a luz
         vec3 light_dir = unit_vector(light.position - rec.p);
         double light_distance = (light.position - rec.p).length();
 
-        // Shadow check: cast a shadow ray from the intersection point towards the light
-        ray shadow_ray(rec.p + rec.normal * 1e-3, light_dir); // Offset origin slightly to avoid self-intersection
+        // Verificação de sombra: lança um raio de sombra do ponto de interseção em direção à luz
+        ray shadow_ray(rec.p + rec.normal * 1e-3, light_dir); // Desloca ligeiramente a origem para evitar autointerseção
         hit_record shadow_rec;
 
-        // If there's an intersection with any object before reaching the light, skip this light's contribution
+        // Se houver uma interseção com qualquer objeto antes de alcançar a luz, pula a contribuição desta luz
         if (world.hit(shadow_ray, interval(0.001, light_distance), shadow_rec)) {
             continue;
         }
 
-        // Diffuse component
+        // Componente difusa
         double diff = std::max(dot(rec.normal, light_dir), 0.0);
-        diffuse += k_diffuse * diff * rec.obj_color * light.light_color * light.intensity;
+        diffuse += rec.material->k_diffuse * diff * rec.material->diffuse_color * light.light_color * light.intensity;
 
-        // Specular component (do not multiply by rec.obj_color)
+        // Componente especular (não multiplica pela cor difusa)
         vec3 reflect_dir = reflect(-light_dir, rec.normal);
-        double spec = std::pow(std::max(dot(view_dir, reflect_dir), 0.0), shininess);
-        specular += k_specular * spec * light.light_color * light.intensity;
+        double spec = std::pow(std::max(dot(view_dir, reflect_dir), 0.0), rec.material->shininess);
+        specular += rec.material->k_specular * spec * light.light_color * light.intensity;
     }
 
-    // Combine the components
+    // Combina os componentes
     color final_color = ambient + diffuse + specular;
 
-    // Clamp color values between 0 and 1
+    // Limita os valores da cor entre 0 e 1
     final_color = clamp(final_color, 0.0, 1.0);
 
     return final_color;
@@ -84,7 +61,7 @@ color cast_ray(const ray& r, const hittable& world, const std::vector<Light>& li
 
     // Background gradient
     vec3 unit_direction = unit_vector(r.direction());
-    auto a = 0.5 * (unit_direction.y() + 1.0);
+    auto a = 0.3 * (unit_direction.y() + 1.5);
     return (1.0 - a) * color(1.0, 1.0, 1.0) + a * color(0.5, 0.7, 1.0);
 }
 
@@ -92,9 +69,8 @@ int main(int argc, char* argv[]) {
 
     // Image
 
-    //auto aspect_ratio = 16.0 / 9.0;
-    auto aspect_ratio = 1;
-    int image_width = 500;
+    auto aspect_ratio = 16.0 / 9.0;
+    int image_width = 720;
 
     // Calculate the image height, and ensure that it's at least 1.
     int image_height = int(image_width / aspect_ratio);
@@ -134,32 +110,36 @@ int main(int argc, char* argv[]) {
     // Allocate pixel buffer
     Uint32* pixels = new Uint32[image_width * image_height];
 
-    // Object Colors
-    color sphereColor1(0.7, 0.2, 0.2);
-    color sphereColor2(0.0, 1.0, 0.0);
-    color planeColor(0.2, 0.7, 0.2);
-    color planeColor2(0.3, 0.3, 0.7);
+    // Definir Materiais
+
+    color red(1.0, 0.0, 0.0);
+    color green(0.0, 1.0, 0.0);
+    color blue(0.0, 0.0, 1.0);
+    color brown(0.69, 0.49, 0.38);
+
+    mat sphere_mat(red, 0.8, 1.0, 150.0);
+    mat sphere_mat2(green);
+    mat plane_material(brown, 0.3, 0.3, 2.0);
     
     // World
 
     hittable_list world;
 
-    auto moving_sphere = make_shared<sphere>(point3(0, 0, -1), 0.5, sphereColor1);
+    auto moving_sphere = make_shared<sphere>(point3(0, 0.5, -1), 0.5, sphere_mat);
     world.add(moving_sphere);
-    //world.add(make_shared<sphere>(point3(-0.9, -0.15, -1), 0.3, sphereColor2));
-    world.add(make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), planeColor));
-    world.add(make_shared<plane>(point3(0, 0, -2), vec3(0, 0, 1), planeColor2));
+    world.add(make_shared<sphere>(point3(-0.9, -0.15, -1), 0.3, sphere_mat2));
+    world.add(make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), plane_material));
 
     //Light
     std::vector<Light> lights = {
-        Light(vec3(0, 1, -0.3), 0.7, color(1.0, 1.0, 1.0)),
-        //Light(vec3(2, 2, -2), 0.7, color(1.0, 1.0, 1.0)) 
+        Light(vec3(-2, 1.5, -0.2), 1.0, color(1.0, 0.5, 0.5)),
+        Light(vec3(2, 2, -2), 0.7, color(0.5, 0.5, 1.0)) 
     };
 
     // Camera
     auto viewport_height = 2.0;
     auto viewport_width = aspect_ratio * viewport_height;
-    auto focal_length = 0.6;
+    auto focal_length = 1.0;
 
     auto origin = point3(0, 0, 0);
     auto horizontal = vec3(viewport_width, 0, 0);

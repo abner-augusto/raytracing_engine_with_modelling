@@ -4,6 +4,7 @@
 #include "vec3.h"
 #include <SDL2/SDL.h>
 #include <iostream>
+#include <algorithm>
 
 using color = vec3;
 
@@ -19,6 +20,14 @@ void write_color(Uint32* pixels, int x, int y, int image_width, int image_height
 
     // Write out the pixel color components to the SDL texture buffer.
     pixels[(image_height - 1 - y) * image_width + x] = (rbyte << 16) | (gbyte << 8) | bbyte;
+}
+
+inline color clamp(const color& c, double minVal, double maxVal) {
+    return color(
+        std::max(minVal, std::min(c.x(), maxVal)),
+        std::max(minVal, std::min(c.y(), maxVal)),
+        std::max(minVal, std::min(c.z(), maxVal))
+    );
 }
 
 #endif
