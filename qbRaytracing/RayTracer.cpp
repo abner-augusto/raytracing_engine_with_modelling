@@ -8,11 +8,20 @@
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_sdlrenderer2.h>
 #include <SDL2/SDL.h>
+#include <random>
+
+point3 random_position() {
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_real_distribution<> dis_xz(-2.0, 2.0);
+    static std::uniform_real_distribution<> dis_z(-3.5, -1.0);
+    return point3(dis_xz(gen), -0.15, dis_z(gen));
+}
 
 color phong_shading(const hit_record& rec, const vec3& view_dir, const std::vector<Light>& lights, const hittable& world) {
     // Parâmetros de luz ambiente
-    double ambient_light_intensity = 0.5;  // Ajustar conforme os requisitos da cena
-    double k_ambient = 0.8; // Coeficiente de reflexão ambiente para o objeto
+    double ambient_light_intensity = 0.5;
+    double k_ambient = 0.8;
 
     // Componente ambiente
     color ambient = k_ambient * ambient_light_intensity * rec.material->diffuse_color;
@@ -27,8 +36,7 @@ color phong_shading(const hit_record& rec, const vec3& view_dir, const std::vect
         vec3 light_dir = unit_vector(light.position - rec.p);
         double light_distance = (light.position - rec.p).length();
 
-        // Verificação de sombra: lança um raio de sombra do ponto de interseção em direção à luz
-        ray shadow_ray(rec.p + rec.normal * 1e-3, light_dir); // Desloca ligeiramente a origem para evitar autointerseção
+        ray shadow_ray(rec.p + rec.normal * 1e-3, light_dir);
         hit_record shadow_rec;
 
         // Se houver uma interseção com qualquer objeto antes de alcançar a luz, pula a contribuição desta luz
@@ -48,7 +56,6 @@ color phong_shading(const hit_record& rec, const vec3& view_dir, const std::vect
 
     // Combina os componentes
     color final_color = ambient + diffuse + specular;
-
     // Limita os valores da cor entre 0 e 1
     final_color = clamp(final_color, 0.0, 1.0);
 
@@ -69,19 +76,14 @@ color cast_ray(const ray& r, const hittable& world, const std::vector<Light>& li
 }
 
 int main(int argc, char* argv[]) {
-
     // Image
-
     auto aspect_ratio = 16.0 / 9.0;
     int image_width = 720;
 
-    // Calculate the image height, and ensure that it's at least 1.
     int image_height = int(image_width / aspect_ratio);
     image_height = (image_height < 1) ? 1 : image_height;
 
-
     // SDL Initialization
-
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) < 0) {
         std::cerr << "Failed to initialize SDL: " << SDL_GetError() << std::endl;
         return -1;
@@ -136,9 +138,7 @@ int main(int argc, char* argv[]) {
     mat plane_material(brown, 0.3, 0.3, 2.0);
 
     // World
-
     hittable_list world;
-
     auto moving_sphere = make_shared<sphere>(point3(0, 0.5, -1), 0.5, sphere_mat);
     world.add(moving_sphere);
     world.add(make_shared<sphere>(point3(-0.9, -0.15, -1), 0.3, sphere_mat2));
@@ -162,18 +162,13 @@ int main(int argc, char* argv[]) {
 
     // Sphere movement parameters
     double time = 0.0;
-    double speed = 15.0;
-    double amplitude = 0.1;
+    double speed = 40.0;
+    double amplitude = 0.25;
 
     // Render loop
     bool running = true;
-    if (SDL_GetWindowFlags(window) & SDL_WINDOW_MINIMIZED) {
-        SDL_Delay(10);
-        return 0;
-    }
     SDL_Event event;
     while (running) {
-        // Handle events
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window)) {
                 running = false;
@@ -195,9 +190,13 @@ int main(int argc, char* argv[]) {
         float speed_f = static_cast<float>(speed);
         ImGui::SliderFloat("Sphere Speed", &speed_f, 1.0f, 50.0f);
         speed = static_cast<double>(speed_f);
-        float amplitude_f = static_cast<float>(amplitude);
-        ImGui::SliderFloat("Sphere Amplitude", &amplitude_f, 0.0f, 0.5f);
-        amplitude = static_cast<double>(amplitude_f);
+
+        if (ImGui::Button("Spawn Random Sphere")) {
+            // Cria uma nova esfera com posição e cor aleatórias
+            auto new_sphere = make_shared<sphere>(random_position(), 0.3, mat(random_color()));
+            world.add(new_sphere);
+        }
+
         ImGui::End();
 
         // Render ImGui
@@ -206,7 +205,7 @@ int main(int argc, char* argv[]) {
 
         // Animate sphere position
         time += 0.01;
-        point3 sphereCenter(0, 0, -1 + amplitude * sin(speed * time));
+        point3 sphereCenter((amplitude/2)* sin(speed* time), 0.25 - amplitude* abs(sin(speed* time)), -1);
         moving_sphere->set_center(sphereCenter);
 
         // Render
@@ -225,14 +224,12 @@ int main(int argc, char* argv[]) {
 
         // Update texture with pixel data
         SDL_UpdateTexture(texture, nullptr, pixels, image_width * sizeof(Uint32));
-
         // Render to window
         SDL_RenderClear(renderer);
         SDL_RenderCopy(renderer, texture, nullptr, nullptr);
 
         // Render ImGui
         ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
-
         SDL_RenderPresent(renderer);
     }
 

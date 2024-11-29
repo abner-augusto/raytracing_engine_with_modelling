@@ -5,6 +5,7 @@
 #include <SDL2/SDL.h>
 #include <iostream>
 #include <algorithm>
+#include <random>
 
 using color = vec3;
 
@@ -29,5 +30,13 @@ inline color clamp(const color& c, double minVal, double maxVal) {
         std::max(minVal, std::min(c.z(), maxVal))
     );
 }
+
+// Função auxiliar para gerar uma cor aleatória
+inline color random_color() {
+        static std::random_device rd;
+        static std::mt19937 gen(rd());
+        static std::uniform_real_distribution<> dis(0.0, 1.0);
+        return color(dis(gen), dis(gen), dis(gen));
+    }
 
 #endif
