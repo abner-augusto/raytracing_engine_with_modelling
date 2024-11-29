@@ -15,6 +15,14 @@ public:
         center = new_center;
     }
 
+    void set_radius(double new_radius) {
+        radius = std::fmax(0, new_radius);
+    }
+
+    void set_material(const mat& new_material) {
+        material = new_material;
+    }
+
     bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
         vec3 oc = r.origin() - center;
         auto a = r.direction().length_squared();

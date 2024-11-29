@@ -165,10 +165,20 @@ int main(int argc, char* argv[]) {
     double speed = 40.0;
     double amplitude = 0.25;
 
+    // FPS Counter
+    float deltaTime = 0.0f;
+    Uint64 currentTime = SDL_GetPerformanceCounter();
+    Uint64 lastTime = 0;
+
     // Render loop
     bool running = true;
     SDL_Event event;
     while (running) {
+        lastTime = currentTime;
+        currentTime = SDL_GetPerformanceCounter();
+        deltaTime = (float)((currentTime - lastTime) * 1000 / (double)SDL_GetPerformanceFrequency());
+        float fps = 1000.0f / deltaTime;
+
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window)) {
                 running = false;
@@ -197,6 +207,16 @@ int main(int argc, char* argv[]) {
             world.add(new_sphere);
         }
 
+        if (ImGui::Button("Randomize Moving Sphere Color")) {
+            moving_sphere->set_material(mat(random_color(), 0.8, 1.0, 150.0));
+        }
+
+        ImGui::End();
+
+        // Render ImGui FPS counter
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 100, 10));
+        ImGui::Begin("FPS Counter", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
+        ImGui::Text("FPS: %.1f", fps);
         ImGui::End();
 
         // Render ImGui
@@ -205,11 +225,11 @@ int main(int argc, char* argv[]) {
 
         // Animate sphere position
         time += 0.01;
-        point3 sphereCenter((amplitude/2)* sin(speed* time), 0.25 - amplitude* abs(sin(speed* time)), -1);
+        point3 sphereCenter((amplitude / 2) * sin(speed * time), 0.25 - amplitude * abs(sin(speed * time)), -1);
         moving_sphere->set_center(sphereCenter);
 
         // Render
-#pragma omp parallel for
+#pragma omp parallel for schedule(dynamic)
         for (int l = 0; l < image_height; ++l) {
             double v = double(l) / (image_height - 1);
             vec3 vertical_component = v * vertical;
