@@ -4,12 +4,15 @@
 #include "sphere.h"
 #include "plane.h"
 
+#include <imgui.h>
+#include <imgui_impl_sdl2.h>
+#include <imgui_impl_sdlrenderer2.h>
 #include <SDL2/SDL.h>
 
 color phong_shading(const hit_record& rec, const vec3& view_dir, const std::vector<Light>& lights, const hittable& world) {
     // Parâmetros de luz ambiente
-    double ambient_light_intensity = 0.8;  // Ajustar conforme os requisitos da cena
-    double k_ambient = 0.7; // Coeficiente de reflexão ambiente para o objeto
+    double ambient_light_intensity = 0.5;  // Ajustar conforme os requisitos da cena
+    double k_ambient = 0.8; // Coeficiente de reflexão ambiente para o objeto
 
     // Componente ambiente
     color ambient = k_ambient * ambient_light_intensity * rec.material->diffuse_color;
@@ -78,7 +81,8 @@ int main(int argc, char* argv[]) {
 
 
     // SDL Initialization
-    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) < 0) {
         std::cerr << "Failed to initialize SDL: " << SDL_GetError() << std::endl;
         return -1;
     }
@@ -90,7 +94,7 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_ACCELERATED);
     if (!renderer) {
         std::cerr << "Failed to create renderer: " << SDL_GetError() << std::endl;
         SDL_DestroyWindow(window);
@@ -107,6 +111,16 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
+    // Initialize ImGui
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+    ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
+    ImGui_ImplSDLRenderer2_Init(renderer);
+    ImGui::StyleColorsDark();
+
     // Allocate pixel buffer
     Uint32* pixels = new Uint32[image_width * image_height];
 
@@ -120,7 +134,7 @@ int main(int argc, char* argv[]) {
     mat sphere_mat(red, 0.8, 1.0, 150.0);
     mat sphere_mat2(green);
     mat plane_material(brown, 0.3, 0.3, 2.0);
-    
+
     // World
 
     hittable_list world;
@@ -133,7 +147,7 @@ int main(int argc, char* argv[]) {
     //Light
     std::vector<Light> lights = {
         Light(vec3(-2, 1.5, -0.2), 1.0, color(1.0, 0.5, 0.5)),
-        Light(vec3(2, 2, -2), 0.7, color(0.5, 0.5, 1.0)) 
+        Light(vec3(2, 2, -2), 0.7, color(0.5, 0.5, 1.0))
     };
 
     // Camera
@@ -153,14 +167,42 @@ int main(int argc, char* argv[]) {
 
     // Render loop
     bool running = true;
+    if (SDL_GetWindowFlags(window) & SDL_WINDOW_MINIMIZED) {
+        SDL_Delay(10);
+        return 0;
+    }
     SDL_Event event;
     while (running) {
         // Handle events
         while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window)) {
+                running = false;
+            }
+            ImGui_ImplSDL2_ProcessEvent(&event);
             if (event.type == SDL_QUIT) {
                 running = false;
             }
         }
+
+        // Start ImGui frame
+        ImGui_ImplSDLRenderer2_NewFrame();
+        ImGui_ImplSDL2_NewFrame();
+        ImGui::NewFrame();
+
+        // Simple popup
+        ImGui::Begin("Settings");
+        ImGui::Text("Teste IMGUI");
+        float speed_f = static_cast<float>(speed);
+        ImGui::SliderFloat("Sphere Speed", &speed_f, 1.0f, 50.0f);
+        speed = static_cast<double>(speed_f);
+        float amplitude_f = static_cast<float>(amplitude);
+        ImGui::SliderFloat("Sphere Amplitude", &amplitude_f, 0.0f, 0.5f);
+        amplitude = static_cast<double>(amplitude_f);
+        ImGui::End();
+
+        // Render ImGui
+        ImGui::Render();
+        SDL_RenderSetScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
 
         // Animate sphere position
         time += 0.01;
@@ -170,12 +212,13 @@ int main(int argc, char* argv[]) {
         // Render
 #pragma omp parallel for
         for (int l = 0; l < image_height; ++l) {
+            double v = double(l) / (image_height - 1);
+            vec3 vertical_component = v * vertical;
             for (int c = 0; c < image_width; ++c) {
-                auto u = double(c) / (image_width - 1);
-                auto v = double(l) / (image_height - 1);
-                ray r(origin, lower_left_corner + u * horizontal + v * vertical - origin);
+                double u = double(c) / (image_width - 1);
+                vec3 ray_direction = lower_left_corner + u * horizontal + vertical_component - origin;
+                ray r(origin, ray_direction);
                 color pixel_color = cast_ray(r, world, lights);
-
                 write_color(pixels, c, l, image_width, image_height, pixel_color);
             }
         }
@@ -186,11 +229,19 @@ int main(int argc, char* argv[]) {
         // Render to window
         SDL_RenderClear(renderer);
         SDL_RenderCopy(renderer, texture, nullptr, nullptr);
+
+        // Render ImGui
+        ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
+
         SDL_RenderPresent(renderer);
     }
 
     // Cleanup
     delete[] pixels;
+    ImGui_ImplSDLRenderer2_Shutdown();
+    ImGui_ImplSDL2_Shutdown();
+    ImGui::DestroyContext();
+
     SDL_DestroyTexture(texture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
