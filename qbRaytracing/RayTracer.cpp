@@ -262,16 +262,25 @@ int main(int argc, char* argv[]) {
         speed = static_cast<double>(speed_f);
 
         if (ImGui::Button("Spawn Random Sphere")) {
-            // Cria uma nova esfera com posição e cor aleatórias
-            auto new_sphere = make_shared<sphere>(random_position(), 0.3, mat(random_color()));
+            point3 position = random_position();
+            mat material = mat(random_color());
+            auto new_sphere = make_shared<sphere>(position, 0.3, material);
             world.add(new_sphere);
+
+            std::cout << "Spawned Random Sphere: " << std::endl;
+            std::cout << "Position: " << position << std::endl;
+            std::cout << "Color: " << material.diffuse_color << std::endl;
         }
 
         if (ImGui::Button("Randomize Moving Sphere Color")) {
-            moving_sphere->set_material(mat(random_color(), 0.8, 1.0, 150.0));
+            mat new_material = mat(random_color(), 0.8, 1.0, 150.0);
+            moving_sphere->set_material(new_material);
+
+            std::cout << "Moving Sphere Color: " << new_material.diffuse_color << std::endl;
         }
 
         ImGui::End();
+
 
         // Render ImGui FPS counter
         ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 100, 10));

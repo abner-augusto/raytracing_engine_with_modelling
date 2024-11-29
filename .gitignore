@@ -53,4 +53,5 @@
 *.vcxproj
 *.user
 
+**/imgui.ini
 /*/qbRaytracing
