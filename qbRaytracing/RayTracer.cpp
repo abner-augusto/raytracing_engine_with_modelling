@@ -62,11 +62,31 @@ color phong_shading(const hit_record& rec, const vec3& view_dir, const std::vect
     return final_color;
 }
 
-color cast_ray(const ray& r, const hittable& world, const std::vector<Light>& lights) {
+color cast_ray(const ray& r, const hittable& world, const std::vector<Light>& lights, int depth = 5) {
+    if (depth <= 0) {
+        return color(0, 0, 0); // Retorna preto se exceder a profundidade máxima
+    }
+
     hit_record rec;
     if (world.hit(r, interval(0.001, infinity), rec)) {
         vec3 view_dir = unit_vector(-r.direction());
-        return phong_shading(rec, view_dir, lights, world);
+
+        // Obtém a cor Phong para o objeto atingido
+        color phong_color = phong_shading(rec, view_dir, lights, world);
+
+        // Calcula reflexão se o material suportar
+        if (rec.material->reflection > 0.0) {
+            vec3 reflected_dir = reflect(unit_vector(r.direction()), rec.normal);
+            ray reflected_ray(rec.p + rec.normal * 1e-3, reflected_dir);
+
+            color reflected_color = cast_ray(reflected_ray, world, lights, depth - 1);
+
+            // Combina a cor Phong com a reflexão
+            return (1.0 - rec.material->reflection) * phong_color +
+                rec.material->reflection * reflected_color;
+        }
+
+        return phong_color;
     }
 
     // Background gradient
@@ -75,6 +95,7 @@ color cast_ray(const ray& r, const hittable& world, const std::vector<Light>& li
     return (1.0 - a) * color(1.0, 1.0, 1.0) + a * color(0.5, 0.7, 1.0);
 }
 
+
 int main(int argc, char* argv[]) {
     // Image
     auto aspect_ratio = 16.0 / 9.0;
@@ -82,6 +103,8 @@ int main(int argc, char* argv[]) {
 
     int image_height = int(image_width / aspect_ratio);
     image_height = (image_height < 1) ? 1 : image_height;
+    // Set SDL Hint to allow mouse focus click-through
+    SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
 
     // SDL Initialization
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) < 0) {
@@ -89,7 +112,15 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    SDL_Window* window = SDL_CreateWindow("Raytracing CG1 (atividade 3) - Abner Augusto", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, image_width, image_height, SDL_WINDOW_SHOWN);
+
+    // SDL Initialization
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) < 0) {
+        std::cerr << "Failed to initialize SDL: " << SDL_GetError() << std::endl;
+        return -1;
+    }
+
+    // Create a resizable window
+    SDL_Window* window = SDL_CreateWindow("Raytracing CG1 (atividade 3) - Abner Augusto", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, image_width, image_height, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
     if (!window) {
         std::cerr << "Failed to create window: " << SDL_GetError() << std::endl;
         SDL_Quit();
@@ -103,6 +134,8 @@ int main(int argc, char* argv[]) {
         SDL_Quit();
         return -1;
     }
+
+    SDL_RenderSetLogicalSize(renderer, image_width, image_height);
 
     SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB888, SDL_TEXTUREACCESS_STREAMING, image_width, image_height);
     if (!texture) {
@@ -126,8 +159,8 @@ int main(int argc, char* argv[]) {
     // Allocate pixel buffer
     Uint32* pixels = new Uint32[image_width * image_height];
 
-    // Definir Materiais
-
+    // Material list
+    color black(0.0, 0.0, 0.0);
     color red(1.0, 0.0, 0.0);
     color green(0.0, 1.0, 0.0);
     color blue(0.0, 0.0, 1.0);
@@ -136,12 +169,13 @@ int main(int argc, char* argv[]) {
     mat sphere_mat(red, 0.8, 1.0, 150.0);
     mat sphere_mat2(green);
     mat plane_material(brown, 0.3, 0.3, 2.0);
+    mat reflective_material(black, 0.8, 1.0, 150.0, 0.5);
 
-    // World
+    // World Scene
     hittable_list world;
     auto moving_sphere = make_shared<sphere>(point3(0, 0.5, -1), 0.5, sphere_mat);
     world.add(moving_sphere);
-    world.add(make_shared<sphere>(point3(-0.9, -0.15, -1), 0.3, sphere_mat2));
+    world.add(make_shared<sphere>(point3(-0.9, -0.15, -1), 0.3, reflective_material));
     world.add(make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), plane_material));
 
     //Light
@@ -162,7 +196,7 @@ int main(int argc, char* argv[]) {
 
     // Sphere movement parameters
     double time = 0.0;
-    double speed = 40.0;
+    double speed = 20.0;
     double amplitude = 0.25;
 
     // FPS Counter
@@ -180,21 +214,47 @@ int main(int argc, char* argv[]) {
         float fps = 1000.0f / deltaTime;
 
         while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window)) {
-                running = false;
-            }
             ImGui_ImplSDL2_ProcessEvent(&event);
+
             if (event.type == SDL_QUIT) {
                 running = false;
             }
+
+            if (event.type == SDL_WINDOWEVENT) {
+                if (event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window)) {
+                    running = false;
+                }
+                if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
+                    int new_width = event.window.data1;
+                    int new_height = event.window.data2;
+
+                    double target_aspect_ratio = static_cast<double>(image_width) / image_height;
+                    int viewport_width, viewport_height;
+
+                    double window_aspect_ratio = static_cast<double>(new_width) / new_height;
+                    if (window_aspect_ratio > target_aspect_ratio) {
+                        viewport_height = new_height;
+                        viewport_width = static_cast<int>(new_height * target_aspect_ratio);
+                    }
+                    else {
+                        viewport_width = new_width;
+                        viewport_height = static_cast<int>(new_width / target_aspect_ratio);
+                    }
+
+                    SDL_SetWindowSize(window, viewport_width, viewport_height);
+                }
+            }
         }
+
+        // Zera o buffer de pixels antes de renderizar o próximo frame
+        std::fill(pixels, pixels + (image_width * image_height), 0);
 
         // Start ImGui frame
         ImGui_ImplSDLRenderer2_NewFrame();
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
-        // Simple popup
+        // ImGui Popup
         ImGui::Begin("Settings");
         ImGui::Text("Teste IMGUI");
         float speed_f = static_cast<float>(speed);
