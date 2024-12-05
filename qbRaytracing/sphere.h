@@ -1,9 +1,12 @@
 #ifndef SPHERE_H
 #define SPHERE_H
 
+#include <algorithm>
+#include <cmath>
 #include "hittable.h"
 #include "vec3.h"
 #include "material.h"
+#include "boundingbox.h"
 
 class sphere : public hittable {
 public:
@@ -35,7 +38,7 @@ public:
 
         auto sqrtd = std::sqrt(discriminant);
 
-        // Encontra a raiz mais próxima que esteja dentro do intervalo aceitável.
+        // Find the nearest root that lies in the acceptable range.
         auto root = (-half_b - sqrtd) / a;
         if (!ray_t.surrounds(root)) {
             root = (-half_b + sqrtd) / a;
@@ -50,6 +53,29 @@ public:
         rec.material = &material;
 
         return true;
+    }
+
+    // Additional methods for Octree usage
+    bool test_point(const point3& p) const {
+        return distance(p, center) <= radius;
+    }
+
+    // Returns:
+    // 'w' if the bounding box doesn't intersect the sphere (empty)
+    // 'b' if the bounding box is completely inside the sphere (full)
+    // 'g' otherwise (partial)
+    char test_bb(const BoundingBox& bb) const {
+        point3 closest = bb.ClosestPoint(center);
+        if (!test_point(closest)) {
+            return 'w';
+        }
+
+        point3 furthest = bb.FurthestPoint(center);
+        if (test_point(furthest)) {
+            return 'b';
+        }
+
+        return 'g';
     }
 
 private:
