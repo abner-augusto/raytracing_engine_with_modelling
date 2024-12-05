@@ -1,11 +1,13 @@
 #ifndef INTERVAL_H
 #define INTERVAL_H
 
+#include <limits> // Necessário para std::numeric_limits
+
 class interval {
 public:
     double min, max;
 
-    interval() : min(+infinity), max(-infinity) {} // Default interval is empty
+    interval() : min(+std::numeric_limits<double>::infinity()), max(-std::numeric_limits<double>::infinity()) {} // Intervalo padrão é vazio
 
     interval(double min, double max) : min(min), max(max) {}
 
@@ -24,7 +26,7 @@ public:
     static const interval empty, universe;
 };
 
-const interval interval::empty = interval(+infinity, -infinity);
-const interval interval::universe = interval(-infinity, +infinity);
+const interval interval::empty = interval(+std::numeric_limits<double>::infinity(), -std::numeric_limits<double>::infinity());
+const interval interval::universe = interval(-std::numeric_limits<double>::infinity(), +std::numeric_limits<double>::infinity());
 
 #endif

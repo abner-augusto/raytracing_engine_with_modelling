@@ -4,6 +4,7 @@
 #include "ray.h"
 #include "vec3.h"
 #include "material.h"
+#include "interval.h"
 
 class hit_record {
 public:

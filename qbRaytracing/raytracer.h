@@ -6,6 +6,7 @@
 #include <limits>
 #include <memory>
 #include <algorithm>
+#include <random>
 
 // C++ Std Usings
 
@@ -21,6 +22,13 @@ const double pi = 3.1415926535897932385;
 
 inline double degrees_to_radians(double degrees) {
     return degrees * pi / 180.0;
+}
+
+inline double random_double(double min, double max) {
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_real_distribution<> dis(min, max);
+    return dis(gen);
 }
 
 // Common Headers

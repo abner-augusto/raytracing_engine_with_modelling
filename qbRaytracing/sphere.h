@@ -47,7 +47,7 @@ public:
         rec.p = r.at(rec.t);
         vec3 outward_normal = (rec.p - center) / radius;
         rec.set_face_normal(r, outward_normal);
-        rec.material = &material; // Atribui o material do objeto ao registro de colisão
+        rec.material = &material;
 
         return true;
     }
@@ -55,7 +55,7 @@ public:
 private:
     point3 center;
     double radius;
-    mat material; // Material do objeto
+    mat material;
 };
 
 #endif

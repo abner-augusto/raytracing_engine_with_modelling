@@ -16,8 +16,8 @@ public:
     double z() const { return e[2]; }
 
     vec3 operator-() const { return vec3(-e[0], -e[1], -e[2]); }
-    double operator[](int i) const { return e[i]; }
-    double& operator[](int i) { return e[i]; }
+    double operator[](size_t i) const { return e[i]; }
+    double& operator[](size_t i) { return e[i]; }
 
     vec3& operator+=(const vec3& v) {
         e[0] += v.e[0];
@@ -99,6 +99,14 @@ inline vec3 unit_vector(const vec3& v) {
 
 inline vec3 reflect(const vec3& I, const vec3& N) {
     return I - 2 * dot(I, N) * N;
+}
+
+inline double distance(const vec3& a, const vec3& b) {
+    return (a - b).length();
+}
+
+inline double norm(const vec3& v) {
+    return v.length();
 }
 
 #endif

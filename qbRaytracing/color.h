@@ -6,6 +6,7 @@
 #include <iostream>
 #include <algorithm>
 #include <random>
+#include <array>  
 
 using color = vec3;
 
@@ -32,11 +33,12 @@ inline color clamp(const color& c, double minVal, double maxVal) {
 }
 
 // Função auxiliar para gerar uma cor aleatória
-inline color random_color() {
-        static std::random_device rd;
-        static std::mt19937 gen(rd());
-        static std::uniform_real_distribution<> dis(0.0, 1.0);
-        return color(dis(gen), dis(gen), dis(gen));
-    }
+inline vec3 random_color() {
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_real_distribution<> dis(0.0, 1.0);
+
+    return vec3(dis(gen), dis(gen), dis(gen));
+}
 
 #endif
