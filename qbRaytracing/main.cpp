@@ -60,6 +60,13 @@ static color phong_shading(const hit_record& rec, const vec3& view_dir, const st
     return final_color;
 }
 
+static color background_color(const ray& r) {
+    vec3 unit_direction = unit_vector(r.direction());
+    auto a = 0.3 * (unit_direction.y() + 1.5); // Adjust gradient factor
+    return (1.0 - a) * color(1.0, 1.0, 1.0) + a * color(0.5, 0.7, 1.0);
+}
+
+
 static color cast_ray(const ray& r, const hittable& world, const std::vector<Light>& lights, int depth = 5) {
     if (depth <= 0) {
         return color(0, 0, 0);
@@ -67,9 +74,8 @@ static color cast_ray(const ray& r, const hittable& world, const std::vector<Lig
 
     hit_record rec;
     if (world.hit(r, interval(0.001, infinity), rec)) {
-        // Ignore back faces
         if (!rec.front_face) {
-            return color(0, 0, 0); // Or return the background color
+            return background_color(r);
         }
 
         vec3 view_dir = unit_vector(-r.direction());
@@ -92,13 +98,8 @@ static color cast_ray(const ray& r, const hittable& world, const std::vector<Lig
         return phong_color;
     }
 
-    // Background gradient
-    vec3 unit_direction = unit_vector(r.direction());
-    auto a = 0.3 * (unit_direction.y() + 1.5);
-    return (1.0 - a) * color(1.0, 1.0, 1.0) + a * color(0.5, 0.7, 1.0);
+    return background_color(r);
 }
-
-
 
 int main(int argc, char* argv[]) {
     // Image
@@ -106,14 +107,14 @@ int main(int argc, char* argv[]) {
     int image_width = 480;
     int image_height = int(image_width / aspect_ratio);
     image_height = (image_height < 1) ? 1 : image_height;
-
-
+    int window_width = 1080;
+    int window_height = int(window_width / aspect_ratio);
 
     if (!InitializeSDL()) {
         return -1;
     }
 
-    SDL_Window* window = CreateWindow(image_width, image_height, "Raytracing CG1");
+    SDL_Window* window = CreateWindow(window_width, window_height, "Raytracing CG1");
     if (!window) {
         SDL_Quit();
         return -1;
@@ -160,7 +161,7 @@ int main(int argc, char* argv[]) {
 
     //Octree
     // Create a root bounding box
-    BoundingBox root_bb(point3(-0.9, -0.45, -2.5), 1.5);
+    BoundingBox root_bb(point3(-0.9, -0.45, -3.0), 1.5);
     // Create a sphere in the center of the bounding box
     sphere sp(root_bb.Center(), 0.6, mat());
     // Build the octree node from the bounding box and the sphere
@@ -193,7 +194,7 @@ int main(int argc, char* argv[]) {
     };
 
     // Camera
-    double camera_fov = 90;
+    double camera_fov = 60;
     double viewport_height = 2.0;
     auto viewport_width = aspect_ratio * viewport_height;
     auto focal_length = degrees_to_radians(camera_fov);
@@ -312,6 +313,7 @@ int main(int argc, char* argv[]) {
             draw_wireframe_bounding_boxes(
                 renderer,
                 window,
+                root_bb,
                 filled_bbs,
                 origin,
                 focal_length,

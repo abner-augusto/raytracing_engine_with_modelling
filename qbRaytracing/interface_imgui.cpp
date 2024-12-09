@@ -30,7 +30,7 @@ void draw_menu(bool& render_raytracing,
     hittable_list& world)
 {
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(150, 250), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(250, 350), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowCollapsed(true, ImGuiCond_FirstUseEver);
 
     if (ImGui::Begin("Menu", nullptr, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoMove)) {
@@ -123,7 +123,7 @@ void draw_menu(bool& render_raytracing,
                 camera_origin[0] = 0;
                 camera_origin[1] = 0;
                 camera_origin[2] = 0;
-                camera_fov = 90.0f;
+                camera_fov = 60.0f;
                 // Recalcular parâmetros da câmera
                 origin = point3(camera_origin[0], camera_origin[1], camera_origin[2]);
                 double viewport_height = 2.0 * tan((camera_fov * M_PI / 180.0) / 2);

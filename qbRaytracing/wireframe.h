@@ -32,6 +32,7 @@ std::pair<int, int> project(const point3& p,
 // Function to draw wireframe boxes
 void draw_wireframe_bounding_boxes(SDL_Renderer* renderer,
     SDL_Window* window,
+    const BoundingBox& root_bb,
     const std::vector<BoundingBox>& boxes,
     const point3& origin,
     double focal_length,
@@ -57,8 +58,7 @@ void draw_wireframe_bounding_boxes(SDL_Renderer* renderer,
         {0,4}, {1,5}, {2,6}, {3,7}  // vertical edges
     };
 
-    for (const auto& bb : boxes) {
-        // Compute all corners of the bounding box
+    auto draw_bounding_box = [&](const BoundingBox& bb) {
         point3 vmin = bb.vmin;
         point3 vmax = bb.vmax();
 
@@ -86,5 +86,13 @@ void draw_wireframe_bounding_boxes(SDL_Renderer* renderer,
 
             SDL_RenderDrawLine(renderer, scaled_x1, scaled_y1, scaled_x2, scaled_y2);
         }
+        };
+
+    // Draw the root bounding box first
+    draw_bounding_box(root_bb);
+
+    // Draw the remaining bounding boxes
+    for (const auto& bb : boxes) {
+        draw_bounding_box(bb);
     }
 }
