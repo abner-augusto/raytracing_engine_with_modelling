@@ -10,7 +10,7 @@
 
 using color = vec3;
 
-void write_color(Uint32* pixels, int x, int y, int image_width, int image_height, const color& pixel_color) {
+inline void write_color(Uint32* pixels, int x, int y, int image_width, int image_height, const color& pixel_color) {
     auto r = pixel_color.x();
     auto g = pixel_color.y();
     auto b = pixel_color.z();

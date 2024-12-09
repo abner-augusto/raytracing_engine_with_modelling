@@ -8,7 +8,6 @@ public:
     double min, max;
 
     interval() : min(+std::numeric_limits<double>::infinity()), max(-std::numeric_limits<double>::infinity()) {} // Intervalo padrão é vazio
-
     interval(double min, double max) : min(min), max(max) {}
 
     double size() const {
@@ -23,10 +22,8 @@ public:
         return min < x && x < max;
     }
 
-    static const interval empty, universe;
+    static const interval empty;
+    static const interval universe;
 };
-
-const interval interval::empty = interval(+std::numeric_limits<double>::infinity(), -std::numeric_limits<double>::infinity());
-const interval interval::universe = interval(-std::numeric_limits<double>::infinity(), +std::numeric_limits<double>::infinity());
 
 #endif

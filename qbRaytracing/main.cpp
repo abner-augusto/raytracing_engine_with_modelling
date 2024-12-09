@@ -8,19 +8,12 @@
 #include "boundingbox.h"
 #include "node.h"
 #include "wireframe.h"
+#include "interface_imgui.h"
 
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_sdlrenderer2.h>
 #include <SDL2/SDL.h>
-
-static point3 random_position() {
-    return point3(
-        random_double(-2.0, 2.0),  // x
-        -0.15,                     // y 
-        random_double(-3.5, -1.0)  // z
-    );
-}
 
 static color phong_shading(const hit_record& rec, const vec3& view_dir, const std::vector<Light>& lights, const hittable& world) {
     // Parâmetros de luz ambiente
@@ -211,11 +204,10 @@ int main(int argc, char* argv[]) {
     };
 
     // Camera
-    float camera_fov = 90.0f;
-    double camera_fov_radians = camera_fov * M_PI / 180.0;
+    double camera_fov = 90;
     double viewport_height = 2.0;
     auto viewport_width = aspect_ratio * viewport_height;
-    auto focal_length = 1.0;
+    auto focal_length = degrees_to_radians(camera_fov);
 
     auto origin = point3(0, 0, 0);
     auto horizontal = vec3(viewport_width, 0, 0);
@@ -223,9 +215,6 @@ int main(int argc, char* argv[]) {
     auto lower_left_corner = origin - horizontal / 2 - vertical / 2 - vec3(0, 0, focal_length);
 
     float camera_origin[3] = { 0.0f, 0.0f, 0.0f };
-
-
-
 
     // Sphere movement parameters
     double time = 0.0;
@@ -289,120 +278,13 @@ int main(int argc, char* argv[]) {
         ImGui_ImplSDLRenderer2_NewFrame();
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
-        //ImGui::ShowDemoWindow();
-        // ImGui Popup
 
-        static bool menu_open = false;
-
-        ImGui::SetNextWindowCollapsed(true, ImGuiCond_FirstUseEver);
-
-        if (ImGui::Begin("Menu", &menu_open, ImGuiWindowFlags_NoSavedSettings)) {
-
-            // Primitive Header
-            if (ImGui::CollapsingHeader("Primitive")) {
-                float speed_f = static_cast<float>(speed);
-                ImGui::SliderFloat("Sphere Speed", &speed_f, 1.0f, 50.0f);
-                speed = static_cast<double>(speed_f);
-
-                if (ImGui::Button("Spawn Random Sphere")) {
-                    point3 position = random_position();
-                    mat material = mat(random_color());
-                    auto new_sphere = make_shared<sphere>(position, 0.3, material);
-                    world.add(new_sphere);
-
-                    std::cout << "Spawned Random Sphere: " << std::endl;
-                    std::cout << "Position: " << position << std::endl;
-                    std::cout << "Color: " << material.diffuse_color << std::endl;
-                }
-            }
-
-            //// Colors Header
-            //if (ImGui::CollapsingHeader("Colors")) {
-            //    // Randomize Button
-            //    if (ImGui::Button("Randomize Color")) {
-            //        red = random_color();
-            //        mat new_material(red, 0.8, 1.0, 150.0);
-            //        moving_sphere->set_material(new_material);
-
-            //        std::cout << "Moving Sphere Color: " << new_material.diffuse_color << std::endl;
-            //    }
-
-            //    ImGui::SameLine();
-
-            //    // Reset Button
-            //    if (ImGui::Button("Reset Color")) {
-            //        red = color(1.0f, 0.0f, 0.0f); // Default to red
-            //        moving_sphere->set_material(mat(vec3(red[0], red[1], red[2]), 0.8, 1.0, 150.0));
-
-            //        std::cout << "Reset Moving Sphere Color to Default Red" << std::endl;
-            //    }
-
-            //    // Color Picker for Manual Selection
-            //    float color_picker_rgb[3] = { red[0], red[1], red[2] }; // Copy `red`'s current values
-            //    if (ImGui::ColorEdit3("Set Sphere Color", color_picker_rgb)) {
-            //        // Update `red`'s RGB values and the material
-            //        red = color(color_picker_rgb[0], color_picker_rgb[1], color_picker_rgb[2]);
-            //        moving_sphere->set_material(mat(vec3(red[0], red[1], red[2]), 0.8, 1.0, 150.0));
-
-            //        std::cout << "Updated Moving Sphere Color via Picker to: "
-            //            << "R: " << red[0] << ", G: " << red[1] << ", B: " << red[2] << std::endl;
-            //    }
-            //}
-
-            if (ImGui::CollapsingHeader("Camera")) {
-                if (ImGui::SliderFloat3("Camera Origin", camera_origin, -10.0f, 10.0f)) {
-                    origin = point3(camera_origin[0], camera_origin[1], -camera_origin[2]);
-                    viewport_height = 2.0 * tan((camera_fov * M_PI / 180.0) / 2);
-                    viewport_width = aspect_ratio * viewport_height;
-                    horizontal = vec3(viewport_width, 0, 0);
-                    vertical = vec3(0, viewport_height, 0);
-                    lower_left_corner = origin - horizontal / 2 - vertical / 2 - vec3(0, 0, focal_length);
-                }
-
-                // Slider para ajustar o campo de visão (FOV)
-                if (ImGui::SliderFloat("Camera FOV", &camera_fov, 30.0f, 120.0f)) {
-                    viewport_height = 2.0 * tan((camera_fov * M_PI / 180.0) / 2);
-                    viewport_width = aspect_ratio * viewport_height;
-                    horizontal = vec3(viewport_width, 0, 0);
-                    vertical = vec3(0, viewport_height, 0);
-                    lower_left_corner = origin - horizontal / 2 - vertical / 2 - vec3(0, 0, focal_length);
-                }
-
-                if (ImGui::Button("Reset to Default")) {
-                    // Restaurar os valores padrão
-                    camera_origin[0] = 0;
-                    camera_origin[1] = 0;
-                    camera_origin[2] = 0;
-                    camera_fov = 90.0f;
-                    // Recalcular parâmetros da câmera
-                    origin = point3(camera_origin[0], camera_origin[1], camera_origin[2]);
-                    viewport_height = 2.0 * tan((camera_fov * M_PI / 180.0) / 2);
-                    viewport_width = aspect_ratio * viewport_height;
-                    horizontal = vec3(viewport_width, 0, 0);
-                    vertical = vec3(0, viewport_height, 0);
-                    lower_left_corner = origin - horizontal / 2 - vertical / 2 - vec3(0, 0, focal_length);
-                }
-            }
-
-            if (ImGui::CollapsingHeader("Render")) {
-                if (ImGui::Button(render_raytracing ? "Disable Raytracing" : "Enable Raytracing")) {
-                    render_raytracing = !render_raytracing;
-                }
-                if (ImGui::Checkbox("Show Wireframe", &show_wireframe)) {
-                    // This will flip show_wireframe when the checkbox is clicked
-                }
-
-            }
-        }
-
-        ImGui::End();
-
-        // Render ImGui FPS counter
-        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 100, 10));
-        ImGui::Begin("FPS Counter", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
-        ImGui::Text("FPS: %.1f", fps);
-        ImGui::End();
-
+        draw_menu(render_raytracing, show_wireframe,
+            speed, camera_fov, camera_origin,
+            aspect_ratio, origin, horizontal, vertical,
+            lower_left_corner, focal_length,
+            viewport_width, viewport_height, world);
+        draw_fps_counter(fps);
         // Render ImGui
         ImGui::Render();
         SDL_RenderSetScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);

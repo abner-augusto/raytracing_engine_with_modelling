@@ -4,8 +4,6 @@
 #include "boundingbox.h"
 #include "vec3.h"
 
-// Example project function (adjust to your camera setup):
-// This is a placeholder; modify according to your camera parameters:
 // origin, focal length (f), image_width, image_height, etc.
 std::pair<int, int> project(const point3& p,
     const point3& origin,
