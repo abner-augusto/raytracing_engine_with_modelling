@@ -9,6 +9,7 @@
 #include "node.h"
 #include "wireframe.h"
 #include "interface_imgui.h"
+#include "sdl_setup.h"
 
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
@@ -66,19 +67,24 @@ static color cast_ray(const ray& r, const hittable& world, const std::vector<Lig
 
     hit_record rec;
     if (world.hit(r, interval(0.001, infinity), rec)) {
+        // Ignore back faces
+        if (!rec.front_face) {
+            return color(0, 0, 0); // Or return the background color
+        }
+
         vec3 view_dir = unit_vector(-r.direction());
 
-        // Obtém a cor Phong para o objeto atingido
+        // Obtain the Phong color for the hit object
         color phong_color = phong_shading(rec, view_dir, lights, world);
 
-        // Calcula reflexão se o material suportar
+        // Calculate reflection if the material supports it
         if (rec.material->reflection > 0.0) {
             vec3 reflected_dir = reflect(unit_vector(r.direction()), rec.normal);
             ray reflected_ray(rec.p + rec.normal * 1e-3, reflected_dir);
 
             color reflected_color = cast_ray(reflected_ray, world, lights, depth - 1);
 
-            // Combina a cor Phong com a reflexão
+            // Combine Phong color with reflection
             return (1.0 - rec.material->reflection) * phong_color +
                 rec.material->reflection * reflected_color;
         }
@@ -93,53 +99,36 @@ static color cast_ray(const ray& r, const hittable& world, const std::vector<Lig
 }
 
 
+
 int main(int argc, char* argv[]) {
     // Image
     auto aspect_ratio = 16.0 / 9.0;
     int image_width = 480;
-
     int image_height = int(image_width / aspect_ratio);
     image_height = (image_height < 1) ? 1 : image_height;
-    // Set SDL Hint to allow mouse focus click-through
-    SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
 
-    // SDL Initialization
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) < 0) {
-        std::cerr << "Failed to initialize SDL: " << SDL_GetError() << std::endl;
+
+
+    if (!InitializeSDL()) {
         return -1;
     }
 
-
-    // SDL Initialization
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) < 0) {
-        std::cerr << "Failed to initialize SDL: " << SDL_GetError() << std::endl;
-        return -1;
-    }
-
-    // Create a resizable window
-    SDL_Window* window = SDL_CreateWindow("Raytracing CG1 Com Modelagem - Abner Augusto", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, image_width, image_height, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+    SDL_Window* window = CreateWindow(image_width, image_height, "Raytracing CG1");
     if (!window) {
-        std::cerr << "Failed to create window: " << SDL_GetError() << std::endl;
         SDL_Quit();
         return -1;
     }
 
-    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_ACCELERATED);
+    SDL_Renderer* renderer = CreateRenderer(window);
     if (!renderer) {
-        std::cerr << "Failed to create renderer: " << SDL_GetError() << std::endl;
         SDL_DestroyWindow(window);
         SDL_Quit();
         return -1;
     }
 
-    SDL_RenderSetLogicalSize(renderer, image_width, image_height);
-
-    SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB888, SDL_TEXTUREACCESS_STREAMING, image_width, image_height);
+    SDL_Texture* texture = CreateTexture(renderer, image_width, image_height);
     if (!texture) {
-        std::cerr << "Failed to create texture: " << SDL_GetError() << std::endl;
-        SDL_DestroyRenderer(renderer);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
+        Cleanup_SDL(window, renderer, nullptr);
         return -1;
     }
 
@@ -199,7 +188,7 @@ int main(int argc, char* argv[]) {
 
     //Light
     std::vector<Light> lights = {
-        Light(vec3(-2, 1.5, -0.2), 1.0, color(1.0, 0.5, 0.5)),
+        Light(vec3(-2, 1.5, -0.2), 1.0, color(1.0, 1.0, 1.0)),
         //Light(vec3(2, 2, -2), 0.7, color(0.5, 0.5, 1.0))
     };
 
@@ -319,8 +308,6 @@ int main(int argc, char* argv[]) {
         SDL_RenderClear(renderer);
         SDL_RenderCopy(renderer, texture, nullptr, nullptr);
 
-        // Render ImGui
-        ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
         if (show_wireframe) {
             draw_wireframe_bounding_boxes(
                 renderer,
@@ -334,6 +321,8 @@ int main(int argc, char* argv[]) {
                 image_height
             );
         }
+        // Render ImGui
+        ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
         SDL_RenderPresent(renderer);
     }
 
@@ -343,10 +332,7 @@ int main(int argc, char* argv[]) {
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
 
-    SDL_DestroyTexture(texture);
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
+    Cleanup_SDL(window, renderer, texture);
 
     return 0;
 }

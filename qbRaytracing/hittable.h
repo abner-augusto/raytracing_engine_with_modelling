@@ -8,16 +8,15 @@
 
 class hit_record {
 public:
-    point3 p;                 // Ponto da colisão
-    vec3 normal;              // Normal no ponto de colisão
-    double t;                 // Valor do parâmetro t da equação da reta
-    bool front_face;          // Para indicar se a colisão foi do lado externo ou interno
-    const mat* material; // Ponteiro para o material do objeto colidido
+    point3 p; // Ponto da colisão
+    vec3 normal; // Normal no ponto de colisão
+    double t = 0.0; // Valor da equação da reta
+    bool front_face = true; // Para indicar se a colisão foi externo ou interno
+    const mat* material = nullptr; // Ponteiro para o material do objeto colidido
+
+    hit_record() = default;
 
     inline void set_face_normal(const ray& r, const vec3& outward_normal) {
-        // Define o vetor normal no registro de colisão.
-        // OBS: o parâmetro `outward_normal` é assumido como tendo comprimento unitário.
-
         front_face = dot(r.direction(), outward_normal) < 0;
         normal = front_face ? outward_normal : -outward_normal;
     }

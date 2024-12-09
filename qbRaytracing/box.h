@@ -66,8 +66,14 @@ public:
         rec.set_face_normal(r, outward_normal);
         rec.material = &material;
 
+        // Ignore back faces
+        if (!rec.front_face) {
+            return false;
+        }
+
         return true;
     }
+
 
 private:
     point3 min_corner;
