@@ -7,6 +7,7 @@
 #include "box.h"
 #include "boundingbox.h"
 #include "node.h"
+#include "wireframe.h"
 
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
@@ -210,7 +211,9 @@ int main(int argc, char* argv[]) {
     };
 
     // Camera
-    auto viewport_height = 2.0;
+    float camera_fov = 90.0f;
+    double camera_fov_radians = camera_fov * M_PI / 180.0;
+    double viewport_height = 2.0;
     auto viewport_width = aspect_ratio * viewport_height;
     auto focal_length = 1.0;
 
@@ -220,7 +223,9 @@ int main(int argc, char* argv[]) {
     auto lower_left_corner = origin - horizontal / 2 - vertical / 2 - vec3(0, 0, focal_length);
 
     float camera_origin[3] = { 0.0f, 0.0f, 0.0f };
-    float camera_fov = 90.0f;
+
+
+
 
     // Sphere movement parameters
     double time = 0.0;
@@ -231,6 +236,9 @@ int main(int argc, char* argv[]) {
     float deltaTime = 0.0f;
     Uint64 currentTime = SDL_GetPerformanceCounter();
     Uint64 lastTime = 0;
+
+    bool render_raytracing = false;
+    bool show_wireframe = true;
 
     // Render loop
     bool running = true;
@@ -284,9 +292,9 @@ int main(int argc, char* argv[]) {
         //ImGui::ShowDemoWindow();
         // ImGui Popup
 
-        static bool menu_open = false; // Start with the menu closed
+        static bool menu_open = false;
 
-        ImGui::SetNextWindowCollapsed(true, ImGuiCond_FirstUseEver); // Ensure it starts closed
+        ImGui::SetNextWindowCollapsed(true, ImGuiCond_FirstUseEver);
 
         if (ImGui::Begin("Menu", &menu_open, ImGuiWindowFlags_NoSavedSettings)) {
 
@@ -375,6 +383,16 @@ int main(int argc, char* argv[]) {
                     lower_left_corner = origin - horizontal / 2 - vertical / 2 - vec3(0, 0, focal_length);
                 }
             }
+
+            if (ImGui::CollapsingHeader("Render")) {
+                if (ImGui::Button(render_raytracing ? "Disable Raytracing" : "Enable Raytracing")) {
+                    render_raytracing = !render_raytracing;
+                }
+                if (ImGui::Checkbox("Show Wireframe", &show_wireframe)) {
+                    // This will flip show_wireframe when the checkbox is clicked
+                }
+
+            }
         }
 
         ImGui::End();
@@ -395,17 +413,22 @@ int main(int argc, char* argv[]) {
         //moving_sphere->set_center(sphereCenter);
 
         // Render
+        if (render_raytracing) {
 #pragma omp parallel for schedule(dynamic)
-        for (int l = 0; l < image_height; ++l) {
-            double v = double(l) / (image_height - 1);
-            vec3 vertical_component = v * vertical;
-            for (int c = 0; c < image_width; ++c) {
-                double u = double(c) / (image_width - 1);
-                vec3 ray_direction = lower_left_corner + u * horizontal + vertical_component - origin;
-                ray r(origin, ray_direction);
-                color pixel_color = cast_ray(r, world, lights);
-                write_color(pixels, c, l, image_width, image_height, pixel_color);
+            for (int l = 0; l < image_height; ++l) {
+                double v = double(l) / (image_height - 1);
+                vec3 vertical_component = v * vertical;
+                for (int c = 0; c < image_width; ++c) {
+                    double u = double(c) / (image_width - 1);
+                    vec3 ray_direction = lower_left_corner + u * horizontal + vertical_component - origin;
+                    ray r(origin, ray_direction);
+                    color pixel_color = cast_ray(r, world, lights);
+                    write_color(pixels, c, l, image_width, image_height, pixel_color);
+                }
             }
+        }
+        else {
+
         }
 
         // Update texture with pixel data
@@ -416,6 +439,19 @@ int main(int argc, char* argv[]) {
 
         // Render ImGui
         ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
+        if (show_wireframe) {
+            draw_wireframe_bounding_boxes(
+                renderer,
+                window,
+                filled_bbs,
+                origin,
+                focal_length,
+                viewport_width,
+                viewport_height,
+                image_width,
+                image_height
+            );
+        }
         SDL_RenderPresent(renderer);
     }
 
