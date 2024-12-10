@@ -30,7 +30,11 @@ const double pi = 3.1415926535897932385;
 // Utility Functions
 
 inline double degrees_to_radians(double degrees) {
-    return degrees * pi / 180.0;
+    return degrees * M_PI / 180.0;
+}
+
+inline double radians_to_degrees(double radians) {
+    return radians * 180.0 / M_PI;
 }
 
 inline double random_double(double min, double max) {

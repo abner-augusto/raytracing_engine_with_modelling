@@ -1,43 +1,55 @@
 #pragma once
 #include <SDL2/SDL.h>
 #include <vector>
+#include <algorithm> // For std::clamp
 #include "boundingbox.h"
 #include "vec3.h"
+#include "camera.h"
 
-// origin, focal length (f), image_width, image_height, etc.
+// Projection Function
 std::pair<int, int> project(const point3& p,
-    const point3& origin,
-    double focal_length,
-    double viewport_width,
-    double viewport_height,
+    const Camera& camera,
     int image_width,
-    int image_height)
-{
-    vec3 pc = p - origin;
+    int image_height) {
 
-    // Intersection with image plane at z = -focal_length
-    double t = -focal_length / pc.z();
+    vec3 pc = p - camera.origin;
+
+    // Define a small epsilon to prevent division by zero
+    const double epsilon = 1e-6;
+
+    // Check if z is too close to zero
+    if (std::abs(pc.e[2]) < epsilon) {
+        // Assign a small epsilon with the same sign as pc.e[2]
+        pc.e[2] = (pc.e[2] < 0 ? -epsilon : epsilon);
+    }
+
+    // Calculate perspective scaling factor (Y-up, -Z-forward)
+    double t = camera.focal_length / (-pc.e[2]);
+
+    // Project the point onto the image plane
     vec3 plane_point = pc * t;
 
-    double u = (plane_point.x() + viewport_width / 2.0) / viewport_width;
-    double v = (plane_point.y() + viewport_height / 2.0) / viewport_height;
+    // Normalize to viewport coordinates [0, 1]
+    double u = (plane_point.x() + (camera.horizontal.length() / 2.0)) / camera.horizontal.length();
+    double v = (plane_point.y() + (camera.vertical.length() / 2.0)) / camera.vertical.length();
 
-    // Flip the y-axis:
-    int pixel_x = (int)(u * (image_width - 1));
-    int pixel_y = (int)((1.0 - v) * (image_height - 1));
+    // Clamp u and v to [0, 1] to prevent out-of-bounds
+    u = std::clamp(u, 0.0, 1.0);
+    v = std::clamp(v, 0.0, 1.0);
+
+    // Convert normalized coordinates to pixel coordinates
+    int pixel_x = static_cast<int>(u * (image_width - 1));
+    int pixel_y = static_cast<int>((1.0 - v) * (image_height - 1)); // Flip Y-axis for screen space
 
     return std::make_pair(pixel_x, pixel_y);
 }
 
-// Function to draw wireframe boxes
+// Function to draw octree voxels
 void draw_wireframe_bounding_boxes(SDL_Renderer* renderer,
     SDL_Window* window,
     const BoundingBox& root_bb,
     const std::vector<BoundingBox>& boxes,
-    const point3& origin,
-    double focal_length,
-    double viewport_width,
-    double viewport_height,
+    const Camera& camera, // Use Camera directly
     int image_width,
     int image_height)
 {
@@ -48,8 +60,8 @@ void draw_wireframe_bounding_boxes(SDL_Renderer* renderer,
     // Get current window size for scaling
     int window_w, window_h;
     SDL_GetWindowSize(window, &window_w, &window_h);
-    float scale_x = (float)window_w / (float)image_width;
-    float scale_y = (float)window_h / (float)image_height;
+    float scale_x = static_cast<float>(window_w) / static_cast<float>(image_width);
+    float scale_y = static_cast<float>(window_h) / static_cast<float>(image_height);
 
     // Define edges of a cube (using indices 0-7 for corners)
     int edges[12][2] = {
@@ -58,10 +70,12 @@ void draw_wireframe_bounding_boxes(SDL_Renderer* renderer,
         {0,4}, {1,5}, {2,6}, {3,7}  // vertical edges
     };
 
+    // Function to draw a single bounding box
     auto draw_bounding_box = [&](const BoundingBox& bb) {
         point3 vmin = bb.vmin;
         point3 vmax = bb.vmax();
 
+        // Define the 8 corners of the bounding box
         point3 corners[8] = {
             point3(vmin.x(), vmin.y(), vmin.z()),
             point3(vmax.x(), vmin.y(), vmin.z()),
@@ -73,17 +87,18 @@ void draw_wireframe_bounding_boxes(SDL_Renderer* renderer,
             point3(vmin.x(), vmax.y(), vmax.z()),
         };
 
-        // Project and draw edges
+        // Project and draw each edge
         for (auto& edge : edges) {
-            auto p1 = project(corners[edge[0]], origin, focal_length, viewport_width, viewport_height, image_width, image_height);
-            auto p2 = project(corners[edge[1]], origin, focal_length, viewport_width, viewport_height, image_width, image_height);
+            auto p1 = project(corners[edge[0]], camera, image_width, image_height);
+            auto p2 = project(corners[edge[1]], camera, image_width, image_height);
 
             // Scale to current window size
-            int scaled_x1 = (int)(p1.first * scale_x);
-            int scaled_y1 = (int)(p1.second * scale_y);
-            int scaled_x2 = (int)(p2.first * scale_x);
-            int scaled_y2 = (int)(p2.second * scale_y);
+            int scaled_x1 = static_cast<int>(p1.first * scale_x);
+            int scaled_y1 = static_cast<int>(p1.second * scale_y);
+            int scaled_x2 = static_cast<int>(p2.first * scale_x);
+            int scaled_y2 = static_cast<int>(p2.second * scale_y);
 
+            // Draw the line
             SDL_RenderDrawLine(renderer, scaled_x1, scaled_y1, scaled_x2, scaled_y2);
         }
         };
