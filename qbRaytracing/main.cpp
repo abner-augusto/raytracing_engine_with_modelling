@@ -17,6 +17,9 @@
 #include <imgui_impl_sdlrenderer2.h>
 #include <SDL2/SDL.h>
 
+
+#pragma execution_character_set( "utf-8" )
+
 int main(int argc, char* argv[]) {
     // Image
     auto aspect_ratio = 16.0 / 9.0;
@@ -90,6 +93,10 @@ int main(int argc, char* argv[]) {
             << bb.vmin.x() << ", " << bb.vmin.y() << ", " << bb.vmin.z()
             << "), Width: " << bb.width << "\n";
     }
+
+    // Generate the string representation of the octree
+    std::string octree_string = root.ToString();
+    std::cout << "Octree String Representation:\n" << octree_string << "\n";
 
     // World Scene
     hittable_list world;
@@ -198,7 +205,7 @@ int main(int argc, char* argv[]) {
             origin,
             world);
 
-        draw_fps_counter(fps);
+        DrawFpsCounter(fps);
         // Render ImGui
         ImGui::Render();
         SDL_RenderSetScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
@@ -220,7 +227,7 @@ int main(int argc, char* argv[]) {
         SDL_RenderCopy(renderer, texture, nullptr, nullptr);
 
         if (show_wireframe) {
-            draw_wireframe_bounding_boxes(
+            DrawWireframeBBs(
                 renderer,
                 window,
                 root_bb,

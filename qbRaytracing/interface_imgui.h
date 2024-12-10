@@ -11,4 +11,4 @@ void draw_menu(bool& render_raytracing,
     point3& origin,
     hittable_list& world);
 
-void draw_fps_counter(float fps);
+void DrawFpsCounter(float fps);

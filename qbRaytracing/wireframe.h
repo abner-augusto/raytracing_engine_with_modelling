@@ -45,7 +45,7 @@ std::pair<int, int> project(const point3& p,
 }
 
 // Function to draw octree voxels
-void draw_wireframe_bounding_boxes(SDL_Renderer* renderer,
+void DrawWireframeBBs(SDL_Renderer* renderer,
     SDL_Window* window,
     const BoundingBox& root_bb,
     const std::vector<BoundingBox>& boxes,

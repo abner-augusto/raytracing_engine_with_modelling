@@ -26,6 +26,13 @@ public:
     bool TestPoint(const point3& p) const {
         return root.TestPoint(bounding_box, p);
     }
+
+    std::string ToString() const {
+        return root.ToString();
+    }
+
+
+
 };
 
 #endif // OCTREE_H

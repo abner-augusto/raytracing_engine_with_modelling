@@ -115,7 +115,7 @@ void draw_menu(bool& render_raytracing,
     ImGui::End();
 }
 
-void draw_fps_counter(float fps) {
+void DrawFpsCounter(float fps) {
     ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x - 100, 10));
     ImGui::Begin("FPS Counter", nullptr,
         ImGuiWindowFlags_NoTitleBar |
