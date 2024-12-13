@@ -3,12 +3,13 @@
 
 #include <cmath>
 #include <iostream>
+#include <algorithm>
 
 class vec3 {
 public:
     double e[3];
 
-    vec3() : e{ 0,0,0 } {}
+    vec3() : e{ 0, 0, 0 } {}
     vec3(double e0, double e1, double e2) : e{ e0, e1, e2 } {}
 
     double x() const { return e[0]; }
@@ -37,6 +38,17 @@ public:
         return *this *= 1 / t;
     }
 
+    bool operator==(const vec3& other) const {
+        const double epsilon = 1e-8;
+        return std::fabs(e[0] - other.e[0]) < epsilon &&
+            std::fabs(e[1] - other.e[1]) < epsilon &&
+            std::fabs(e[2] - other.e[2]) < epsilon;
+    }
+
+    bool operator!=(const vec3& other) const {
+        return !(*this == other);
+    }
+
     double length() const {
         return std::sqrt(length_squared());
     }
@@ -44,14 +56,13 @@ public:
     double length_squared() const {
         return e[0] * e[0] + e[1] * e[1] + e[2] * e[2];
     }
+
 };
 
-// point3 is just an alias for vec3, but useful for geometric clarity in the code.
+// Alias for geometric clarity
 using point3 = vec3;
 
-
 // Vector Utility Functions
-
 inline std::ostream& operator<<(std::ostream& out, const vec3& v) {
     return out << v.e[0] << ' ' << v.e[1] << ' ' << v.e[2];
 }
@@ -80,10 +91,12 @@ inline vec3 operator/(const vec3& v, double t) {
     return (1 / t) * v;
 }
 
+inline vec3 operator/(double t, const vec3& v) {
+    return vec3(t / v.e[0], t / v.e[1], t / v.e[2]);
+}
+
 inline double dot(const vec3& u, const vec3& v) {
-    return u.e[0] * v.e[0]
-        + u.e[1] * v.e[1]
-        + u.e[2] * v.e[2];
+    return u.e[0] * v.e[0] + u.e[1] * v.e[1] + u.e[2] * v.e[2];
 }
 
 inline vec3 cross(const vec3& u, const vec3& v) {
@@ -96,6 +109,27 @@ inline vec3 unit_vector(const vec3& v) {
     return v / v.length();
 }
 
+// Additional Functions for Box Hit Calculations
+
+inline vec3 min(const vec3& u, const vec3& v) {
+    return vec3(std::min(u.e[0], v.e[0]), std::min(u.e[1], v.e[1]), std::min(u.e[2], v.e[2]));
+}
+
+inline vec3 max(const vec3& u, const vec3& v) {
+    return vec3(std::max(u.e[0], v.e[0]), std::max(u.e[1], v.e[1]), std::max(u.e[2], v.e[2]));
+}
+
+inline vec3 step(const vec3& edge, const vec3& v) {
+    return vec3(v.e[0] >= edge.e[0] ? 1.0 : 0.0,
+        v.e[1] >= edge.e[1] ? 1.0 : 0.0,
+        v.e[2] >= edge.e[2] ? 1.0 : 0.0);
+}
+
+inline vec3 sign(const vec3& v) {
+    return vec3((v.e[0] > 0) - (v.e[0] < 0),
+        (v.e[1] > 0) - (v.e[1] < 0),
+        (v.e[2] > 0) - (v.e[2] < 0));
+}
 
 inline vec3 reflect(const vec3& I, const vec3& N) {
     return I - 2 * dot(I, N) * N;
