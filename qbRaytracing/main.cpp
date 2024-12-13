@@ -11,14 +11,13 @@
 #include "wireframe.h"
 #include "interface_imgui.h"
 #include "sdl_setup.h"
+#include "octreemanager.h"
 
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_sdlrenderer2.h>
 #include <SDL2/SDL.h>
 
-
-#pragma execution_character_set( "utf-8" )
 
 int main(int argc, char* argv[]) {
     // Image
@@ -78,25 +77,7 @@ int main(int argc, char* argv[]) {
     mat voxel_material(color(1, 1, 1));
 
     //Octree
-    // Create a root bounding box
-    BoundingBox root_bb(point3(-0.9, -0.45, -3.0), 1.5);
-    // Create a sphere in the center of the bounding box
-    sphere sp(root_bb.Center(), 0.6, mat());
-    // Build the octree node from the bounding box and the sphere
-    Node root = Node::FromObject(root_bb, sp, 3);
-    // Get filled bounding boxes from the constructed node
-    std::vector<BoundingBox> filled_bbs = root.GetFilledBoundingBoxes(root_bb);
-
-    std::cout << "Filled Bounding Boxes:\n";
-    for (auto& bb : filled_bbs) {
-        std::cout << "Corner: ("
-            << bb.vmin.x() << ", " << bb.vmin.y() << ", " << bb.vmin.z()
-            << "), Width: " << bb.width << "\n";
-    }
-
-    // Generate the string representation of the octree
-    std::string octree_string = root.ToString();
-    std::cout << "Octree String Representation:\n" << octree_string << "\n";
+    OctreeManager octreeManager;
 
     // World Scene
     hittable_list world;
@@ -105,9 +86,6 @@ int main(int argc, char* argv[]) {
     //world.add(make_shared<sphere>(point3(-0.9, -0.15, -1), 0.3, reflective_material));
     world.add(make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), plane_material));
     //world.add(make_shared<cylinder>(point3(0.7, -0.15, -0.9), point3(0.7, .3, -0.6), 0.3, sphere_mat2, true));
-    for (auto& bb : filled_bbs) {
-        world.add(std::make_shared<box>(bb.vmin, bb.vmax(), voxel_material));
-    }
 
     //Light
     std::vector<Light> lights = {
@@ -206,8 +184,12 @@ int main(int argc, char* argv[]) {
             world);
 
         DrawFpsCounter(fps);
+        RenderOctreeList(octreeManager);
+        RenderOctreeInspector(octreeManager, world);
+
         // Render ImGui
         ImGui::Render();
+
         SDL_RenderSetScale(renderer, io.DisplayFramebufferScale.x, io.DisplayFramebufferScale.y);
 
         // Animate sphere position
@@ -227,15 +209,15 @@ int main(int argc, char* argv[]) {
         SDL_RenderCopy(renderer, texture, nullptr, nullptr);
 
         if (show_wireframe) {
-            DrawWireframeBBs(
-                renderer,
-                window,
-                root_bb,
-                filled_bbs,
-                camera,
-                image_width,
+            DrawOctreeManagerWireframe(
+                renderer, 
+                window, 
+                octreeManager,
+                camera, 
+                image_width, 
                 image_height
             );
+
         }
         // Render ImGui
         ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);

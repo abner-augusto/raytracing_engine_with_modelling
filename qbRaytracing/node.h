@@ -3,13 +3,16 @@
 
 #include <vector>
 #include <cassert>
-#include "boundingBox.h"
+#include "boundingbox.h"
 #include "sphere.h"
 
 class Node {
 public:
     bool is_filled;
     std::vector<Node> children; // size 0 or 8
+
+    // Default constructor
+    Node() : is_filled(false), children() {}
 
     Node(bool filled, const std::vector<Node>& ch = {})
         : is_filled(filled), children(ch) {
@@ -23,7 +26,7 @@ public:
         return Node(true, {});
     }
 
-    static Node FromObject(const BoundingBox& bb, const sphere& obj, int depth_limit = 10) {
+    static Node FromObject(const BoundingBox& bb, const sphere& obj, int depth_limit = 5) {
         Node root = EmptyNode();
         char test = obj.test_bb(bb);
         if (test == 'w') {
@@ -42,6 +45,11 @@ public:
             }
             return root;
         }
+    }
+
+    static Node FromString(const std::string& input) {
+        size_t pos = 0;
+        return FromStringRecursive(input, pos);
     }
 
     bool IsPartial() const {
@@ -122,8 +130,28 @@ public:
             }
         }
     }
-
-
+    static Node FromStringRecursive(const std::string& input, size_t& pos) {
+        assert(pos < input.size());
+        if (input[pos] == 'B') {
+            pos++;
+            return FullNode();
+        }
+        if (input[pos] == 'W') {
+            pos++;
+            return EmptyNode();
+        }
+        if (input[pos] == '(') {
+            pos++;
+            std::vector<Node> children(8);
+            for (int i = 0; i < 8; i++) {
+                children[i] = FromStringRecursive(input, pos);
+            }
+            return Node(false, children);
+        }
+        throw std::runtime_error("Invalid input format");
+    }
 };
+
+
 
 #endif // NODE_H

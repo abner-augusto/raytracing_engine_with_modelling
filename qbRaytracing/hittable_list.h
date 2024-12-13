@@ -5,6 +5,7 @@
 
 #include <memory>
 #include <vector>
+#include <algorithm> // For std::remove_if
 
 using std::make_shared;
 using std::shared_ptr;
@@ -20,6 +21,14 @@ public:
 
     void add(shared_ptr<hittable> object) {
         objects.push_back(object);
+    }
+
+    template <typename Predicate>
+    void remove_if(Predicate pred) {
+        objects.erase(
+            std::remove_if(objects.begin(), objects.end(), pred),
+            objects.end()
+        );
     }
 
     bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
