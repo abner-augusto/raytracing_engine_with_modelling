@@ -20,20 +20,48 @@ Camera::Camera(
 }
 
 void Camera::render(Uint32* pixels, int image_width, int image_height, const hittable& world, const std::vector<Light>& lights) const {
+    constexpr int TILESIZE = 16;
+
+    // Compute the number of tiles in each dimension
+    const int num_x_tiles = (image_width + TILESIZE - 1) / TILESIZE;
+    const int num_y_tiles = (image_height + TILESIZE - 1) / TILESIZE;
+
+    // Parallelize over tiles
 #pragma omp parallel for schedule(dynamic)
-    for (int l = 0; l < image_height; ++l) {
-        double v = double(l) / (image_height - 1);
-        vec3 vertical_component = v * vertical;
-        for (int c = 0; c < image_width; ++c) {
-            double u = double(c) / (image_width - 1);
-            vec3 ray_direction = lower_left_corner + u * horizontal + vertical_component - origin;
-            ray_direction = unit_vector(ray_direction); // Normalize the ray direction
-            ray r(origin, ray_direction);
-            color pixel_color = cast_ray(r, world, lights);
-            write_color(pixels, c, l, image_width, image_height, pixel_color);
+    for (int tile_index = 0; tile_index < num_x_tiles * num_y_tiles; ++tile_index) {
+        // Compute the starting pixel coordinates of the current tile
+        const int tile_x = (tile_index % num_x_tiles) * TILESIZE;
+        const int tile_y = (tile_index / num_x_tiles) * TILESIZE;
+
+        // Iterate over each pixel in the tile
+        for (int j = 0; j < TILESIZE; ++j) {
+            for (int i = 0; i < TILESIZE; ++i) {
+                // Compute the actual pixel coordinates
+                int pixel_x = tile_x + i;
+                int pixel_y = tile_y + j;
+
+                // Ensure the pixel is within the image bounds
+                if (pixel_x >= image_width || pixel_y >= image_height) continue;
+
+                // Compute normalized coordinates
+                double u = double(pixel_x) / (image_width - 1);
+                double v = double(pixel_y) / (image_height - 1);
+
+                // Compute ray direction
+                vec3 ray_direction = lower_left_corner + u * horizontal + v * vertical - origin;
+                ray_direction = unit_vector(ray_direction); // Normalize the ray direction
+
+                // Cast the ray and compute pixel color
+                ray r(origin, ray_direction);
+                color pixel_color = cast_ray(r, world, lights);
+
+                // Write the pixel color to the output buffer
+                write_color(pixels, pixel_x, pixel_y, image_width, image_height, pixel_color);
+            }
         }
     }
 }
+
 
 void Camera::update_basis_vectors() {
     // Recalculate viewport dimensions based on focal length
