@@ -138,9 +138,9 @@ color Camera::cast_ray(const ray& r, const hittable& world, const std::vector<Li
 
     hit_record rec;
     if (world.hit(r, interval(0.001, infinity), rec)) {
-        if (!rec.front_face) {
-            return background_color(r);
-        }
+        //if (!rec.front_face) {
+        //    return background_color(r);
+        //}
 
         vec3 view_dir = unit_vector(-r.direction());
 
