@@ -5,6 +5,8 @@
 #include "sphere.h"
 #include "plane.h"
 #include "cylinder.h"
+#include "cone.h"
+#include "torus.h"
 #include "box.h"
 #include "boundingbox.h"
 #include "node.h"
@@ -81,16 +83,20 @@ int main(int argc, char* argv[]) {
 
     // World Scene
     hittable_list world;
-    //auto moving_sphere = make_shared<sphere>(point3(0, 0.5, -1), 0.5, sphere_mat);
-    //world.add(moving_sphere);
-    //world.add(make_shared<sphere>(point3(-0.9, -0.15, -1), 0.3, reflective_material));
+    auto moving_sphere = make_shared<sphere>(point3(0, 0.5, -3), 0.5, sphere_mat);
+    world.add(moving_sphere);
+    world.add(make_shared<sphere>(point3(-0.9, -0.15, -2), 0.3, reflective_material));
     world.add(make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), plane_material));
-    //world.add(make_shared<cylinder>(point3(0.7, -0.15, -0.9), point3(0.7, .3, -0.6), 0.3, sphere_mat2, true));
+    world.add(make_shared<cylinder>(point3(0.7, -0.15, -2), point3(0.7, .3, -1.6), 0.3, sphere_mat2));
+    world.add(make_shared<cone>(point3(0, -0.5, -2),point3(0, 0.5, -2), 0.5, sphere_mat, true));
+    world.add(make_shared<torus>(point3(-2, 0.1, -2), 0.4, 0.18, vec3(0.5, 0.8, 0.8), reflective_material));
+
+
 
     //Light
     std::vector<Light> lights = {
-        Light(vec3(-2, 1.5, -0.2), 1.0, color(1.0, 1.0, 1.0)),
-        //Light(vec3(2, 2, -2), 0.7, color(0.5, 0.5, 1.0))
+        Light(vec3(-1, 2, -2), 1.0, color(1.0, 1.0, 1.0)),
+        Light(vec3(2, 2, -2), 0.7, color(0.5, 0.5, 1.0))
     };
 
     // Camera
@@ -115,8 +121,8 @@ int main(int argc, char* argv[]) {
 
     // Sphere movement parameters
     double time = 0.0;
-    double speed = 20.0;
-    double amplitude = 0.25;
+    double speed = 10.0;
+    double amplitude = 0.4;
 
     // FPS Counter
     float deltaTime = 0.0f;
@@ -194,8 +200,8 @@ int main(int argc, char* argv[]) {
 
         // Animate sphere position
         time += 0.01;
-        point3 sphereCenter((amplitude / 2) * sin(speed * time), 0.25 - amplitude * abs(sin(speed * time)), -1);
-        //moving_sphere->set_center(sphereCenter);
+        point3 sphereCenter((amplitude * 3) * sin(speed * time), 0.45 - amplitude * abs(sin(speed * time)), -3);
+        moving_sphere->set_center(sphereCenter);
 
         // Render
         if (render_raytracing) {
