@@ -33,7 +33,21 @@ public:
         rec.set_face_normal(r, normal);
         rec.material = &material;
 
+        // Calculate UV coordinates
+        calculate_uv(rec.p, rec.u, rec.v);
+
         return true;
+    }
+
+    void calculate_uv(const point3& hit_point, double& u, double& v) const {
+        // Map hit_point to the local X-Z plane for UV mapping
+        vec3 local_point = hit_point - point;
+        u = fmod(local_point.x(), 1.0);
+        v = fmod(local_point.z(), 1.0);
+
+        // Ensure UV are positive
+        if (u < 0) u += 1.0;
+        if (v < 0) v += 1.0;
     }
 
 private:

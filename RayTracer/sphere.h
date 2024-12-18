@@ -52,7 +52,20 @@ public:
         rec.set_face_normal(r, outward_normal);
         rec.material = &material;
 
+        // Calculate UV coordinates
+        calculate_uv((rec.p - center) / radius, rec.u, rec.v);
+
         return true;
+    }
+
+    void calculate_uv(const vec3& normal, double& u, double& v) const {
+        // Convert normal to spherical coordinates
+        auto theta = std::acos(-normal.y()); // Latitude
+        auto phi = std::atan2(-normal.z(), normal.x()) + M_PI; // Longitude
+
+        // Normalize to [0, 1] range
+        u = phi / (2 * M_PI);
+        v = theta / M_PI;
     }
 
     // Additional methods for Octree usage

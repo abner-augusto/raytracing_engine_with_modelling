@@ -13,6 +13,8 @@ public:
     double t = 0.0; // Valor da equação da reta
     bool front_face = true; // Para indicar se a colisão foi externo ou interno
     const mat* material = nullptr; // Ponteiro para o material do objeto colidido
+    double u = 0.0; // Coordenada UV horizontal
+    double v = 0.0; // Coordenada UV vertical
 
     hit_record() = default;
 
