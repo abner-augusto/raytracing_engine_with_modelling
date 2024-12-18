@@ -87,48 +87,70 @@ color Camera::background_color(const ray& r) const {
     return (1.0 - t) * color(1.0, 1.0, 1.0) + t * color(0.5, 0.7, 1.0);
 }
 
-color Camera::phong_shading(const hit_record& rec, const vec3& view_dir, const std::vector<Light>& lights, const hittable& world) {
-    // Parâmetros de luz ambiente
+static color calculate_diffuse(const vec3& normal, const vec3& light_dir, const color& diffuse_color, double k_diffuse, const color& light_color, double light_intensity) {
+    double diff = std::max(dot(normal, light_dir), 0.0);
+    return k_diffuse * diff * diffuse_color * light_color * light_intensity;
+}
+
+static color calculate_specular(const vec3& normal, const vec3& light_dir, const vec3& view_dir, double shininess, double k_specular, const color& light_color, double light_intensity) {
+    vec3 reflect_dir = reflect(-light_dir, normal);
+    double spec = std::pow(std::max(dot(view_dir, reflect_dir), 0.0), shininess);
+    return k_specular * spec * light_color * light_intensity;
+}
+
+color Camera::phong_shading(const hit_record& rec, const vec3& view_dir, const std::vector<Light>& lights, const hittable& world, const color& diffuse_color) {
+    // Ambient light
     double ambient_light_intensity = 0.5;
     double k_ambient = 0.8;
+    color ambient = k_ambient * ambient_light_intensity * diffuse_color;
 
-    // Componente ambiente
-    color ambient = k_ambient * ambient_light_intensity * rec.material->diffuse_color;
-
-    // Inicializa cores difusa e especular
+    // Initialize diffuse and specular components
     color diffuse(0, 0, 0);
     color specular(0, 0, 0);
 
-    // Loop através de cada luz e acumula contribuições difusas e especulares
-    for (const auto& light : lights) {
-        // Calcula a direção da luz e a distância até a luz
-        vec3 light_dir = unit_vector(light.position - rec.p);
-        double light_distance = (light.position - rec.p).length();
+    const double shadow_bias = 1e-3;
 
-        ray shadow_ray(rec.p + rec.normal * 1e-3, light_dir);
-        hit_record shadow_rec;
+    // Parallel loop over lights
+#pragma omp parallel
+    {
+        color local_diffuse(0, 0, 0);
+        color local_specular(0, 0, 0);
 
-        // Se houver uma interseção com qualquer objeto antes de alcançar a luz, pula a contribuição desta luz
-        if (world.hit(shadow_ray, interval(0.001, light_distance), shadow_rec)) {
-            continue;
+#pragma omp for
+        for (int i = 0; i < static_cast<int>(lights.size()); ++i) {
+            const auto& light = lights[i];
+            vec3 light_dir = unit_vector(light.position - rec.p);
+            double light_distance = (light.position - rec.p).length();
+
+            // Skip lights that don't contribute (back-facing)
+            if (dot(rec.normal, light_dir) <= 0) {
+                continue;
+            }
+
+            // Shadow check
+            ray shadow_ray(rec.p + rec.normal * shadow_bias, light_dir);
+            hit_record shadow_rec;
+            if (world.hit(shadow_ray, interval(0.001, light_distance), shadow_rec)) {
+                continue;
+            }
+
+            // Diffuse and specular contributions
+            double attenuation = 1.0 / (1.0 + 0.1 * light_distance + 0.01 * light_distance * light_distance);
+            local_diffuse += calculate_diffuse(rec.normal, light_dir, diffuse_color, rec.material->k_diffuse, light.light_color, light.intensity) * attenuation;
+            local_specular += calculate_specular(rec.normal, light_dir, view_dir, rec.material->shininess, rec.material->k_specular, light.light_color, light.intensity) * attenuation;
         }
 
-        // Componente difusa
-        double diff = std::max(dot(rec.normal, light_dir), 0.0);
-        diffuse += rec.material->k_diffuse * diff * rec.material->diffuse_color * light.light_color * light.intensity;
-
-        // Componente especular (não multiplica pela cor difusa)
-        vec3 reflect_dir = reflect(-light_dir, rec.normal);
-        double spec = std::pow(std::max(dot(view_dir, reflect_dir), 0.0), rec.material->shininess);
-        specular += rec.material->k_specular * spec * light.light_color * light.intensity;
+        // Combine thread-local contributions
+#pragma omp critical
+        {
+            diffuse += local_diffuse;
+            specular += local_specular;
+        }
     }
 
-    // Combina os componentes
+    // Combine components
     color final_color = ambient + diffuse + specular;
-    // Limita os valores da cor entre 0 e 1
-    final_color = clamp(final_color, 0.0, 1.0);
-
-    return final_color;
+    return clamp(final_color, 0.0, 1.0);
 }
 
 color Camera::cast_ray(const ray& r, const hittable& world, const std::vector<Light>& lights, int depth) const {
@@ -141,11 +163,13 @@ color Camera::cast_ray(const ray& r, const hittable& world, const std::vector<Li
         //if (!rec.front_face) {
         //    return background_color(r);
         //}
-
         vec3 view_dir = unit_vector(-r.direction());
 
-        // Obtain the Phong color for the hit object
-        color phong_color = phong_shading(rec, view_dir, lights, world);
+        // Use the material's color, either from the texture or as a solid color
+        color diffuse_color = rec.material->get_color(rec.u, rec.v);
+
+        // Obtain the Phong color for the hit object, now using the texture or solid color
+        color phong_color = phong_shading(rec, view_dir, lights, world, diffuse_color);
 
         // Calculate reflection if the material supports it
         if (rec.material->reflection > 0.0) {

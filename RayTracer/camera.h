@@ -35,9 +35,9 @@ public:
 
 private:
     // Private methods
-    color cast_ray(const ray& r, const hittable& world, const std::vector<Light>& lights, int depth = 5) const;
+    color cast_ray(const ray& r, const hittable& world, const std::vector<Light>& lights, int depth = 4) const;
     color background_color(const ray& r) const;
-    static color phong_shading(const hit_record& rec, const vec3& view_dir, const std::vector<Light>& lights, const hittable& world);
+    static color phong_shading(const hit_record& rec, const vec3& view_dir, const std::vector<Light>& lights, const hittable& world, const color& diffuse_color);
 };
 
 #endif // CAMERA_H
