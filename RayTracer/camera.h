@@ -19,7 +19,15 @@ public:
         double aspect_ratio);
 
     // Public methods
-    void render(Uint32* pixels, int image_width, int image_height, const hittable& world, const std::vector<Light>& lights) const;
+    void render(
+        Uint32* pixels,
+        int image_width,
+        int image_height,
+        const hittable& world,
+        const std::vector<Light>& lights,
+        int samples_per_pixel,
+        bool enable_antialias = false
+    ) const;
 
     void set_focal_length(double new_focal_length);
 

@@ -1,3 +1,4 @@
+
 #include "raytracer.h"
 
 #include "camera.h"
@@ -19,6 +20,8 @@
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_sdlrenderer2.h>
 #include <SDL2/SDL.h>
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 
 int main(int argc, char* argv[]) {
@@ -73,7 +76,9 @@ int main(int argc, char* argv[]) {
     color blue(0.0, 0.0, 1.0);
     color brown(0.69, 0.49, 0.38);
 
-    checker_texture checker(black, white, 2.0);
+    image_texture* wood_texture = new image_texture("textures/wood_floor.jpg");
+    checker_texture checker(black, white, 15.0);
+    mat wood_material(wood_texture);
     mat xadrez(&checker, 0.8, 1.0, 100.0, 0.25);
     mat sphere_mat(red, 0.8, 1.0, 150.0);
     mat sphere_mat2(green);
@@ -88,18 +93,16 @@ int main(int argc, char* argv[]) {
     hittable_list world;
     auto moving_sphere = make_shared<sphere>(point3(0, 0.5, -3), 0.5, sphere_mat);
     world.add(moving_sphere);
-    world.add(make_shared<sphere>(point3(-0.9, -0.15, -2), 0.3, reflective_material));
-    world.add(make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), xadrez));
+    world.add(make_shared<sphere>(point3(-0.9, -0.15, -2), 0.3, xadrez));
+    world.add(make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), wood_material));
     world.add(make_shared<cylinder>(point3(0.7, -0.15, -2), point3(0.7, .3, -1.6), 0.3, sphere_mat2));
     world.add(make_shared<cone>(point3(0, -0.5, -2),point3(0, 0.5, -2), 0.5, sphere_mat, true));
     world.add(make_shared<torus>(point3(-2, 0.1, -2), 0.4, 0.18, vec3(0.5, 0.8, 0.8), reflective_material));
 
-
-
     //Light
     std::vector<Light> lights = {
-        Light(vec3(-1, 2, -2), 1.0, color(1.0, 1.0, 1.0)),
-        Light(vec3(2, 2, -2), 0.7, color(0.5, 0.5, 1.0))
+        Light(vec3(-2, 2, -2), 1.0, color(1.0, 1.0, 1.0)),
+        Light(vec3(2, 2, -2), 2.0, color(0.3, 0.3, 1.0))
     };
 
     // Camera
@@ -107,6 +110,7 @@ int main(int argc, char* argv[]) {
     double viewport_height = 2.0;
     auto viewport_width = aspect_ratio * viewport_height;
     auto focal_length = degrees_to_radians(camera_fov);
+    auto samples_per_pixel = 50; 
 
     auto origin = point3(0, 0, 0);
     auto horizontal = vec3(viewport_width, 0, 0);
@@ -208,7 +212,7 @@ int main(int argc, char* argv[]) {
 
         // Render
         if (render_raytracing) {
-            camera.render(pixels, image_width, image_height, world, lights);
+            camera.render(pixels, image_width, image_height, world, lights, samples_per_pixel);
         }
 
         // Update texture with pixel data

@@ -19,14 +19,21 @@ Camera::Camera(
     aspect_ratio(aspect_ratio) {
 }
 
-void Camera::render(Uint32* pixels, int image_width, int image_height, const hittable& world, const std::vector<Light>& lights) const {
+void Camera::render(
+    Uint32* pixels,
+    int image_width,
+    int image_height,
+    const hittable& world,
+    const std::vector<Light>& lights,
+    int samples_per_pixel,
+    bool enable_antialias
+) const {
     constexpr int TILESIZE = 16;
 
     // Compute the number of tiles in each dimension
     const int num_x_tiles = (image_width + TILESIZE - 1) / TILESIZE;
     const int num_y_tiles = (image_height + TILESIZE - 1) / TILESIZE;
 
-    // Parallelize over tiles
 #pragma omp parallel for schedule(dynamic)
     for (int tile_index = 0; tile_index < num_x_tiles * num_y_tiles; ++tile_index) {
         // Compute the starting pixel coordinates of the current tile
@@ -43,20 +50,29 @@ void Camera::render(Uint32* pixels, int image_width, int image_height, const hit
                 // Ensure the pixel is within the image bounds
                 if (pixel_x >= image_width || pixel_y >= image_height) continue;
 
-                // Compute normalized coordinates
-                double u = double(pixel_x) / (image_width - 1);
-                double v = double(pixel_y) / (image_height - 1);
+                color accumulated_color(0, 0, 0);
 
-                // Compute ray direction
-                vec3 ray_direction = lower_left_corner + u * horizontal + v * vertical - origin;
-                ray_direction = unit_vector(ray_direction); // Normalize the ray direction
+                // Determine the number of samples to use (1 if AA is disabled)
+                int spp = enable_antialias ? samples_per_pixel : 1;
 
-                // Cast the ray and compute pixel color
-                ray r(origin, ray_direction);
-                color pixel_color = cast_ray(r, world, lights);
+                for (int s = 0; s < spp; s++) {
+                    // Compute random offsets for anti-aliasing if enabled, else no offset
+                    double u = (static_cast<double>(pixel_x) + (enable_antialias ? random_double(0.0, 1.0) : 0.5)) / (image_width - 1);
+                    double v = (static_cast<double>(pixel_y) + (enable_antialias ? random_double(0.0, 1.0) : 0.5)) / (image_height - 1);
+
+                    // Compute ray direction
+                    vec3 ray_direction = lower_left_corner + u * horizontal + v * vertical - origin;
+                    ray_direction = unit_vector(ray_direction); // Normalize the ray direction
+
+                    ray r(origin, ray_direction);
+                    accumulated_color += cast_ray(r, world, lights);
+                }
+
+                // Average the color if AA is enabled
+                accumulated_color *= (1.0 / spp);
 
                 // Write the pixel color to the output buffer
-                write_color(pixels, pixel_x, pixel_y, image_width, image_height, pixel_color);
+                write_color(pixels, pixel_x, pixel_y, image_width, image_height, accumulated_color);
             }
         }
     }
@@ -150,7 +166,7 @@ color Camera::phong_shading(const hit_record& rec, const vec3& view_dir, const s
 
     // Combine components
     color final_color = ambient + diffuse + specular;
-    return clamp(final_color, 0.0, 1.0);
+    return final_color;
 }
 
 color Camera::cast_ray(const ray& r, const hittable& world, const std::vector<Light>& lights, int depth) const {
