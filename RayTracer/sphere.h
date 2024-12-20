@@ -60,7 +60,7 @@ public:
 
     void calculate_uv(const vec3& normal, double& u, double& v) const {
         // Convert normal to spherical coordinates
-        auto theta = std::acos(-normal.y()); // Latitude
+        auto theta = std::acos(-normal.y())*0.5; // Latitude
         auto phi = std::atan2(-normal.z(), normal.x()) + M_PI; // Longitude
 
         // Normalize to [0, 1] range
