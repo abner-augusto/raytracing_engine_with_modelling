@@ -73,39 +73,51 @@ void draw_menu(bool& render_raytracing,
    //    }
    //}
 
-        // Camera Header
+// Camera Header
         if (ImGui::CollapsingHeader("Camera")) {
             ImGui::Text("Camera Origin");
-            float origin_array[3] = { static_cast<float>(camera.origin.x()),
-                                      static_cast<float>(camera.origin.y()),
-                                      static_cast<float>(camera.origin.z()) };
+            float origin_array[3] = {
+                static_cast<float>(camera.get_origin().x()),
+                static_cast<float>(camera.get_origin().y()),
+                static_cast<float>(camera.get_origin().z())
+            };
 
             ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x);
-            if (ImGui::SliderFloat3("", origin_array, -10.0f, 10.0f)) {
-                // Update the camera's origin
-                camera.origin = point3(origin_array[0], origin_array[1], origin_array[2]);
-                // Recalculate basis vectors to reflect the new origin
-                camera.update_basis_vectors();
+            if (ImGui::SliderFloat3("Origin", origin_array, -10.0f, 10.0f)) {
+                // Update the camera's origin using the setter
+                camera.set_origin(point3(origin_array[0], origin_array[1], origin_array[2]));
             }
             ImGui::PopItemWidth();
 
             // FOV Slider
-            float camera_fov_degrees = static_cast<float>(radians_to_degrees(camera.focal_length)); // Convert to degrees
+            float camera_fov_degrees = static_cast<float>(radians_to_degrees(camera.get_focal_length())); // Convert to degrees
             ImGui::Text("Camera FOV");
             ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x);
-            if (ImGui::SliderFloat("##", &camera_fov_degrees, 30.0f, 120.0f)) {
+            if (ImGui::SliderFloat("FOV", &camera_fov_degrees, 30.0f, 120.0f)) {
+                // Update the camera's focal length using the setter
                 camera.set_focal_length(degrees_to_radians(static_cast<double>(camera_fov_degrees))); // Convert back to radians
+            }
+            ImGui::PopItemWidth();
+
+            // Image Width Slider
+            int image_width = camera.get_image_width();
+            ImGui::Text("Image Width");
+            ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x);
+            if (ImGui::SliderInt("Width", &image_width, 100, 4000)) {
+                // Update the camera's image width using the setter
+                camera.set_image_width(image_width);
             }
             ImGui::PopItemWidth();
 
             // Reset Button
             if (ImGui::Button("Reset to Default")) {
-                // Reset camera origin and FOV to default values
-                origin = point3(0, 0, 0);
-                camera.origin = origin;
-                camera.set_focal_length(degrees_to_radians(60.0)); // Default FOV: 60 degrees
+                // Reset camera origin, FOV, and image width to default values
+                camera.set_origin(point3(0, 0, 0));                    // Default origin
+                camera.set_focal_length(degrees_to_radians(60.0));     // Default FOV: 60 degrees
+                camera.set_image_width(800);                          // Default image width
             }
         }
+
 
         // Render Header
         if (ImGui::CollapsingHeader("Render")) {
@@ -160,7 +172,7 @@ void RenderOctreeList(OctreeManager& manager) {
     }
 
     if (ImGui::Button("Add Octree")) {
-        manager.AddOctree("New Octree", BoundingBox(point3(0, 0, -3), 2.0));
+        manager.AddOctree("New Octree", BoundingBox(point3(-1, 1, -5), 2.0));
     }
 
     // Button to open the Tree Representation window

@@ -32,8 +32,6 @@ int main(int argc, char* argv[]) {
     image_height = (image_height < 1) ? 1 : image_height;
     int window_width = 1080;
     int window_height = int(window_width / aspect_ratio);
-    // Allocate pixel buffer
-    Uint32* pixels = new Uint32[image_width * image_height];
 
     if (!InitializeSDL()) {
         return -1;
@@ -109,21 +107,14 @@ int main(int argc, char* argv[]) {
     double camera_fov = 60;
     double viewport_height = 2.0;
     auto viewport_width = aspect_ratio * viewport_height;
-    auto focal_length = degrees_to_radians(camera_fov);
     auto samples_per_pixel = 50; 
-
-    auto origin = point3(0, 0, 0);
-    auto horizontal = vec3(viewport_width, 0, 0);
-    auto vertical = vec3(0, viewport_height, 0);
-    auto lower_left_corner = origin - horizontal / 2 - vertical / 2 - vec3(0, 0, focal_length);
+    point3 origin(0, 0, 0);
 
     Camera camera(
         origin,
-        horizontal,
-        vertical,
-        lower_left_corner,
-        focal_length,
-        aspect_ratio
+        image_width,
+        aspect_ratio,
+        camera_fov
     );
 
     // Sphere movement parameters
@@ -181,9 +172,6 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // Zera o buffer de pixels antes de renderizar o próximo frame
-        std::fill(pixels, pixels + (image_width * image_height), 0);
-
         // Start ImGui frame
         ImGui_ImplSDLRenderer2_NewFrame();
         ImGui_ImplSDL2_NewFrame();
@@ -212,8 +200,9 @@ int main(int argc, char* argv[]) {
 
         // Render
         if (render_raytracing) {
-            camera.render(pixels, image_width, image_height, world, lights, samples_per_pixel);
+            camera.render(world, lights, samples_per_pixel);
         }
+        Uint32* pixels = camera.get_pixels();
 
         // Update texture with pixel data
         SDL_UpdateTexture(texture, nullptr, pixels, image_width * sizeof(Uint32));
@@ -238,7 +227,6 @@ int main(int argc, char* argv[]) {
     }
 
     // Cleanup
-    delete[] pixels;
     ImGui_ImplSDLRenderer2_Shutdown();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();

@@ -12,7 +12,7 @@ std::optional<std::pair<int, int>> project(const point3& p,
     const Camera& camera,
     int image_width,
     int image_height) {
-    vec3 pc = p - camera.origin;
+    vec3 pc = p - camera.get_origin();
 
     // Define a small epsilon to prevent division by zero
     const double epsilon = 1e-6;
@@ -28,14 +28,14 @@ std::optional<std::pair<int, int>> project(const point3& p,
     }
 
     // Calculate perspective scaling factor (Y-up, -Z-forward)
-    double t = camera.focal_length / (-pc.e[2]);
+    double t = camera.get_focal_length() / (-pc.e[2]);
 
     // Project the point onto the image plane
     vec3 plane_point = pc * t;
 
     // Normalize to viewport coordinates [0, 1]
-    double u = (plane_point.x() + (camera.horizontal.length() / 2.0)) / camera.horizontal.length();
-    double v = (plane_point.y() + (camera.vertical.length() / 2.0)) / camera.vertical.length();
+    double u = (plane_point.x() + (camera.get_horizontal_length() / 2.0)) / camera.get_horizontal_length();
+    double v = (plane_point.y() + (camera.get_vertical_length() / 2.0)) / camera.get_vertical_length();
 
     // Clamp u and v to [0, 1] to prevent out-of-bounds
     u = std::clamp(u, 0.0, 1.0);
