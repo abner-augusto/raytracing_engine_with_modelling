@@ -65,7 +65,7 @@ void Cleanup_SDL(SDL_Window* window, SDL_Renderer* renderer, SDL_Texture* textur
     SDL_Quit();
 }
 
-void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, int image_width, int image_height) {
+void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, double aspect_ratio) {
     if (event.type == SDL_QUIT) {
         running = false;
     }
@@ -77,23 +77,22 @@ void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, int
         }
 
         if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-            //int new_width = event.window.data1;
-            //int new_height = event.window.data2;
+            // Get the new window size
+            int new_width = event.window.data1;
+            int new_height = event.window.data2;
 
-            //double target_aspect_ratio = static_cast<double>(image_width) / image_height;
-            //int viewport_width, viewport_height;
+            // Adjust the window size to preserve the aspect ratio
+            int adjusted_width = new_width;
+            int adjusted_height = static_cast<int>(new_width / aspect_ratio);
 
-            //double window_aspect_ratio = static_cast<double>(new_width) / new_height;
-            //if (window_aspect_ratio > target_aspect_ratio) {
-            //    viewport_height = new_height;
-            //    viewport_width = static_cast<int>(new_height * target_aspect_ratio);
-            //}
-            //else {
-            //    viewport_width = new_width;
-            //    viewport_height = static_cast<int>(new_width / target_aspect_ratio);
-            //}
+            // If the adjusted height is greater than the available height, adjust by height
+            if (adjusted_height > new_height) {
+                adjusted_height = new_height;
+                adjusted_width = static_cast<int>(new_height * aspect_ratio);
+            }
 
-            //SDL_SetWindowSize(window, viewport_width, viewport_height);
+            // Set the window size with the adjusted dimensions
+            SDL_SetWindowSize(window, adjusted_width, adjusted_height);
         }
     }
 }
