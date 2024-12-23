@@ -142,7 +142,7 @@ int main(int argc, char* argv[]) {
 
         while (SDL_PollEvent(&event)) {
             ImGui_ImplSDL2_ProcessEvent(&event);
-            handle_event(event, running, window, camera.get_image_width(), camera.get_image_height());
+            handle_event(event, running, window, aspect_ratio);
         }
 
         // Start ImGui frame
@@ -242,11 +242,9 @@ int main(int argc, char* argv[]) {
         if (show_wireframe) {
             DrawOctreeManagerWireframe(
                 renderer,
-                window,
                 octreeManager,
                 camera,
-                camera.get_image_width(),
-                camera.get_image_height()
+                destination_rect
             );
         }
 
