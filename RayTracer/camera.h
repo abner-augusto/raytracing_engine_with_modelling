@@ -47,7 +47,7 @@ public:
         int samples_per_pixel = 1,
         bool enable_antialias = false
     ) const {
-        constexpr int TILESIZE = 16;
+        int TILESIZE = std::min(32, image_width / 10); // Adjust tile size based on image width
 
         // Compute the number of tiles in each dimension
         const int num_x_tiles = (image_width + TILESIZE - 1) / TILESIZE;
@@ -81,9 +81,8 @@ public:
 
                         // Compute ray direction
                         vec3 ray_direction = lower_left_corner + u * horizontal + v * vertical - origin;
-                        ray_direction = unit_vector(ray_direction); // Normalize the ray direction
 
-                        ray r(origin, ray_direction);
+                        ray r(origin, unit_vector(ray_direction));
                         accumulated_color += cast_ray(r, world, lights);
                     }
 
@@ -100,13 +99,13 @@ public:
     // Setter for origin
     void set_origin(const point3& new_origin) {
         origin = new_origin;
-        update_basis_vectors(); // Update dependent vectors
+        update_basis_vectors();
     }
 
     // Setter for focal length
     void set_focal_length(double new_focal_length) {
         focal_length = new_focal_length;
-        update_basis_vectors(); // Update dependent vectors
+        update_basis_vectors();
     }
 
     // Setter for image width
@@ -119,7 +118,9 @@ public:
         delete[] pixels;
         pixels = new Uint32[image_width * image_height];
 
-        update_basis_vectors(); // Update dependent vectors
+        clear_pixels();
+
+        update_basis_vectors();
     }
 
     // Accessors to get width, height, pixels if needed
@@ -148,7 +149,9 @@ private:
         vertical_length = vertical.length();
 
         lower_left_corner = origin - horizontal / 2.0 - vertical / 2.0 - vec3(0, 0, focal_length);
+
     }
+
 
     color background_color(const ray& r) const {
         vec3 unit_direction = unit_vector(r.direction());
