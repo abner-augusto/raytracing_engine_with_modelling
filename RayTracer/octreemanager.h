@@ -24,8 +24,10 @@ public:
 
     OctreeManager() = default;
 
-    void AddOctree(const std::string& name, const BoundingBox& bounding_box) {
-        octrees.emplace_back(name, bounding_box);
+    // Adds a new octree with a sequentially numbered name
+    void AddOctree(const std::string& base_name, const BoundingBox& bounding_box) {
+        std::string unique_name = base_name + " " + std::to_string(octree_counter++);
+        octrees.emplace_back(unique_name, bounding_box);
     }
 
     void SetName(int index, const std::string& new_name) {
@@ -70,10 +72,10 @@ public:
         }
     }
 
-
 private:
     std::vector<OctreeWrapper> octrees;
     int selected_octree_index = -1;
+    int octree_counter = 1; // Tracks the number of octrees created
 };
 
 #endif // OCTREEMANAGER_H

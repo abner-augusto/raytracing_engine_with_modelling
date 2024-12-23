@@ -15,6 +15,7 @@
 #include "interface_imgui.h"
 #include "sdl_setup.h"
 #include "octreemanager.h"
+#include "render_state.h"
 
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
@@ -23,13 +24,13 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+RenderState render_state;
 
 int main(int argc, char* argv[]) {
     // Image
     auto aspect_ratio = 16.0 / 9.0;
     int image_width = 480;
     int image_height = int(image_width / aspect_ratio);
-    image_height = (image_height < 1) ? 1 : image_height;
     int window_width = 1080;
     int window_height = int(window_width / aspect_ratio);
 
@@ -107,7 +108,7 @@ int main(int argc, char* argv[]) {
     double camera_fov = 60;
     double viewport_height = 2.0;
     auto viewport_width = aspect_ratio * viewport_height;
-    auto samples_per_pixel = 50; 
+    auto samples_per_pixel = 10; 
     point3 origin(0, 0, 0);
 
     Camera camera(
@@ -126,8 +127,8 @@ int main(int argc, char* argv[]) {
     float deltaTime = 0.0f;
     Uint64 currentTime = SDL_GetPerformanceCounter();
     Uint64 lastTime = 0;
+    SDL_Rect destination_rect{};
 
-    bool render_raytracing = false;
     bool show_wireframe = true;
 
     // Render loop
@@ -141,35 +142,7 @@ int main(int argc, char* argv[]) {
 
         while (SDL_PollEvent(&event)) {
             ImGui_ImplSDL2_ProcessEvent(&event);
-
-            if (event.type == SDL_QUIT) {
-                running = false;
-            }
-
-            if (event.type == SDL_WINDOWEVENT) {
-                if (event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window)) {
-                    running = false;
-                }
-                if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-                    int new_width = event.window.data1;
-                    int new_height = event.window.data2;
-
-                    double target_aspect_ratio = static_cast<double>(image_width) / image_height;
-                    int viewport_width, viewport_height;
-
-                    double window_aspect_ratio = static_cast<double>(new_width) / new_height;
-                    if (window_aspect_ratio > target_aspect_ratio) {
-                        viewport_height = new_height;
-                        viewport_width = static_cast<int>(new_height * target_aspect_ratio);
-                    }
-                    else {
-                        viewport_width = new_width;
-                        viewport_height = static_cast<int>(new_width / target_aspect_ratio);
-                    }
-
-                    SDL_SetWindowSize(window, viewport_width, viewport_height);
-                }
-            }
+            handle_event(event, running, window, camera.get_image_width(), camera.get_image_height());
         }
 
         // Start ImGui frame
@@ -177,7 +150,7 @@ int main(int argc, char* argv[]) {
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
-        draw_menu(render_raytracing,
+        draw_menu(render_state,
             show_wireframe,
             speed,
             camera,
@@ -197,32 +170,90 @@ int main(int argc, char* argv[]) {
         time += 0.01;
         point3 sphereCenter((amplitude * 3) * sin(speed * time), 0.45 - amplitude * abs(sin(speed * time)), -3);
         moving_sphere->set_center(sphereCenter);
+        //Get previous render state
+        RenderMode previous_mode = render_state.get_previous_mode();
 
-        // Render
-        if (render_raytracing) {
-            camera.render(world, lights, samples_per_pixel);
+        // Render raytraced scene
+        if (render_state.is_mode(DefaultRender)) {
+            if (previous_mode != DefaultRender) {
+                render_state.set_mode(DefaultRender);
+                camera.set_image_width(image_width);
+
+                SDL_DestroyTexture(texture);
+                texture = SDL_CreateTexture(
+                    renderer,
+                    SDL_PIXELFORMAT_ARGB8888,
+                    SDL_TEXTUREACCESS_STREAMING,
+                    camera.get_image_width(),
+                    camera.get_image_height()
+                );
+            }
+
+            camera.render(world, lights, samples_per_pixel, false);
         }
-        Uint32* pixels = camera.get_pixels();
-
-        // Update texture with pixel data
-        SDL_UpdateTexture(texture, nullptr, pixels, image_width * sizeof(Uint32));
-        // Render to window
-        SDL_RenderClear(renderer);
-        SDL_RenderCopy(renderer, texture, nullptr, nullptr);
-
-        if (show_wireframe) {
-            DrawOctreeManagerWireframe(
-                renderer, 
-                window, 
-                octreeManager,
-                camera, 
-                image_width, 
-                image_height
+        else if (render_state.is_mode(HighResolution)) {
+            Uint64 start_time = SDL_GetPerformanceCounter();
+            camera.set_image_width(1920);
+            SDL_DestroyTexture(texture);
+            texture = SDL_CreateTexture(
+                renderer,
+                SDL_PIXELFORMAT_ARGB8888,
+                SDL_TEXTUREACCESS_STREAMING,
+                camera.get_image_width(),
+                camera.get_image_height()
             );
 
+            camera.render(world, lights, samples_per_pixel, true);
+            Uint64 end_time = SDL_GetPerformanceCounter();
+            double render_time = (end_time - start_time) / (double)SDL_GetPerformanceFrequency();
+            std::cout << "render time: " << render_time << " seconds" << std::endl;
+            render_state.set_mode(Disabled);
         }
+
+        Uint32* pixels = camera.get_pixels();
+        SDL_GetWindowSize(window, &window_width, &window_height);
+
+        // Calculate the destination rectangle to properly scale and center the texture
+        int texture_width = camera.get_image_width();
+        int texture_height = camera.get_image_height();
+        double texture_aspect_ratio = static_cast<double>(texture_width) / texture_height;
+        double window_aspect_ratio = static_cast<double>(window_width) / window_height;
+
+        if (texture_aspect_ratio > window_aspect_ratio) {
+            // Texture is wider than the window
+            destination_rect.w = window_width;
+            destination_rect.h = static_cast<int>(window_width / texture_aspect_ratio);
+            destination_rect.x = 0;
+            destination_rect.y = (window_height - destination_rect.h) / 2; // Center vertically
+        }
+        else {
+            // Texture is taller than the window
+            destination_rect.w = static_cast<int>(window_height * texture_aspect_ratio);
+            destination_rect.h = window_height;
+            destination_rect.x = (window_width - destination_rect.w) / 2; // Center horizontally
+            destination_rect.y = 0;
+        }
+        SDL_UpdateTexture(texture, nullptr, pixels, camera.get_image_width() * sizeof(Uint32));
+        SDL_RenderClear(renderer);
+        SDL_RenderCopy(renderer, texture, nullptr, &destination_rect);
+
+
+        // Render wireframe if enabled
+        if (show_wireframe) {
+            DrawOctreeManagerWireframe(
+                renderer,
+                window,
+                octreeManager,
+                camera,
+                camera.get_image_width(),
+                camera.get_image_height()
+            );
+        }
+
         // Render ImGui
         ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
+
+        // Present the final frame
         SDL_RenderPresent(renderer);
     }
 

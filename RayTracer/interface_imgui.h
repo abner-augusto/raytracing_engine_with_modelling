@@ -3,9 +3,10 @@
 #include "raytracer.h"
 #include "camera.h"
 #include "octreemanager.h"
+#include "render_state.h"
 #include <vector>
 
-void draw_menu(bool& render_raytracing,
+void draw_menu(RenderState& render_state,
     bool& show_wireframe,
     double& speed,
     Camera& camera,

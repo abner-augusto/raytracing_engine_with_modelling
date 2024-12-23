@@ -11,12 +11,12 @@
 extern point3 random_position();
 extern color random_color();
 
-void draw_menu(bool& render_raytracing,
+void draw_menu(RenderState& render_state,
     bool& show_wireframe,
     double& speed,
     Camera& camera,
     point3& origin,
-    hittable_list& world) 
+    hittable_list& world)
 {
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(250, 350), ImGuiCond_FirstUseEver);
@@ -99,33 +99,36 @@ void draw_menu(bool& render_raytracing,
             }
             ImGui::PopItemWidth();
 
-            // Image Width Slider
-            int image_width = camera.get_image_width();
-            ImGui::Text("Image Width");
-            ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x);
-            if (ImGui::SliderInt("Width", &image_width, 100, 4000)) {
-                // Update the camera's image width using the setter
-                camera.set_image_width(image_width);
-            }
-            ImGui::PopItemWidth();
-
             // Reset Button
             if (ImGui::Button("Reset to Default")) {
                 // Reset camera origin, FOV, and image width to default values
                 camera.set_origin(point3(0, 0, 0));                    // Default origin
                 camera.set_focal_length(degrees_to_radians(60.0));     // Default FOV: 60 degrees
-                camera.set_image_width(800);                          // Default image width
+                camera.set_image_width(480);                          // Default image width
             }
         }
 
 
         // Render Header
-        if (ImGui::CollapsingHeader("Render")) {
-            if (ImGui::Button(render_raytracing ? "Disable Raytracing" : "Enable Raytracing")) {
-                render_raytracing = !render_raytracing;
+        if (ImGui::CollapsingHeader("Render Options")) {
+
+            ImGui::Checkbox("Wireframe", &show_wireframe);
+
+            if (ImGui::Button("High-Res Frame")) {
+                render_state.set_mode(HighResolution);
             }
-            ImGui::Checkbox("Show Wireframe", &show_wireframe);
+
+            if (ImGui::Button("Default Render")) {
+                render_state.set_mode(DefaultRender);
+            }
+
+            if (ImGui::Button("Disable Raytracing")) {
+                render_state.set_mode(Disabled);
+                camera.clear_pixels();
+            }
+
         }
+
     }
     ImGui::End();
 }
@@ -190,38 +193,42 @@ void RenderOctreeList(OctreeManager& manager) {
 }
 
 void RenderOctreeInspector(OctreeManager& manager, hittable_list& world) {
+    static int last_selected_index = -1; // Tracks the previously selected index
+    static char rename_buffer[128];     // Buffer for renaming input
+
     int selected_index = manager.GetSelectedIndex();
     if (selected_index < 0 || selected_index >= static_cast<int>(manager.GetOctrees().size())) {
         return;
     }
 
-    // Get the current Octree Manager window's position and size
+    // Get the position and size of the "Octree Manager" window
+    ImGuiIO& io = ImGui::GetIO();
     ImGui::Begin("Octree Manager");
-    ImVec2 octree_manager_pos = ImGui::GetWindowPos();
-    ImVec2 octree_manager_size = ImGui::GetWindowSize();
-    ImGui::End(); // Close the Octree Manager to calculate its size correctly
+    ImVec2 manager_pos = ImGui::GetWindowPos();
+    ImVec2 manager_size = ImGui::GetWindowSize();
+    ImGui::End();
 
-    // Set the position and width of the Octree Inspector
-    ImVec2 inspector_pos = ImVec2(octree_manager_pos.x, octree_manager_pos.y + octree_manager_size.y + 10.0f);
-    ImVec2 inspector_size = ImVec2(octree_manager_size.x, 200.0f); // Fixed initial height
+    // Anchor the "Octree Inspector" to the bottom of "Octree Manager"
+    ImVec2 inspector_pos = ImVec2(manager_pos.x, manager_pos.y + manager_size.y + 10.0f); // 10.0f offset for spacing
     ImGui::SetNextWindowPos(inspector_pos, ImGuiCond_Always);
-    ImGui::SetNextWindowSize(inspector_size, ImGuiCond_Once); // Conforms to manager width and starts with fixed height
+    ImGui::SetNextWindowSize(ImVec2(manager_size.x, 300.0f)); // Same width as "Octree Manager" and fixed height
 
-    // Allow resizing while staying anchored
-    ImGui::SetNextWindowSizeConstraints(ImVec2(octree_manager_size.x, 150), ImVec2(octree_manager_size.x, FLT_MAX));
-
-    // Begin the Inspector window
-    ImGui::Begin("Octree Inspector", nullptr, ImGuiWindowFlags_None);
+    // Begin the "Octree Inspector" window
+    ImGui::Begin("Octree Inspector");
 
     OctreeManager::OctreeWrapper& wrapper = manager.GetSelectedOctree();
 
-    // Rename functionality
-    static char rename_buffer[128];
-    strncpy(rename_buffer, wrapper.name.c_str(), sizeof(rename_buffer) - 1);
-    rename_buffer[sizeof(rename_buffer) - 1] = '\0'; // Ensure null termination
+    // If the selected index changes, update the rename buffer
+    if (selected_index != last_selected_index) {
+        strncpy(rename_buffer, wrapper.name.c_str(), sizeof(rename_buffer) - 1);
+        rename_buffer[sizeof(rename_buffer) - 1] = '\0'; // Ensure null termination
+        last_selected_index = selected_index;           // Update the last selected index
+    }
 
-    ImGui::InputText("New Name", rename_buffer, sizeof(rename_buffer));
+    // Input text for renaming the octree
+    ImGui::InputText("Octree Name", rename_buffer, sizeof(rename_buffer));
 
+    // Button to change the octree's name
     if (ImGui::Button("Change Name")) {
         manager.SetName(selected_index, std::string(rename_buffer));
     }
@@ -230,16 +237,19 @@ void RenderOctreeInspector(OctreeManager& manager, hittable_list& world) {
 
     BoundingBox& bb = wrapper.octree->bounding_box;
     point3 corner = bb.vmin;
-    double width = bb.width;
+    float width = static_cast<float>(bb.width);
+    float sphere_radius_max = static_cast<float>(0.45f * width);
+    static float sphere_radius = sphere_radius_max * 0.5f;
 
     float corner_f[3] = { static_cast<float>(corner.x()), static_cast<float>(corner.y()), static_cast<float>(corner.z()) };
     if (ImGui::DragFloat3("Min Corner", corner_f, 0.1f)) {
         bb.set_corner(point3(static_cast<double>(corner_f[0]), static_cast<double>(corner_f[1]), static_cast<double>(corner_f[2])));
     }
 
-    float width_f = static_cast<float>(width);
-    if (ImGui::DragFloat("Width", &width_f, 0.1f)) {
-        bb.set_width(static_cast<double>(width_f));
+    if (ImGui::DragFloat("Width", &width, 0.1f)) {
+        bb.set_width(static_cast<double>(width));
+        sphere_radius_max = static_cast<float>(0.45 * width);
+        sphere_radius = sphere_radius_max * 0.5f; // Clamp sphere radius to new max
     }
 
     if (ImGui::Button("Reset Octree")) {
@@ -248,11 +258,10 @@ void RenderOctreeInspector(OctreeManager& manager, hittable_list& world) {
 
     ImGui::Separator();
 
-    static float sphere_radius = static_cast<float>(0.45 * width);
     static bool show_octree_string = false;
     static std::string octree_string;
 
-    ImGui::SliderFloat("Sphere Radius", &sphere_radius, 0.0f, static_cast<float>(0.45 * width));
+    ImGui::SliderFloat("Sphere Radius", &sphere_radius, 0.0f, sphere_radius_max);
     ImGui::SliderInt("Depth Limit", &manager.depth_limit, 1, 5);
 
     if (ImGui::Button("Generate From Sphere")) {
