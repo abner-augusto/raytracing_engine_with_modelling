@@ -64,3 +64,36 @@ void Cleanup_SDL(SDL_Window* window, SDL_Renderer* renderer, SDL_Texture* textur
     if (window) SDL_DestroyWindow(window);
     SDL_Quit();
 }
+
+void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, int image_width, int image_height) {
+    if (event.type == SDL_QUIT) {
+        running = false;
+    }
+
+    if (event.type == SDL_WINDOWEVENT) {
+        if (event.window.event == SDL_WINDOWEVENT_CLOSE &&
+            event.window.windowID == SDL_GetWindowID(window)) {
+            running = false;
+        }
+
+        if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
+            //int new_width = event.window.data1;
+            //int new_height = event.window.data2;
+
+            //double target_aspect_ratio = static_cast<double>(image_width) / image_height;
+            //int viewport_width, viewport_height;
+
+            //double window_aspect_ratio = static_cast<double>(new_width) / new_height;
+            //if (window_aspect_ratio > target_aspect_ratio) {
+            //    viewport_height = new_height;
+            //    viewport_width = static_cast<int>(new_height * target_aspect_ratio);
+            //}
+            //else {
+            //    viewport_width = new_width;
+            //    viewport_height = static_cast<int>(new_width / target_aspect_ratio);
+            //}
+
+            //SDL_SetWindowSize(window, viewport_width, viewport_height);
+        }
+    }
+}
