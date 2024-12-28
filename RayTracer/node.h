@@ -166,13 +166,13 @@ public:
 
         // Case 1: Both nodes are leaves
         if (n1.children.empty() && n2.children.empty()) {
-            if (operation == "AND") {
+            if (operation == "intersection") {
                 return (n1.is_filled && n2.is_filled) ? FullNode() : EmptyNode();
             }
-            else if (operation == "OR") {
+            else if (operation == "union") {
                 return (n1.is_filled || n2.is_filled) ? FullNode() : EmptyNode();
             }
-            else if (operation == "DIFFERENCE") {
+            else if (operation == "difference") {
                 return (n1.is_filled && !n2.is_filled) ? FullNode() : EmptyNode();
             }
         }
@@ -203,20 +203,68 @@ public:
         return BoundingBox(target_bb.vmin, target_bb.width);
     }
 
-    //Handles the case where one node is a leaf and the other is a subtree during a Boolean operation.
     static Node HandleLeafAndSubtree(const Node& leaf, const BoundingBox& bb_leaf,
         const Node& subtree, const BoundingBox& bb_subtree,
         const BoundingBox& combined_bb,
-        const std::string& operation, bool invert = false) {
-        if ((operation == "AND" && leaf.is_filled && !invert) ||
-            (operation == "OR" && !leaf.is_filled && invert)) {
-            return subtree;
+        const std::string& operation,
+        bool is_left_leaf = true)
+    {
+        // If the leaf is filled or empty:
+        bool leaf_is_filled = leaf.is_filled;
+
+        if (operation == "intersection") {
+            // intersection(A, B) = B if A is full
+            // intersection(A, B) = empty if A is empty
+            if (!leaf_is_filled) {
+                return EmptyNode();
+            }
+            else {
+                // If leaf is full, the result is whatever 'subtree' is
+                return subtree;
+            }
         }
-        else if ((operation == "DIFFERENCE" && !invert) ||
-            (operation == "AND" && !leaf.is_filled)) {
-            return EmptyNode();
+        else if (operation == "union") {
+            // union(A, B) = B if A is empty
+            // union(A, B) = full if A is full
+            if (leaf_is_filled) {
+                return FullNode();
+            }
+            else {
+                return subtree;
+            }
         }
-        return leaf.is_filled ? FullNode() : EmptyNode();
+        else if (operation == "difference") {
+            // difference(A, B) = A - B
+            // If A is empty, the result is empty
+            // If A is full, the result is "full minus subtree" => invert the subtree
+            if (!leaf_is_filled) {
+                // empty - anything = empty
+                return EmptyNode();
+            }
+            else {
+                // full - subtree => invert(subtree)
+                return InvertNode(subtree);
+            }
+        }
+        // Fallback
+        return EmptyNode();
+    }
+
+    static Node InvertNode(const Node& node)
+    {
+        // If it's a leaf
+        if (node.children.empty()) {
+            // If it was filled, return empty
+            // If it was empty, return full
+            return node.is_filled ? Node::EmptyNode() : Node::FullNode();
+        }
+        // Otherwise, invert each child
+        Node result;
+        result.Subdivide();
+        for (int i = 0; i < 8; ++i) {
+            result.children[i] = InvertNode(node.children[i]);
+        }
+        return result;
     }
 
 };
