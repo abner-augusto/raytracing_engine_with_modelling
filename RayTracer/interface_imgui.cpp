@@ -146,60 +146,90 @@ void DrawFpsCounter(float fps) {
 
 // Render the list of octrees anchored to the upper-right corner
 void RenderOctreeList(OctreeManager& manager) {
-    // Anchor the window to the upper-right corner
     ImGuiIO& io = ImGui::GetIO();
-    ImVec2 window_pos = ImVec2(io.DisplaySize.x - 10.0f, 35.0f); // Offset from the top-right corner
+    ImVec2 window_pos = ImVec2(io.DisplaySize.x - 10.0f, 35.0f); // Offset from top-right
     ImVec2 window_pivot = ImVec2(1.0f, 0.0f);                   // Align top-right corner
     ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pivot);
 
     // Allow resizing while staying anchored
     ImGui::SetNextWindowSizeConstraints(ImVec2(200, 100), ImVec2(FLT_MAX, FLT_MAX));
 
-    // Begin the window
+    // Begin the main window
     ImGui::Begin("Octree Manager", nullptr, ImGuiWindowFlags_None);
 
-    ImGui::Text("Octrees:");
-    ImGui::Separator();
+    // Begin the tab bar
+    if (ImGui::BeginTabBar("Octrees")) {
 
-    auto& octrees = manager.GetOctrees();
-    for (size_t i = 0; i < octrees.size(); ++i) {
-        // Generate a unique ID for each octree
-        ImGui::PushID(static_cast<int>(i));
+        // Octree Manager tab
+        if (ImGui::BeginTabItem("Manager")) {
 
-        // Display the octree name with a selectable
-        if (ImGui::Selectable(octrees[i].name.c_str(), i == manager.GetSelectedIndex())) {
-            manager.SelectOctree(i);
+            auto& octrees = manager.GetOctrees();
+            for (size_t i = 0; i < octrees.size(); ++i) {
+                ImGui::PushID(static_cast<int>(i));
+
+                // Display the octree name as selectable
+                if (ImGui::Selectable(octrees[i].name.c_str(), i == manager.GetSelectedIndex())) {
+                    manager.SelectOctree(i);
+                }
+
+                ImGui::PopID();
+            }
+
+            // Add a button to create a new octree and remove the currently selected one
+            ImGui::Separator();
+            if (ImGui::Button("Add Octree")) {
+                manager.AddOctree("New Octree", BoundingBox(point3(-1, 1, -5), 2.0));
+            }
+            ImGui::SameLine(); // Place the "Remove Octree" button on the same line
+            if (ImGui::Button("Remove Octree")) {
+                manager.RemoveSelectedOctree();
+            }
+
+            ImGui::EndTabItem();
         }
 
-        ImGui::PopID();
-    }
+        // Boolean Operations tab
+        if (ImGui::BeginTabItem("Boolean Operations")) {
+            RenderBooleanOperations(manager);
+            ImGui::EndTabItem();
+        }
 
-    if (ImGui::Button("Add Octree")) {
-        manager.AddOctree("New Octree", BoundingBox(point3(-1, 1, -5), 2.0));
-    }
-
-    // Button to open the Tree Representation window
-    static bool show_tree_rep_window = false;
-    if (ImGui::Button("Paste Tree Representation")) {
-        show_tree_rep_window = true;
+        ImGui::EndTabBar();
     }
 
     ImGui::End();
-
-    // Render the Tree Representation window if active
-    if (show_tree_rep_window) {
-        RenderTreeRepresentationWindow(manager, show_tree_rep_window);
-    }
 }
 
 void RenderOctreeInspector(OctreeManager& manager, hittable_list& world) {
-    static int last_selected_index = -1; // Tracks the previously selected index
-    static char rename_buffer[128];     // Buffer for renaming input
+    static int last_selected_index = -1;
+    static char rename_buffer[128];
+    static point3 custom_center = { 0.0, 0.0, 0.0 };
+    static point3 custom_center_normalized = { 0.0, 0.0, 0.0 };
 
     int selected_index = manager.GetSelectedIndex();
     if (selected_index < 0 || selected_index >= static_cast<int>(manager.GetOctrees().size())) {
         return;
     }
+
+    OctreeManager::OctreeWrapper& wrapper = manager.GetSelectedOctree();
+    BoundingBox& bb = wrapper.octree->bounding_box;
+    float width = static_cast<float>(bb.width);
+    float sphere_radius_max = static_cast<float>(0.45f * width);
+    static float sphere_radius = sphere_radius_max * 0.5f;
+
+    if (selected_index != last_selected_index) {
+        last_selected_index = selected_index;
+        strncpy(rename_buffer, wrapper.name.c_str(), sizeof(rename_buffer) - 1);
+        rename_buffer[sizeof(rename_buffer) - 1] = '\0';
+
+        point3 bb_center = bb.Center();
+        custom_center = bb_center;
+        custom_center_normalized = { 0.0, 0.0, 0.0 };
+    }
+
+    // Octree string representation variables
+    static std::string octree_string;
+    static bool show_octree_string = false;
 
     // Get the position and size of the "Octree Manager" window
     ImGuiIO& io = ImGui::GetIO();
@@ -213,145 +243,295 @@ void RenderOctreeInspector(OctreeManager& manager, hittable_list& world) {
     ImGui::SetNextWindowPos(inspector_pos, ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(manager_size.x, 300.0f)); // Same width as "Octree Manager" and fixed height
 
-    // Begin the "Octree Inspector" window
     ImGui::Begin("Octree Inspector");
 
-    OctreeManager::OctreeWrapper& wrapper = manager.GetSelectedOctree();
+    if (ImGui::BeginTabBar("InspectorTabs")) {
 
-    // If the selected index changes, update the rename buffer
-    if (selected_index != last_selected_index) {
-        strncpy(rename_buffer, wrapper.name.c_str(), sizeof(rename_buffer) - 1);
-        rename_buffer[sizeof(rename_buffer) - 1] = '\0'; // Ensure null termination
-        last_selected_index = selected_index;           // Update the last selected index
-    }
+        // Inspector Tab
+        if (ImGui::BeginTabItem("Inspector")) {
+            ImGui::InputText("Octree Name", rename_buffer, sizeof(rename_buffer));
+            if (ImGui::Button("Change Name")) {
+                manager.SetName(selected_index, std::string(rename_buffer));
+            }
 
-    // Input text for renaming the octree
-    ImGui::InputText("Octree Name", rename_buffer, sizeof(rename_buffer));
+            ImGui::Separator();
 
-    // Button to change the octree's name
-    if (ImGui::Button("Change Name")) {
-        manager.SetName(selected_index, std::string(rename_buffer));
-    }
+            point3 corner = bb.vmin;
+            float width = static_cast<float>(bb.width);
+            float corner_f[3] = { static_cast<float>(corner.x()), static_cast<float>(corner.y()), static_cast<float>(corner.z()) };
 
-    ImGui::Separator();
+            if (ImGui::DragFloat3("Min Corner", corner_f, 0.1f)) {
+                bb.set_corner(point3(static_cast<double>(corner_f[0]), static_cast<double>(corner_f[1]), static_cast<double>(corner_f[2])));
+            }
 
-    BoundingBox& bb = wrapper.octree->bounding_box;
-    point3 corner = bb.vmin;
-    float width = static_cast<float>(bb.width);
-    float sphere_radius_max = static_cast<float>(0.45f * width);
-    static float sphere_radius = sphere_radius_max * 0.5f;
+            if (ImGui::DragFloat("Width", &width, 0.1f)) {
+                bb.set_width(static_cast<double>(width));
+                sphere_radius_max = static_cast<float>(0.45 * width);
+                sphere_radius = sphere_radius_max * 0.5f; // Clamp sphere radius to new max
+            }
 
-    float corner_f[3] = { static_cast<float>(corner.x()), static_cast<float>(corner.y()), static_cast<float>(corner.z()) };
-    if (ImGui::DragFloat3("Min Corner", corner_f, 0.1f)) {
-        bb.set_corner(point3(static_cast<double>(corner_f[0]), static_cast<double>(corner_f[1]), static_cast<double>(corner_f[2])));
-    }
+            if (ImGui::Button("Reset Octree")) {
+                manager.ResetSelectedOctree();
+            }
 
-    if (ImGui::DragFloat("Width", &width, 0.1f)) {
-        bb.set_width(static_cast<double>(width));
-        sphere_radius_max = static_cast<float>(0.45 * width);
-        sphere_radius = sphere_radius_max * 0.5f; // Clamp sphere radius to new max
-    }
-
-    if (ImGui::Button("Reset Octree")) {
-        manager.ResetSelectedOctree();
-    }
-
-    ImGui::Separator();
-
-    static bool show_octree_string = false;
-    static std::string octree_string;
-
-    ImGui::SliderFloat("Sphere Radius", &sphere_radius, 0.0f, sphere_radius_max);
-    ImGui::SliderInt("Depth Limit", &manager.depth_limit, 1, 5);
-
-    if (ImGui::Button("Generate From Sphere")) {
-        wrapper.octree = std::make_shared<Octree>(
-            Octree::FromObject(bb, sphere(bb.Center(), static_cast<double>(sphere_radius), mat()), manager.depth_limit)
-        );
-
-        // Generate the string representation of the octree
-        octree_string = wrapper.octree->root.ToString();
-        show_octree_string = true;
-    }
-
-    if (show_octree_string) {
-        ImGui::Separator();
-        ImGui::Text("Octree String Representation:");
-
-        // Enable automatic word wrapping
-        ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x); // Wrap at the current window's width
-        ImGui::TextWrapped("%s", octree_string.c_str());          // Display the wrapped text
-        ImGui::PopTextWrapPos();                                  // Restore default wrapping behavior
-
-        // Add a button to copy the string to the clipboard
-        if (ImGui::Button("Copy to Clipboard")) {
-            ImGui::SetClipboardText(octree_string.c_str());
+            ImGui::EndTabItem();
         }
-    }
 
-    ImGui::Separator();
+        // Primitives Tab
+        if (ImGui::BeginTabItem("Primitives")) {
+            if (ImGui::BeginTabBar("PrimitiveTabs")) {
 
-    // Add Render and Remove buttons for filled bounding boxes
-    if (ImGui::Button("Render Filled Bounding Boxes")) {
-        OctreeManager::RenderFilledBBs(manager, selected_index, world);
-    }
+                // Sphere Tab
+                if (ImGui::BeginTabItem("Sphere")) {
+                    static float sphere_radius = sphere_radius_max / 2;
+                    static bool centered = true;
+                    static bool was_centered = true; // Tracks previous state
 
-    if (ImGui::Button("Remove Filled Bounding Boxes")) {
-        OctreeManager::RemoveFilledBBs(*wrapper.octree, world);
+                    // Handle the "Centered" checkbox
+                    if (ImGui::Checkbox("Centered", &centered)) {
+                        if (!centered && was_centered) {
+                            // Reset the normalized center when switching from centered to non-centered
+                            custom_center_normalized = { 0.0f, 0.0f, 0.0f };
+                        }
+                        was_centered = centered;
+                    }
+
+                    if (!centered) {
+                        point3 bb_center = bb.Center();
+
+                        // Use existing normalized values for the drag float
+                        float editable_normalized_center[3] = {
+                            static_cast<float>(custom_center_normalized.x()),
+                            static_cast<float>(custom_center_normalized.y()),
+                            static_cast<float>(custom_center_normalized.z())
+                        };
+
+                        if (ImGui::DragFloat3("Sphere Center", editable_normalized_center, 0.1f, -1.0f, 1.0f)) {
+                            // Update normalized and actual center based on user input
+                            custom_center_normalized = point3(editable_normalized_center[0], editable_normalized_center[1], editable_normalized_center[2]);
+                            custom_center = point3(
+                                bb_center.x() + custom_center_normalized.x() * (bb.width / 2.0),
+                                bb_center.y() + custom_center_normalized.y() * (bb.width / 2.0),
+                                bb_center.z() + custom_center_normalized.z() * (bb.width / 2.0)
+                            );
+                        }
+                    }
+
+                    ImGui::SliderFloat("Sphere Radius", &sphere_radius, 0.0f, sphere_radius_max);
+                    ImGui::SliderInt("Depth Limit", &manager.depth_limit, 1, 5);
+
+                    if (ImGui::Button("Generate From Sphere")) {
+                        GenerateOctreeFromSphere(wrapper, bb, sphere_radius, centered, custom_center, manager.depth_limit, octree_string, show_octree_string);
+                    }
+
+                    ImGui::EndTabItem();
+                }
+
+
+                // Pyramid Tab (Placeholder)
+                if (ImGui::BeginTabItem("Pyramid")) {
+                    ImGui::Text("Pyramid generation not implemented yet.");
+                    ImGui::EndTabItem();
+                }
+
+                ImGui::EndTabBar();
+            }
+
+            ImGui::EndTabItem();
+        }
+
+        // Render Tab
+        if (ImGui::BeginTabItem("Render")) {
+            static float color_picker[3] = { 1.0f, 1.0f, 1.0f }; // RGB color picker values
+            static bool use_random_color = false; // Toggle for random color
+
+            // Color Picker
+            ImGui::ColorEdit3("Octree Color", color_picker, ImGuiColorEditFlags_NoInputs);
+
+            // Random Color Checkbox
+            ImGui::Checkbox("Random Color", &use_random_color);
+
+            if (ImGui::Button("Render Filled Bounding Boxes")) {
+                // Convert RGB color picker values to `double` for material
+                mat octree_material(color(static_cast<double>(color_picker[0]),
+                    static_cast<double>(color_picker[1]),
+                    static_cast<double>(color_picker[2])));
+
+                // Call RenderFilledBBs with the random color flag
+                OctreeManager::RenderFilledBBs(manager, selected_index, world, octree_material, use_random_color);
+            }
+
+            if (ImGui::Button("Remove Filled Bounding Boxes")) {
+                OctreeManager::RemoveFilledBBs(*wrapper.octree, world);
+            }
+
+            ImGui::EndTabItem();
+        }
+
+        // IO Tab
+        if (ImGui::BeginTabItem("IO"))
+        {
+            ImGui::Text("Octree String Representation:");
+            if (show_octree_string) {
+                // Display the octree string in a bordered box
+                ImGui::BeginChild("OctreeStringBox", ImVec2(ImGui::GetContentRegionAvail().x, 100), true, ImGuiWindowFlags_None);
+                ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x);
+                ImGui::TextWrapped("%s", octree_string.c_str());
+                ImGui::PopTextWrapPos();
+                ImGui::EndChild();
+
+                // Button to copy the string to the clipboard
+                if (ImGui::Button("Copy to Clipboard")) {
+                    ImGui::SetClipboardText(octree_string.c_str());
+                }
+            }
+
+            ImGui::Separator();
+
+            static std::string input_buffer;
+            static std::string error_message;
+
+            ImGui::Text("Input Octree String:");
+
+            ImGuiInputTextFlags flags =
+                ImGuiInputTextFlags_CallbackResize;
+
+            ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
+
+            ImGui::InputText(
+                "##OctreeString",
+                (char*)input_buffer.c_str(),
+                input_buffer.size() + 1,  // +1 for null terminator
+                flags,
+                InputTextCallback_Resize,
+                (void*)&input_buffer
+            );
+
+            if (ImGui::Button("Generate Octree From String"))
+            {
+                try
+                {
+                    size_t pos = 0;
+                    OctreeManager::OctreeWrapper& wrapper = manager.GetSelectedOctree();
+                    BoundingBox& bb = wrapper.octree->bounding_box;
+
+                    wrapper.octree = std::make_shared<Octree>(
+                        Octree(bb, Node::FromStringRecursive(input_buffer.c_str(), pos))
+                    );
+                    error_message.clear();
+                }
+                catch (const std::exception& e)
+                {
+                    error_message = e.what();
+                }
+            }
+
+            if (!error_message.empty())
+            {
+                ImGui::TextColored(ImVec4(1, 0, 0, 1), "Error: %s", error_message.c_str());
+            }
+
+            ImGui::EndTabItem();
+        }
+
+        ImGui::EndTabBar();
     }
 
     ImGui::End();
 }
 
-void RenderTreeRepresentationWindow(OctreeManager& manager, bool& show_window) {
-    // Get the Octree Inspector window position and size
-    ImGui::Begin("Octree Inspector");
-    ImVec2 inspector_pos = ImGui::GetWindowPos();
-    ImVec2 inspector_size = ImGui::GetWindowSize();
-    ImGui::End(); // Close the inspector window to calculate its size correctly
+static int InputTextCallback_Resize(ImGuiInputTextCallbackData* data)
+{
+    if (data->EventFlag == ImGuiInputTextFlags_CallbackResize)
+    {
+        // "UserData" is a pointer to the std::string being edited.
+        std::string* str = reinterpret_cast<std::string*>(data->UserData);
 
-    // Set the position and size for the Tree Representation window
-    ImVec2 window_pos = ImVec2(inspector_pos.x, inspector_pos.y + inspector_size.y + 10.0f);
-    ImVec2 window_size = ImVec2(inspector_size.x, 150.0f); // Same width as inspector, fixed height
-    ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always);
-    ImGui::SetNextWindowSize(window_size, ImGuiCond_Always);
+        // Resize the std::string to fit the new text length ImGui wants
+        str->resize(data->BufTextLen);
 
-    // Begin the window
-    if (!ImGui::Begin("Tree Representation", &show_window, ImGuiWindowFlags_None)) {
-        ImGui::End();
+        // Update ImGui buffer pointer to our newly allocated data
+        data->Buf = (char*)str->c_str();
+    }
+    return 0;
+}
+
+void GenerateOctreeFromSphere(OctreeManager::OctreeWrapper& wrapper, BoundingBox& bb, float sphere_radius, bool centered, point3 custom_center, int depth_limit, std::string& octree_string, bool& show_octree_string) {
+    point3 sphere_center = centered ? bb.Center() : bb.ClosestPoint(custom_center);
+
+    wrapper.octree = std::make_shared<Octree>(
+        Octree::FromObject(bb, sphere(sphere_center, static_cast<double>(sphere_radius), mat()), depth_limit)
+    );
+
+    // Generate the string representation of the octree
+    octree_string = wrapper.octree->root.ToString();
+    show_octree_string = true;
+}
+
+void RenderBooleanOperations(OctreeManager& manager) {
+    // Ensure there are at least two octrees to perform operations
+    if (manager.GetOctrees().size() < 2) {
+        ImGui::Text("At least two octrees are required for Boolean operations.");
         return;
     }
 
-    static char input_buffer[1024] = ""; // Buffer for tree representation string
-    static std::string error_message;
+    // Dropdowns to select the input octrees
+    static int octree1_index = 0;
+    static int octree2_index = 1;
+    static int result_octree_index = 0;
 
-    ImGui::Text("Paste Tree Representation:");
-    ImGui::InputTextMultiline("##TreeRepresentation", input_buffer, sizeof(input_buffer), ImVec2(-FLT_MIN, 60));
+    ImGui::Text("Select Octrees for Boolean Operation:");
+    ImGui::Combo("Octree 1", &octree1_index, [](void* data, int idx, const char** out_text) {
+        auto& octrees = *reinterpret_cast<std::vector<OctreeManager::OctreeWrapper>*>(data);
+        *out_text = octrees[idx].name.c_str();
+        return true;
+        }, &manager.GetOctrees(), static_cast<int>(manager.GetOctrees().size()));
 
-    if (ImGui::Button("Generate Octree")) {
-        int selected_index = manager.GetSelectedIndex();
-        if (selected_index >= 0 && selected_index < static_cast<int>(manager.GetOctrees().size())) {
-            try {
-                size_t pos = 0;
-                auto& wrapper = manager.GetSelectedOctree();
-                wrapper.octree = std::make_shared<Octree>(
-                    Octree(wrapper.octree->bounding_box, Node::FromStringRecursive(input_buffer, pos))
-                );
-                error_message.clear(); // Clear error message on success
-            }
-            catch (const std::exception& e) {
-                error_message = e.what(); // Display any parsing error
-            }
-        }
-        else {
-            error_message = "No Octree selected.";
-        }
+    ImGui::Combo("Octree 2", &octree2_index, [](void* data, int idx, const char** out_text) {
+        auto& octrees = *reinterpret_cast<std::vector<OctreeManager::OctreeWrapper>*>(data);
+        *out_text = octrees[idx].name.c_str();
+        return true;
+        }, &manager.GetOctrees(), static_cast<int>(manager.GetOctrees().size()));
+
+    // Dropdown to select the octree to overwrite as the result
+    ImGui::Combo("Result Octree", &result_octree_index, [](void* data, int idx, const char** out_text) {
+        auto& octrees = *reinterpret_cast<std::vector<OctreeManager::OctreeWrapper>*>(data);
+        *out_text = octrees[idx].name.c_str();
+        return true;
+        }, &manager.GetOctrees(), static_cast<int>(manager.GetOctrees().size()));
+
+    // Buttons for each Boolean operation
+    if (ImGui::Button("Boolean AND")) {
+        PerformBooleanOperation(manager, octree1_index, octree2_index, result_octree_index, "AND");
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Boolean OR")) {
+        PerformBooleanOperation(manager, octree1_index, octree2_index, result_octree_index, "OR");
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Boolean DIFF")) {
+        PerformBooleanOperation(manager, octree1_index, octree2_index, result_octree_index, "DIFFERENCE");
+    }
+}
+
+void PerformBooleanOperation(OctreeManager& manager, int index1, int index2, int result_index, const std::string& operation) {
+    // Validate indices
+    auto& octrees = manager.GetOctrees();
+    if (index1 < 0 || index1 >= static_cast<int>(octrees.size()) ||
+        index2 < 0 || index2 >= static_cast<int>(octrees.size()) ||
+        result_index < 0 || result_index >= static_cast<int>(octrees.size())) {
+        return; // Invalid indices
     }
 
-    // Display any error messages
-    if (!error_message.empty()) {
-        ImGui::TextColored(ImVec4(1, 0, 0, 1), "Error: %s", error_message.c_str());
-    }
+    const Octree& octree1 = *octrees[index1].octree;
+    const Octree& octree2 = *octrees[index2].octree;
+    Octree& result_octree = *octrees[result_index].octree;
 
-    ImGui::End();
+    // Clear the result octree
+    result_octree.root = Node::EmptyNode();
+
+    // Perform the Boolean operation using the result octree's bounding box
+    result_octree.root = Node::BooleanRecursive(octree1.root, octree1.bounding_box,
+        octree2.root, octree2.bounding_box,
+        result_octree.bounding_box, operation);
 }
