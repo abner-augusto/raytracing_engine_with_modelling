@@ -132,6 +132,10 @@ public:
     }
 
     static Node FromStringRecursive(const std::string& input, size_t& pos) {
+        if (input.empty()) {
+            throw std::runtime_error("Input string is empty.");
+        }
+
         assert(pos < input.size());
         if (input[pos] == 'B') {
             pos++;
