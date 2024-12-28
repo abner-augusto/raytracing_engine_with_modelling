@@ -40,40 +40,8 @@ void draw_menu(RenderState& render_state,
                 std::cout << "Color: " << material.diffuse_color << "\n";
             }
         }
-        //// Colors Header
-   //if (ImGui::CollapsingHeader("Colors")) {
-   //    // Randomize Button
-   //    if (ImGui::Button("Randomize Color")) {
-   //        red = random_color();
-   //        mat new_material(red, 0.8, 1.0, 150.0);
-   //        moving_sphere->set_material(new_material);
 
-   //        std::cout << "Moving Sphere Color: " << new_material.diffuse_color << std::endl;
-   //    }
-
-   //    ImGui::SameLine();
-
-   //    // Reset Button
-   //    if (ImGui::Button("Reset Color")) {
-   //        red = color(1.0f, 0.0f, 0.0f); // Default to red
-   //        moving_sphere->set_material(mat(vec3(red[0], red[1], red[2]), 0.8, 1.0, 150.0));
-
-   //        std::cout << "Reset Moving Sphere Color to Default Red" << std::endl;
-   //    }
-
-   //    // Color Picker for Manual Selection
-   //    float color_picker_rgb[3] = { red[0], red[1], red[2] }; // Copy `red`'s current values
-   //    if (ImGui::ColorEdit3("Set Sphere Color", color_picker_rgb)) {
-   //        // Update `red`'s RGB values and the material
-   //        red = color(color_picker_rgb[0], color_picker_rgb[1], color_picker_rgb[2]);
-   //        moving_sphere->set_material(mat(vec3(red[0], red[1], red[2]), 0.8, 1.0, 150.0));
-
-   //        std::cout << "Updated Moving Sphere Color via Picker to: "
-   //            << "R: " << red[0] << ", G: " << red[1] << ", B: " << red[2] << std::endl;
-   //    }
-   //}
-
-// Camera Header
+        // Camera Header
         if (ImGui::CollapsingHeader("Camera")) {
             ImGui::Text("Camera Origin");
             float origin_array[3] = {
@@ -384,6 +352,12 @@ void RenderOctreeInspector(OctreeManager& manager, hittable_list& world) {
                 if (ImGui::Button("Copy to Clipboard")) {
                     ImGui::SetClipboardText(octree_string.c_str());
                 }
+                ImGui::SameLine(); // Place the next button on the same line
+                if (ImGui::Button("Update Representation")) {
+                    OctreeManager::OctreeWrapper& wrapper = manager.GetSelectedOctree();
+                    octree_string = wrapper.octree->root.ToString();
+                    show_octree_string = true;
+                }
             }
 
             ImGui::Separator();
@@ -501,16 +475,16 @@ void RenderBooleanOperations(OctreeManager& manager) {
         }, &manager.GetOctrees(), static_cast<int>(manager.GetOctrees().size()));
 
     // Buttons for each Boolean operation
-    if (ImGui::Button("Boolean AND")) {
-        PerformBooleanOperation(manager, octree1_index, octree2_index, result_octree_index, "AND");
+    if (ImGui::Button("Boolean Union")) {
+        PerformBooleanOperation(manager, octree1_index, octree2_index, result_octree_index, "union");
     }
     ImGui::SameLine();
-    if (ImGui::Button("Boolean OR")) {
-        PerformBooleanOperation(manager, octree1_index, octree2_index, result_octree_index, "OR");
+    if (ImGui::Button("Boolean Intersection")) {
+        PerformBooleanOperation(manager, octree1_index, octree2_index, result_octree_index, "intersection");
     }
     ImGui::SameLine();
-    if (ImGui::Button("Boolean DIFF")) {
-        PerformBooleanOperation(manager, octree1_index, octree2_index, result_octree_index, "DIFFERENCE");
+    if (ImGui::Button("Boolean Difference")) {
+        PerformBooleanOperation(manager, octree1_index, octree2_index, result_octree_index, "difference");
     }
 }
 
