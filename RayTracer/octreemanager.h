@@ -30,6 +30,14 @@ public:
         octrees.emplace_back(unique_name, bounding_box);
     }
 
+    // Removes the currently selected octree
+    void RemoveSelectedOctree() {
+        if (selected_octree_index >= 0 && selected_octree_index < static_cast<int>(octrees.size())) {
+            octrees.erase(octrees.begin() + selected_octree_index);
+            selected_octree_index = -1; // Clear selection after removal
+        }
+    }
+
     void SetName(int index, const std::string& new_name) {
         if (index < 0 || index >= static_cast<int>(octrees.size())) {
             throw std::out_of_range("Invalid octree index");
@@ -45,13 +53,15 @@ public:
     void ResetSelectedOctree();
 
     // Add filled bounding boxes from a specific octree to the world
-    static void RenderFilledBBs(const OctreeManager& manager, size_t index, hittable_list& world) {
+    static void RenderFilledBBs(const OctreeManager& manager, size_t index, hittable_list& world, mat& material, bool use_random_colors = false) {
         if (index >= manager.GetOctrees().size()) {
             throw std::out_of_range("Invalid octree index");
         }
+
         auto filled_boxes = manager.GetOctrees()[index].octree->GetFilledBoundingBoxes();
         for (const auto& bb : filled_boxes) {
-            world.add(std::make_shared<box>(bb.vmin, bb.vmax(), mat(random_color())));
+            mat current_material = use_random_colors ? mat(random_color()) : material;
+            world.add(std::make_shared<box>(bb.vmin, bb.vmax(), current_material));
         }
     }
 
