@@ -27,6 +27,20 @@ public:
         return Octree(bb, root);
     }
 
+    static Octree FromBooleanOperation(const Octree& octree1, const Octree& octree2,
+        const BoundingBox& result_bb, const std::string& operation) {
+        // Start with an empty root node
+        Node new_root = Node::EmptyNode();
+
+        // Perform the recursive Boolean operation
+        new_root = Node::BooleanRecursive(octree1.root, octree1.bounding_box,
+            octree2.root, octree2.bounding_box,
+            result_bb, operation);
+
+        // Return the resulting octree
+        return Octree(result_bb, new_root);
+    }
+
     std::vector<BoundingBox> GetFilledBoundingBoxes() const {
         return root.GetFilledBoundingBoxes(bounding_box);
     }

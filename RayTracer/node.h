@@ -130,6 +130,7 @@ public:
             }
         }
     }
+
     static Node FromStringRecursive(const std::string& input, size_t& pos) {
         assert(pos < input.size());
         if (input[pos] == 'B') {
@@ -150,6 +151,70 @@ public:
         }
         throw std::runtime_error("Invalid input format");
     }
+
+    static Node BooleanRecursive(const Node& n1, const BoundingBox& bb1,
+        const Node& n2, const BoundingBox& bb2,
+        const BoundingBox& result_bb,
+        const std::string& operation) {
+        // Align input bounding boxes with the result bounding box
+        BoundingBox aligned_bb1 = AlignBoundingBox(bb1, result_bb);
+        BoundingBox aligned_bb2 = AlignBoundingBox(bb2, result_bb);
+
+        // Case 1: Both nodes are leaves
+        if (n1.children.empty() && n2.children.empty()) {
+            if (operation == "AND") {
+                return (n1.is_filled && n2.is_filled) ? FullNode() : EmptyNode();
+            }
+            else if (operation == "OR") {
+                return (n1.is_filled || n2.is_filled) ? FullNode() : EmptyNode();
+            }
+            else if (operation == "DIFFERENCE") {
+                return (n1.is_filled && !n2.is_filled) ? FullNode() : EmptyNode();
+            }
+        }
+
+        // Case 2: One node is a leaf
+        if (n1.children.empty()) {
+            return HandleLeafAndSubtree(n1, aligned_bb1, n2, aligned_bb2, result_bb, operation);
+        }
+        if (n2.children.empty()) {
+            return HandleLeafAndSubtree(n2, aligned_bb2, n1, aligned_bb1, result_bb, operation, true);
+        }
+
+        // Case 3: Both nodes have children
+        Node result;
+        result.Subdivide();
+        for (int i = 0; i < 8; ++i) {
+            BoundingBox child_bb = result_bb.Subdivide(i);
+            result.children[i] = BooleanRecursive(
+                n1.children[i], aligned_bb1.Subdivide(i),
+                n2.children[i], aligned_bb2.Subdivide(i),
+                child_bb, operation);
+        }
+        return result;
+    }
+
+    // Align input bounding box to match the target bounding box's size and position
+    static BoundingBox AlignBoundingBox(const BoundingBox& input_bb, const BoundingBox& target_bb) {
+        return BoundingBox(target_bb.vmin, target_bb.width);
+    }
+
+    //Handles the case where one node is a leaf and the other is a subtree during a Boolean operation.
+    static Node HandleLeafAndSubtree(const Node& leaf, const BoundingBox& bb_leaf,
+        const Node& subtree, const BoundingBox& bb_subtree,
+        const BoundingBox& combined_bb,
+        const std::string& operation, bool invert = false) {
+        if ((operation == "AND" && leaf.is_filled && !invert) ||
+            (operation == "OR" && !leaf.is_filled && invert)) {
+            return subtree;
+        }
+        else if ((operation == "DIFFERENCE" && !invert) ||
+            (operation == "AND" && !leaf.is_filled)) {
+            return EmptyNode();
+        }
+        return leaf.is_filled ? FullNode() : EmptyNode();
+    }
+
 };
 
 
