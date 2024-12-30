@@ -27,18 +27,36 @@ public:
         return Octree(bb, root);
     }
 
-    static Octree FromBooleanOperation(const Octree& octree1, const Octree& octree2,
-        const BoundingBox& result_bb, const std::string& operation) {
-        // Start with an empty root node
-        Node new_root = Node::EmptyNode();
+    static Octree FromBooleanOperation(const Octree& octree1,
+        const Octree& octree2,
+        const std::string& operation,
+        int maxDepth)
+    {
+        // Check if the bounding boxes are not aligned
+        if (octree1.bounding_box != octree2.bounding_box) {
+            BoundingBox mergedBB = octree1.bounding_box.Enclose(octree2.bounding_box);
 
-        // Perform the recursive Boolean operation
-        new_root = Node::BooleanRecursive(octree1.root, octree1.bounding_box,
-            octree2.root, octree2.bounding_box,
-            result_bb, operation);
+            // Rebuild each old octree to use the merged bounding box
+            Octree rebuilt1 = RebuildOctreeFromBbs(octree1, mergedBB, maxDepth);
+            Octree rebuilt2 = RebuildOctreeFromBbs(octree2, mergedBB, maxDepth);
 
-        // Return the resulting octree
-        return Octree(result_bb, new_root);
+            // Perform the boolean operation using the merged bounding box
+            Node newRoot = Node::BooleanRecursive(
+                rebuilt1.root,
+                rebuilt2.root,
+                operation
+            );
+
+            return Octree(mergedBB, newRoot);
+        }
+
+        // Bounding boxes are aligned, perform the boolean operation directly
+        Node newRoot = Node::BooleanRecursive(
+            octree1.root,
+            octree2.root,
+            operation
+        );
+        return Octree(octree1.bounding_box, newRoot);
     }
 
     std::vector<BoundingBox> GetFilledBoundingBoxes() const {
@@ -51,6 +69,33 @@ public:
 
     std::string ToString() const {
         return root.ToString();
+    }
+
+    /**
+     * @brief Build a new octree by resampling the "filled leaf bounding boxes" of an old one.
+     *
+     * @param oldOctree    The old octree from which we extract filled bounding boxes.
+     * @param newBB        The bounding box for this new octree’s root.
+     * @param maxDepth     Maximum octree depth for the new build.
+     * @return Octree      The new, rebuilt Octree.
+     */
+    static Octree RebuildOctreeFromBbs(const Octree& oldOctree,
+        const BoundingBox& newBB,
+        int maxDepth)
+    {
+        // 1) Extract the “filled” bounding boxes from the old octree
+        std::vector<BoundingBox> oldFilledBbs =
+            oldOctree.root.GetFilledBoundingBoxes(oldOctree.bounding_box);
+
+        // 2) Build the new root node by subdividing based on these bounding boxes
+        Node newRoot = Node::RebuildFromFilledBbs(
+            oldFilledBbs,
+            newBB,
+            maxDepth,
+            0
+        );
+
+        return Octree(newBB, newRoot);
     }
 };
 
