@@ -6,6 +6,7 @@
 #include "sphere.h"
 #include "material.h"
 #include "camera.h"
+#include "boundingbox.h"
 
 
 extern point3 random_position();
@@ -302,6 +303,14 @@ void RenderOctreeInspector(OctreeManager& manager, hittable_list& world) {
                     ImGui::EndTabItem();
                 }
 
+                // Another Octree Tab
+                if (ImGui::BeginTabItem("Another Octree")) {
+
+                    RenderRebuildOctreeUI(manager);
+
+                    ImGui::EndTabItem();
+                }
+
                 ImGui::EndTabBar();
             }
 
@@ -452,7 +461,7 @@ void RenderBooleanOperations(OctreeManager& manager) {
     // Dropdowns to select the input octrees
     static int octree1_index = 0;
     static int octree2_index = 1;
-    static int result_octree_index = 0;
+    static int depth_limit = 3;
 
     ImGui::Text("Select Octrees for Boolean Operation:");
     ImGui::Combo("Octree 1", &octree1_index, [](void* data, int idx, const char** out_text) {
@@ -467,45 +476,64 @@ void RenderBooleanOperations(OctreeManager& manager) {
         return true;
         }, &manager.GetOctrees(), static_cast<int>(manager.GetOctrees().size()));
 
-    // Dropdown to select the octree to overwrite as the result
-    ImGui::Combo("Result Octree", &result_octree_index, [](void* data, int idx, const char** out_text) {
+    // Depth limit slider
+    ImGui::SliderInt("Depth Limit", &depth_limit, 1, 10);
+
+    // Buttons for each Boolean operation
+    if (ImGui::Button("Union (OR)")) {
+        manager.PerformBooleanOperation(octree1_index, octree2_index, "union", depth_limit);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Intersection (AND)")) {
+        manager.PerformBooleanOperation(octree1_index, octree2_index, "intersection", depth_limit);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Difference (NOT)")) {
+        manager.PerformBooleanOperation(octree1_index, octree2_index, "difference", depth_limit);
+    }
+}
+
+static void RenderRebuildOctreeUI(OctreeManager& manager) {
+    // Ensure there are at least two octrees available
+    if (manager.GetOctrees().size() < 2) {
+        ImGui::Text("At least two octrees are required for rebuilding.");
+        return;
+    }
+
+    static int selected_octree_index = 0;  // Index of the octree to rebuild
+    static int source_octree_index = 1;   // Index of the source octree for bounding box
+    static int depth_limit = 3;           // Depth limit for rebuilding
+
+    ImGui::Text("Rebuild Octree from Another:");
+
+    // Dropdown to select the octree to rebuild
+    ImGui::Combo("Target Octree", &selected_octree_index, [](void* data, int idx, const char** out_text) {
         auto& octrees = *reinterpret_cast<std::vector<OctreeManager::OctreeWrapper>*>(data);
         *out_text = octrees[idx].name.c_str();
         return true;
         }, &manager.GetOctrees(), static_cast<int>(manager.GetOctrees().size()));
 
-    // Buttons for each Boolean operation
-    if (ImGui::Button("Boolean Union")) {
-        PerformBooleanOperation(manager, octree1_index, octree2_index, result_octree_index, "union");
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Boolean Intersection")) {
-        PerformBooleanOperation(manager, octree1_index, octree2_index, result_octree_index, "intersection");
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Boolean Difference")) {
-        PerformBooleanOperation(manager, octree1_index, octree2_index, result_octree_index, "difference");
-    }
-}
+    // Dropdown to select the source octree
+    ImGui::Combo("Source Octree", &source_octree_index, [](void* data, int idx, const char** out_text) {
+        auto& octrees = *reinterpret_cast<std::vector<OctreeManager::OctreeWrapper>*>(data);
+        *out_text = octrees[idx].name.c_str();
+        return true;
+        }, &manager.GetOctrees(), static_cast<int>(manager.GetOctrees().size()));
 
-void PerformBooleanOperation(OctreeManager& manager, int index1, int index2, int result_index, const std::string& operation) {
-    // Validate indices
-    auto& octrees = manager.GetOctrees();
-    if (index1 < 0 || index1 >= static_cast<int>(octrees.size()) ||
-        index2 < 0 || index2 >= static_cast<int>(octrees.size()) ||
-        result_index < 0 || result_index >= static_cast<int>(octrees.size())) {
-        return; // Invalid indices
+    // Slider to set the depth limit
+    ImGui::SliderInt("Depth Limit", &depth_limit, 1, 10);
+
+    // Button to trigger the rebuilding process
+    if (ImGui::Button("Rebuild Octree")) {
+        try {
+            // Set the selected octree for rebuilding
+            manager.SelectOctree(selected_octree_index);
+            // Perform the rebuild operation
+            manager.RebuildSelectedOctreeFromAnother(source_octree_index, depth_limit);
+            ImGui::Text("Rebuild successful!");
+        }
+        catch (const std::exception& e) {
+            ImGui::Text("Error: %s", e.what());
+        }
     }
-
-    const Octree& octree1 = *octrees[index1].octree;
-    const Octree& octree2 = *octrees[index2].octree;
-    Octree& result_octree = *octrees[result_index].octree;
-
-    // Clear the result octree
-    result_octree.root = Node::EmptyNode();
-
-    // Perform the Boolean operation using the result octree's bounding box
-    result_octree.root = Node::BooleanRecursive(octree1.root, octree1.bounding_box,
-        octree2.root, octree2.bounding_box,
-        result_octree.bounding_box, operation);
 }

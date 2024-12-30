@@ -21,6 +21,13 @@ public:
     };
 
     int depth_limit = 3;
+    const std::vector<OctreeWrapper>& GetOctrees() const { return octrees; }
+    std::vector<OctreeWrapper>& GetOctrees() { return octrees; }
+    OctreeWrapper& GetSelectedOctree();
+    int GetSelectedIndex() const { return selected_octree_index; }
+    void SelectOctree(size_t index);
+    void ResetSelectedOctree();
+    void PerformBooleanOperation(int index1, int index2, const std::string& operation, int depth_limit);
 
     OctreeManager() = default;
 
@@ -44,13 +51,6 @@ public:
         }
         octrees[index].name = new_name;
     }
-
-    const std::vector<OctreeWrapper>& GetOctrees() const { return octrees; }
-    std::vector<OctreeWrapper>& GetOctrees() { return octrees; }
-    OctreeWrapper& GetSelectedOctree();
-    int GetSelectedIndex() const { return selected_octree_index; }
-    void SelectOctree(size_t index);
-    void ResetSelectedOctree();
 
     // Add filled bounding boxes from a specific octree to the world
     static void RenderFilledBBs(const OctreeManager& manager, size_t index, hittable_list& world, mat& material, bool use_random_colors = false) {
@@ -81,6 +81,27 @@ public:
                 });
         }
     }
+
+    void RebuildSelectedOctreeFromAnother(size_t sourceIndex, int maxDepth) {
+        if (selected_octree_index < 0 || selected_octree_index >= static_cast<int>(octrees.size())) {
+            throw std::out_of_range("No valid octree is selected for rebuilding");
+        }
+        if (sourceIndex >= octrees.size()) {
+            throw std::out_of_range("Invalid source octree index");
+        }
+
+        // Get the source octree's bounding box
+        const BoundingBox& newBB = octrees[sourceIndex].octree->bounding_box;
+
+        // Get the selected octree
+        auto& selectedOctree = octrees[selected_octree_index];
+
+        // Rebuild the selected octree using the bounding box of the source octree
+        selectedOctree.octree = std::make_shared<Octree>(
+            Octree::RebuildOctreeFromBbs(*selectedOctree.octree, newBB, maxDepth)
+        );
+    }
+
 
 private:
     std::vector<OctreeWrapper> octrees;
