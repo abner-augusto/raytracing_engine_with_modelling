@@ -10,8 +10,17 @@ public:
     point3 vmin;
     double width;
 
+
     BoundingBox(const point3& c, double w) : vmin(c), width(w) {
         update_vmax();
+    }
+
+    bool operator==(const BoundingBox& other) const {
+        return (vmin == other.vmin && width == other.width);
+    }
+
+    bool operator!=(const BoundingBox& other) const {
+        return (width != other.width) || (vmin != other.vmin);
     }
 
     point3 Center() const {
@@ -30,6 +39,10 @@ public:
     void set_width(double new_width) {
         width = new_width;
         update_vmax();
+    }
+
+    double volume() const {
+        return width * width * width;
     }
 
     std::vector<point3> Vertices() const {
@@ -82,6 +95,44 @@ public:
         return (moved.x() >= 0 && moved.x() <= width &&
             moved.y() >= 0 && moved.y() <= width &&
             moved.z() >= 0 && moved.z() <= width);
+    }
+
+    bool Intersects(const BoundingBox& other) const {
+        // Check for separation along each axis
+        return !(vmax().x() < other.vmin.x() || vmin.x() > other.vmax().x() ||
+            vmax().y() < other.vmin.y() || vmin.y() > other.vmax().y() ||
+            vmax().z() < other.vmin.z() || vmin.z() > other.vmax().z());
+    }
+
+    // Utility to compute a cube bounding box that encloses this box and another box
+    BoundingBox Enclose(const BoundingBox& other) const {
+        // Get the min-corner (lowest x, y, z of both boxes)
+        point3 new_vmin(
+            std::min(vmin.x(), other.vmin.x()),
+            std::min(vmin.y(), other.vmin.y()),
+            std::min(vmin.z(), other.vmin.z())
+        );
+
+        // Get the max-corner (highest x, y, z of both boxes)
+        point3 this_vmax = vmax();
+        point3 other_vmax = other.vmax();
+
+        point3 new_vmax(
+            std::max(this_vmax.x(), other_vmax.x()),
+            std::max(this_vmax.y(), other_vmax.y()),
+            std::max(this_vmax.z(), other_vmax.z())
+        );
+
+        // Determine the range in x, y, z
+        double range_x = new_vmax.x() - new_vmin.x();
+        double range_y = new_vmax.y() - new_vmin.y();
+        double range_z = new_vmax.z() - new_vmin.z();
+
+        // For a true octree, you want a perfect cube, so pick the largest dimension
+        double max_side = std::max(range_x, std::max(range_y, range_z));
+
+        // Return a bounding box starting at new_vmin with side = max_side
+        return BoundingBox(new_vmin, max_side);
     }
 
 private:
