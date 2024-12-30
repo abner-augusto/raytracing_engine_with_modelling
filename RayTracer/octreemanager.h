@@ -27,7 +27,6 @@ public:
     int GetSelectedIndex() const { return selected_octree_index; }
     void SelectOctree(size_t index);
     void ResetSelectedOctree();
-    void PerformBooleanOperation(int index1, int index2, const std::string& operation, int depth_limit);
 
     OctreeManager() = default;
 
@@ -82,7 +81,7 @@ public:
         }
     }
 
-    void RebuildSelectedOctreeFromAnother(size_t sourceIndex, int maxDepth) {
+    void RebuildFromAnother(size_t sourceIndex, int maxDepth) {
         if (selected_octree_index < 0 || selected_octree_index >= static_cast<int>(octrees.size())) {
             throw std::out_of_range("No valid octree is selected for rebuilding");
         }
@@ -102,6 +101,58 @@ public:
         );
     }
 
+
+    void PerformBooleanOperation(int index1, int index2, const std::string& operation, int depth_limit)
+    {
+        // Validate indices
+        if (index1 < 0 || index1 >= static_cast<int>(octrees.size()) ||
+            index2 < 0 || index2 >= static_cast<int>(octrees.size()))
+        {
+            return;
+        }
+
+        const Octree& octree1 = *octrees[index1].octree;
+        const Octree& octree2 = *octrees[index2].octree;
+
+        // Check if the bounding boxes are already aligned
+        if (octree1.bounding_box == octree2.bounding_box) {
+            // Add a new empty octree to store the result
+            this->AddOctree("Result " + operation, octree1.bounding_box);
+
+            // The newly added octree will be the last one in octrees
+            auto& result_wrapper = octrees.back();
+            Octree& result_octree = *result_wrapper.octree;
+
+            // Perform the boolean operation directly
+            result_octree.root = Node::BooleanRecursive(
+                octree1.root,
+                octree2.root,
+                operation
+            );
+        }
+        else {
+            // Compute a bounding box that encloses both
+            BoundingBox merged_bb = octree1.bounding_box.Enclose(octree2.bounding_box);
+
+            // Add a new empty octree to store the result
+            this->AddOctree("Result " + operation, merged_bb);
+
+            // The newly added octree will be the last one in octrees
+            auto& result_wrapper = octrees.back();
+            Octree& result_octree = *result_wrapper.octree;
+
+            // Rebuild both octrees to align them with the merged bounding box
+            Octree rebuilt1 = Octree::RebuildOctreeFromBbs(octree1, merged_bb, depth_limit);
+            Octree rebuilt2 = Octree::RebuildOctreeFromBbs(octree2, merged_bb, depth_limit);
+
+            // Perform the boolean operation on the rebuilt octrees
+            result_octree.root = Node::BooleanRecursive(
+                rebuilt1.root,
+                rebuilt2.root,
+                operation
+            );
+        }
+    }
 
 private:
     std::vector<OctreeWrapper> octrees;

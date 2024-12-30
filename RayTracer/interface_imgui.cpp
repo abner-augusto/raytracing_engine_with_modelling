@@ -461,7 +461,7 @@ void RenderBooleanOperations(OctreeManager& manager) {
     // Dropdowns to select the input octrees
     static int octree1_index = 0;
     static int octree2_index = 1;
-    static int depth_limit = 3;
+    static int depth_limit = manager.depth_limit;
 
     ImGui::Text("Select Octrees for Boolean Operation:");
     ImGui::Combo("Octree 1", &octree1_index, [](void* data, int idx, const char** out_text) {
@@ -477,7 +477,7 @@ void RenderBooleanOperations(OctreeManager& manager) {
         }, &manager.GetOctrees(), static_cast<int>(manager.GetOctrees().size()));
 
     // Depth limit slider
-    ImGui::SliderInt("Depth Limit", &depth_limit, 1, 10);
+    ImGui::SliderInt("Depth Limit", &manager.depth_limit, 1, 10);
 
     // Buttons for each Boolean operation
     if (ImGui::Button("Union (OR)")) {
@@ -529,7 +529,7 @@ static void RenderRebuildOctreeUI(OctreeManager& manager) {
             // Set the selected octree for rebuilding
             manager.SelectOctree(selected_octree_index);
             // Perform the rebuild operation
-            manager.RebuildSelectedOctreeFromAnother(source_octree_index, depth_limit);
+            manager.RebuildFromAnother(source_octree_index, depth_limit);
             ImGui::Text("Rebuild successful!");
         }
         catch (const std::exception& e) {

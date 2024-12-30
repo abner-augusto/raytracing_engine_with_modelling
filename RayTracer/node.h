@@ -243,22 +243,12 @@ public:
         return result;
     }
 
-    /**
-     * @brief Rebuild an octree node by examining an old set of "filled" bounding boxes.
-     *
-     * @param filledBbs   A list of bounding boxes from the old octree that were filled.
-     * @param regionBB    The bounding box region this node covers in the new octree.
-     * @param maxDepth    Maximum allowed octree depth.
-     * @param currentDepth Current depth in the recursion.
-     * @return Node       The rebuilt Node (empty, full, or subdivided).
-     */
     static Node RebuildFromFilledBbs(
         const std::vector<BoundingBox>& filledBbs,
         const BoundingBox& regionBB,
         int maxDepth,
         int currentDepth)
     {
-        // 1) Gather all bounding boxes that intersect this region:
         std::vector<BoundingBox> intersections;
         intersections.reserve(filledBbs.size());
         for (const auto& bb : filledBbs) {
@@ -267,13 +257,11 @@ public:
             }
         }
 
-        // If no bounding box overlaps our region => it's empty
         if (intersections.empty()) {
             return Node::EmptyNode();
         }
 
         // Check if exactly one bounding box completely covers regionBB
-        // (You can adapt this logic to handle multiple covering boxes, partial coverage, etc.)
         if (intersections.size() == 1) {
             // "Covers" means the intersection's vmin <= regionBB.vmin
             // and intersection's vmax() >= regionBB.vmax().
@@ -297,7 +285,7 @@ public:
 
         // Otherwise, subdivide to handle partial coverage
         Node partial;
-        partial.Subdivide(); // creates 8 children
+        partial.Subdivide();
         for (int i = 0; i < 8; ++i) {
             BoundingBox childBB = regionBB.Subdivide(i);
             partial.children[i] = RebuildFromFilledBbs(

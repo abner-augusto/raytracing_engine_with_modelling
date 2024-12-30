@@ -71,14 +71,6 @@ public:
         return root.ToString();
     }
 
-    /**
-     * @brief Build a new octree by resampling the "filled leaf bounding boxes" of an old one.
-     *
-     * @param oldOctree    The old octree from which we extract filled bounding boxes.
-     * @param newBB        The bounding box for this new octree’s root.
-     * @param maxDepth     Maximum octree depth for the new build.
-     * @return Octree      The new, rebuilt Octree.
-     */
     static Octree RebuildOctreeFromBbs(const Octree& oldOctree,
         const BoundingBox& newBB,
         int maxDepth)
