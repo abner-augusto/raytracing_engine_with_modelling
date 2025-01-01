@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include "node.h"
 #include "boundingBox.h"
+#include "primitive.h"
 #include "sphere.h"
 #include "vec3.h"
 
@@ -16,7 +17,7 @@ public:
 
     Octree(const BoundingBox& bb, const Node& r) : bounding_box(bb), root(r) {}
 
-    static Octree FromObject(const BoundingBox& bb, const sphere& obj, int depth_limit = 3) {
+    static Octree FromObject(const BoundingBox& bb, const Primitive& obj, int depth_limit = 3) {
         Node root = Node::FromObject(bb, obj, depth_limit);
         return Octree(bb, root);
     }

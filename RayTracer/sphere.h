@@ -7,8 +7,9 @@
 #include "vec3.h"
 #include "material.h"
 #include "boundingbox.h"
+#include "primitive.h"
 
-class sphere : public hittable {
+class sphere : public hittable, public Primitive {
 public:
     sphere(const point3& center, double radius, const mat& material)
         : center(center), radius(std::fmax(0, radius)), material(material) {

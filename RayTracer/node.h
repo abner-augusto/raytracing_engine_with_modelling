@@ -4,7 +4,7 @@
 #include <vector>
 #include <cassert>
 #include "boundingbox.h"
-#include "sphere.h"
+#include "primitive.h"
 
 class Node {
 public:
@@ -26,7 +26,7 @@ public:
         return Node(true, {});
     }
 
-    static Node FromObject(const BoundingBox& bb, const sphere& obj, int depth_limit = 5) {
+    static Node FromObject(const BoundingBox& bb, const Primitive& obj, int depth_limit = 3) {
         Node root = EmptyNode();
         char test = obj.test_bb(bb);
         if (test == 'w') {

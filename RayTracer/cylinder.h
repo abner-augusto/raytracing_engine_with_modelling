@@ -5,25 +5,55 @@
 #include "vec3.h"
 #include "material.h"
 #include "interval.h"
+#include "boundingbox.h"
+#include "primitive.h"
 #include <cmath>
 
-class cylinder : public hittable {
+class cylinder : public hittable, public Primitive {
 public:
-    cylinder(const point3& base_center, const point3& top_center, double radius, const mat& material, bool capped = true)
-        : a(base_center), b(top_center), ra(std::fmax(0, radius)), material(material), capped(capped)
+    cylinder(const point3& base_center, double height, double radius, const mat& material, bool capped = true)
+        : a(base_center),
+        radius(std::fmax(0, radius)),
+        material(material),
+        capped(capped),
+        height(height)
     {
+        b = a + vec3(0, height, 0);
+        cylinder_axis = b - a;
+        axis_length_squared = dot(cylinder_axis, cylinder_axis);
+    }
+
+    cylinder(const point3& base_center, const point3& top_center, double radius, const mat& material, bool capped = true)
+        : a(base_center), b(top_center), radius(std::fmax(0, radius)), material(material), capped(capped)
+    {
+        cylinder_axis = b - a;
+        axis_length_squared = dot(cylinder_axis, cylinder_axis);
+        height = (b - a).length();
     }
 
     void set_base_center(const point3& new_base_center) {
         a = new_base_center;
+        b = a + vec3(0, height, 0);
+        cylinder_axis = b - a;
+        axis_length_squared = dot(cylinder_axis, cylinder_axis);
+    }
+
+    void set_height(double new_height) {
+        height = new_height;
+        b = a + vec3(0, height, 0);
+        cylinder_axis = b - a;
+        axis_length_squared = dot(cylinder_axis, cylinder_axis);
     }
 
     void set_top_center(const point3& new_top_center) {
         b = new_top_center;
+        cylinder_axis = b - a;
+        axis_length_squared = dot(cylinder_axis, cylinder_axis);
+        height = (b - a).length();
     }
 
     void set_radius(double new_radius) {
-        ra = std::fmax(0, new_radius);
+        radius = std::fmax(0, new_radius);
     }
 
     void set_material(const mat& new_material) {
@@ -35,105 +65,168 @@ public:
     }
 
     bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
-        // Baseado na lógica do shader:
-        vec3 ro = r.origin();
-        vec3 rd = r.direction();
-        vec3 ba = b - a;
-        vec3 oc = ro - a;
 
-        double baba = dot(ba, ba);          // |ba|^2
-        double bard = dot(ba, rd);
-        double baoc = dot(ba, oc);
+        vec3 ray_origin = r.origin();
+        vec3 ray_direction = r.direction();
+        vec3 origin_to_cylinder_start = ray_origin - a;
 
-        double k2 = baba - bard * bard;
-        double k1 = baba * dot(oc, rd) - baoc * bard;
-        double k0 = baba * dot(oc, oc) - baoc * baoc - ra * ra * baba;
 
-        double h = k1 * k1 - k2 * k0;
-        if (h < 0.0)
+        double axis_dot_direction = dot(cylinder_axis, ray_direction);
+        double axis_dot_origin_to_start = dot(cylinder_axis, origin_to_cylinder_start);
+
+        double quadratic_a = axis_length_squared - axis_dot_direction * axis_dot_direction;
+        double quadratic_b = axis_length_squared * dot(origin_to_cylinder_start, ray_direction) - axis_dot_origin_to_start * axis_dot_direction;
+        double quadratic_c = axis_length_squared * dot(origin_to_cylinder_start, origin_to_cylinder_start) - axis_dot_origin_to_start * axis_dot_origin_to_start - radius * radius * axis_length_squared;
+
+        double discriminant = quadratic_b * quadratic_b - quadratic_a * quadratic_c;
+        if (discriminant < 0.0)
             return false;
 
-        h = std::sqrt(h);
-        double t = (-k1 - h) / k2; // primeira interseção
-        double y = baoc + t * bard;
+        discriminant = std::sqrt(discriminant);
+        double intersection_t = (-quadratic_b - discriminant) / quadratic_a; // primeira interseção
+        double axis_projection = axis_dot_origin_to_start + intersection_t * axis_dot_direction;
 
-        double final_t = -1.0;
-        vec3 normal;
-        point3 p;
+        double final_intersection_t = -1.0;
+        vec3 surface_normal;
+        point3 intersection_point;
 
-        // Tenta corpo
-        if (t > 0.0 && ray_t.contains(t) && y > 0.0 && y < baba) {
-            final_t = t;
-            p = r.at(t);
-            // normal do corpo:
-            vec3 pa = p - a;
-            // projeção de pa em ba:
-            double h_val = y / baba;
-            normal = (pa - ba * h_val) / ra;
+        // Verifica interseção com o corpo do cilindro
+        if (intersection_t > 0.0 && ray_t.contains(intersection_t) && axis_projection > 0.0 && axis_projection < axis_length_squared) {
+            final_intersection_t = intersection_t;
+            intersection_point = r.at(intersection_t);
+            vec3 point_to_cylinder_start = intersection_point - a;
+            double projection_scale = axis_projection / axis_length_squared;
+            surface_normal = (point_to_cylinder_start - cylinder_axis * projection_scale) / radius;
         }
 
-        // Se não pegou a primeira raiz, tenta a segunda
-        if (final_t < 0.0) {
-            t = (-k1 + h) / k2;
-            y = baoc + t * bard;
-            if (t > 0.0 && ray_t.contains(t) && y > 0.0 && y < baba) {
-                final_t = t;
-                p = r.at(t);
-                vec3 pa = p - a;
-                double h_val = y / baba;
-                normal = (pa - ba * h_val) / ra;
+        // Caso a primeira raiz não seja válida, tenta a segunda raiz
+        if (final_intersection_t < 0.0) {
+            intersection_t = (-quadratic_b + discriminant) / quadratic_a;
+            axis_projection = axis_dot_origin_to_start + intersection_t * axis_dot_direction;
+            if (intersection_t > 0.0 && ray_t.contains(intersection_t) && axis_projection > 0.0 && axis_projection < axis_length_squared) {
+                final_intersection_t = intersection_t;
+                intersection_point = r.at(intersection_t);
+                vec3 point_to_cylinder_start = intersection_point - a;
+                double projection_scale = axis_projection / axis_length_squared;
+                surface_normal = (point_to_cylinder_start - cylinder_axis * projection_scale) / radius;
             }
         }
 
-        // Tenta tampas se não achou corpo ou se as tampas podem ser mais próximas
+        // Verifica tampas do cilindro se não encontrou no corpo ou se elas estão mais próximas
         if (capped) {
-            double t_cap;
+            double cap_intersection_t;
 
-            if (capped && bard != 0.0) {
-                t_cap = (0.0 - baoc) / bard;
-                if (ray_t.contains(t_cap) && t_cap > 0.0) {
-                    double check_val = (k1 + k2 * t_cap);
-                    // Se o |(k1 + k2*t)|<h, significa que o raio atinge dentro do raio do cilindro
-                    // Porém, no shader eles usam outra condição, aqui podemos simplesmente verificar o raio da base:
-                    point3 p_base = r.at(t_cap);
-                    double dist_sq = (p_base - a).length_squared();
-                    if (dist_sq <= ra * ra && (final_t < 0.0 || t_cap < final_t)) {
-                        final_t = t_cap;
-                        p = p_base;
-                        normal = -(ba / std::sqrt(baba)); // normal da base inferior
+            if (capped && axis_dot_direction != 0.0) {
+                cap_intersection_t = (0.0 - axis_dot_origin_to_start) / axis_dot_direction;
+                if (ray_t.contains(cap_intersection_t) && cap_intersection_t > 0.0) {
+                    double validity_check = (quadratic_b + quadratic_a * cap_intersection_t);
+                    point3 base_intersection = r.at(cap_intersection_t);
+                    double distance_squared = (base_intersection - a).length_squared();
+                    if (distance_squared <= radius * radius && (final_intersection_t < 0.0 || cap_intersection_t < final_intersection_t)) {
+                        final_intersection_t = cap_intersection_t;
+                        intersection_point = base_intersection;
+                        surface_normal = -(cylinder_axis / std::sqrt(axis_length_squared)); // normal da base inferior
                     }
                 }
 
-                // Base superior (y=baba)
-                t_cap = (baba - baoc) / bard;
-                if (ray_t.contains(t_cap) && t_cap > 0.0) {
-                    point3 p_top = r.at(t_cap);
-                    double dist_sq = (p_top - b).length_squared();
-                    if (dist_sq <= ra * ra && (final_t < 0.0 || t_cap < final_t)) {
-                        final_t = t_cap;
-                        p = p_top;
-                        normal = ba / std::sqrt(baba); // normal da base superior
+                // Base superior (axis_projection = axis_length_squared)
+                cap_intersection_t = (axis_length_squared - axis_dot_origin_to_start) / axis_dot_direction;
+                if (ray_t.contains(cap_intersection_t) && cap_intersection_t > 0.0) {
+                    point3 top_intersection = r.at(cap_intersection_t);
+                    double distance_squared = (top_intersection - b).length_squared();
+                    if (distance_squared <= radius * radius && (final_intersection_t < 0.0 || cap_intersection_t < final_intersection_t)) {
+                        final_intersection_t = cap_intersection_t;
+                        intersection_point = top_intersection;
+                        surface_normal = cylinder_axis / std::sqrt(axis_length_squared); // normal da base superior
                     }
                 }
             }
         }
 
-        if (final_t < 0.0)
+        if (final_intersection_t < 0.0)
             return false;
 
-        rec.t = final_t;
-        rec.p = p;
-        rec.set_face_normal(r, normal);
+        rec.t = final_intersection_t;
+        rec.p = intersection_point;
+        rec.set_face_normal(r, surface_normal);
         rec.material = &material;
         return true;
+    }
+
+    bool IsPointInside(const point3& p) const {
+        // 1) Project p onto the cylinder's axis
+        vec3 axis = unit_vector(cylinder_axis);
+        double proj = dot(p - a, axis);
+
+        // 2) Check if the projection is within the cylinder’s height
+        //    (assuming a is the base and b = a + axis * height is the top)
+        if (proj < 0 || proj > height) {
+            return false; // outside along the cylinder's axis
+        }
+
+        // 3) Find the closest point on the cylinder axis
+        point3 closest_on_axis = a + proj * axis;
+
+        // 4) Check the radial distance
+        double dist_sq = (p - closest_on_axis).length_squared();
+        double r_sq = radius * radius;
+        return dist_sq <= r_sq;
+    }
+
+    char test_bb(const BoundingBox& bb) const {
+        const auto vertices = bb.Vertices();
+
+        // Count how many corners are inside
+        unsigned int inside_count = 0;
+        for (auto& v : vertices) {
+            if (IsPointInside(v)) {
+                inside_count++;
+            }
+        }
+
+        if (inside_count == 8) {
+            return 'b'; // all corners inside
+        }
+        else if (inside_count == 0) {
+            // 1) Check the center of the box
+            point3 c = bb.Center();
+            if (IsPointInside(c)) {
+                return 'g';
+            }
+
+            // 2) Optionally check the center of each face
+            point3 faceCenters[6] = {
+                bb.vmin + vec3(bb.width / 2, bb.width / 2, 0),          // "top" face center
+                bb.vmin + vec3(bb.width / 2, bb.width / 2, bb.width),   // "bottom" face center
+                bb.vmin + vec3(bb.width / 2, 0, bb.width / 2),          // front 
+                bb.vmin + vec3(bb.width / 2, bb.width, bb.width / 2),   // back
+                bb.vmin + vec3(0, bb.width / 2, bb.width / 2),          // left
+                bb.vmin + vec3(bb.width, bb.width / 2, bb.width / 2)    // right
+            };
+
+            for (auto& fc : faceCenters) {
+                if (IsPointInside(fc)) {
+                    return 'g';
+                }
+            }
+
+            return 'w';
+        }
+        else {
+            // Some corners in, some out => partial
+            return 'g';
+        }
     }
 
 private:
     point3 a; // base_center
     point3 b; // top_center
-    double ra;
+    double radius;
     mat material;
     bool capped;
+    vec3 cylinder_axis;
+    double axis_length_squared;
+    double height;
 };
 
 #endif
