@@ -48,8 +48,20 @@ public:
         if (index < 0 || index >= static_cast<int>(octrees.size())) {
             throw std::out_of_range("Invalid octree index");
         }
-        octrees[index].name = new_name;
+
+        // Extract the unique number from the current name
+        const std::string& current_name = octrees[index].name;
+        size_t last_space_pos = current_name.find_last_of(' ');
+        if (last_space_pos == std::string::npos) {
+            throw std::invalid_argument("Invalid current name format");
+        }
+
+        std::string unique_number = current_name.substr(last_space_pos + 1);
+
+        // Preserve the unique number and update the name
+        octrees[index].name = new_name + " " + unique_number;
     }
+
 
     // Add filled bounding boxes from a specific octree to the world
     static void RenderFilledBBs(const OctreeManager& manager, size_t index, hittable_list& world, mat& material, bool use_random_colors = false) {

@@ -167,7 +167,6 @@ void DrawOctreeWireframe(SDL_Renderer* renderer,
     }
 }
 
-
 void DrawOctreeManagerWireframe(SDL_Renderer* renderer,
     const OctreeManager& manager,
     const Camera& camera,
