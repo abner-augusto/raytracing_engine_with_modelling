@@ -9,6 +9,7 @@
 #include "cone.h"
 #include "torus.h"
 #include "box.h"
+#include "mesh.h"
 #include "boundingbox.h"
 #include "node.h"
 #include "wireframe.h"
@@ -97,6 +98,15 @@ int main(int argc, char* argv[]) {
     world.add(make_shared<cylinder>(point3(0.7, -0.15, -2), point3(0.7, .3, -1.6), 0.3, sphere_mat2));
     world.add(make_shared<cone>(point3(0, -0.5, -2),point3(0, 0.5, -2), 0.5, sphere_mat, true));
     world.add(make_shared<torus>(point3(-2, 0.1, -2), 0.4, 0.18, vec3(0.5, 0.8, 0.8), reflective_material));
+
+    //Mesh Object
+    try {
+        MeshOBJ obj_model = load_obj("models/prism.obj");
+        add_obj_to_scene(obj_model, world, mat(white));
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+    }
 
     //Light
     std::vector<Light> lights = {
