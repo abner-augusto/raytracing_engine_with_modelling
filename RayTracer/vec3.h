@@ -9,9 +9,11 @@ class vec3 {
 public:
     double e[3];
 
+    // Constructors
     vec3() : e{ 0, 0, 0 } {}
     vec3(double e0, double e1, double e2) : e{ e0, e1, e2 } {}
 
+    // Accessors
     double x() const { return e[0]; }
     double y() const { return e[1]; }
     double z() const { return e[2]; }
@@ -108,8 +110,6 @@ inline vec3 cross(const vec3& u, const vec3& v) {
 inline vec3 unit_vector(const vec3& v) {
     return v / v.length();
 }
-
-// Additional Functions for Box Hit Calculations
 
 inline vec3 min(const vec3& u, const vec3& v) {
     return vec3(std::min(u.e[0], v.e[0]), std::min(u.e[1], v.e[1]), std::min(u.e[2], v.e[2]));

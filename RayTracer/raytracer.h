@@ -24,6 +24,7 @@ const double pi = 3.1415926535897932385;
 #include "interval.h"
 #include "ray.h"
 #include "vec3.h"
+#include "matrix4x4.h"
 #include "hittable.h"
 #include "hittable_list.h"
 
