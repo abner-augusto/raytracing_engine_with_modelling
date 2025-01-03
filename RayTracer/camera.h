@@ -172,21 +172,21 @@ private:
 
     color phong_shading(const hit_record& rec, const vec3& view_dir, const std::vector<Light>& lights, const hittable& world, const color& diffuse_color) const {
         // Ambient light
-        double ambient_light_intensity = 0.5;
-        double k_ambient = 0.8;
-        color ambient = k_ambient * ambient_light_intensity * diffuse_color;
+        double ambient_light_intensity = 0.4;
+        //color ambient_light_color(0.8, 0.85, 1.0);  // Soft blue skylight
+        color ambient_light_color(1.0, 0.95, 0.8);  // Warm yellow
+
+        color ambient = ambient_light_intensity * ambient_light_color * diffuse_color;
 
         // Initialize diffuse and specular components
         color diffuse(0, 0, 0);
         color specular(0, 0, 0);
-
         const double shadow_bias = 1e-3;
 
 #pragma omp parallel
         {
             color local_diffuse(0, 0, 0);
             color local_specular(0, 0, 0);
-
 #pragma omp for
             for (int i = 0; i < static_cast<int>(lights.size()); ++i) {
                 const auto& light = lights[i];
@@ -210,7 +210,6 @@ private:
                 local_diffuse += calculate_diffuse(rec.normal, light_dir, diffuse_color, rec.material->k_diffuse, light.light_color, light.intensity) * attenuation;
                 local_specular += calculate_specular(rec.normal, light_dir, view_dir, rec.material->shininess, rec.material->k_specular, light.light_color, light.intensity) * attenuation;
             }
-
 #pragma omp critical
             {
                 diffuse += local_diffuse;
