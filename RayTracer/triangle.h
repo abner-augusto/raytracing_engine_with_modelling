@@ -5,61 +5,92 @@
 #include "vec3.h"
 #include "material.h"
 #include "interval.h"
+#include <algorithm>
 #include <cmath>
 
 class triangle : public hittable {
 public:
-    triangle(const point3& v0, const point3& v1, const point3& v2, const mat& material)
-        : v0(v0), v1(v1), v2(v2), material(material) {
+    triangle(const point3& _v0, const point3& _v1, const point3& _v2, const mat& m)
+        : v0(_v0), v1(_v1), v2(_v2), material(m)
+    {
         update_triangle();
     }
 
-    void update_triangle(const point3& new_v0, const point3& new_v1, const point3& new_v2) {
-        v0 = new_v0;
-        v1 = new_v1;
-        v2 = new_v2;
+    // Update the vertices and recalculate precomputed values
+    void update_triangle(const point3& _v0, const point3& _v1, const point3& _v2) {
+        v0 = _v0;
+        v1 = _v1;
+        v2 = _v2;
         update_triangle();
     }
 
     bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
-        const vec3 dir = r.direction();
-        const vec3 orig = r.origin();
 
-        vec3 rov0 = orig - v0;
-        double d = dot(dir, n);
-
-        if (std::fabs(d) < 1e-8)
+        double dot_dir_normal = dot(r.direction(), normal);
+        if (dot_dir_normal > 0.0) {
             return false;
+        }
 
-        vec3 q = cross(rov0, dir);
-        double inv_d = 1.0 / d;
-        double u = inv_d * dot(-q, v2v0);
-        double v = inv_d * dot(q, v1v0);
-        double t = inv_d * dot(-n, rov0);
+        // E1 and E2 are the two edges from v0.
+        const vec3 E1 = edge01;
+        const vec3 E2 = edge02;
 
-        if (u < 0.0 || v < 0.0 || (u + v) > 1.0 || !ray_t.contains(t))
+        // Step 1: Calculate P = cross(ray direction, E2)
+        const vec3 P = cross(r.direction(), E2);
+        const double determinant = dot(E1, P);
+
+        // Step 2: If determinant is near 0, the ray is almost parallel
+        if (std::fabs(determinant) < 1e-8) {
             return false;
+        }
+        const double invDet = 1.0 / determinant;
 
+        // Step 3: Calculate T = (ray origin - v0), and compute u
+        const vec3 T = r.origin() - v0;
+        const double u = dot(T, P) * invDet;
+        if (u < 0.0 || u > 1.0) {
+            return false;
+        }
+
+        // Step 4: Q = cross(T, E1), then compute v
+        const vec3 Q = cross(T, E1);
+        const double v = dot(r.direction(), Q) * invDet;
+        if (v < 0.0 || (u + v) > 1.0) {
+            return false;
+        }
+
+        // Step 5: intersection distance t
+        const double t = dot(E2, Q) * invDet;
+        if (!ray_t.contains(t)) {
+            return false;
+        }
+
+        // Fill the hit record
         rec.t = t;
         rec.p = r.at(t);
-        rec.set_face_normal(r, normal);
+
+        rec.normal = normal;
+
         rec.material = &material;
         return true;
     }
 
 private:
+    // Vertices
     point3 v0, v1, v2;
-    vec3 v1v0, v2v0;
-    vec3 n;       // normal não normalizada
-    vec3 normal;  // normal unitária
+
+    // Precomputed edges
+    vec3 edge01, edge02;
+
+    vec3 normal;
+
     const mat& material;
 
-    // Função interna para recalcular vetores e normal do triângulo
+    // Helper function to recalc edges and normals
     void update_triangle() {
-        v1v0 = v1 - v0;
-        v2v0 = v2 - v0;
-        n = cross(v1v0, v2v0);
-        normal = unit_vector(n);
+        edge01 = v1 - v0;
+        edge02 = v2 - v0;
+        normal = unit_vector(cross(edge01, edge02));
     }
 };
 
