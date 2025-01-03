@@ -92,17 +92,26 @@ int main(int argc, char* argv[]) {
     // World Scene
     hittable_list world;
     auto moving_sphere = make_shared<sphere>(point3(0, 0.5, -3), 0.5, sphere_mat);
-    world.add(moving_sphere);
-    world.add(make_shared<sphere>(point3(-0.9, -0.15, -2), 0.3, xadrez));
-    world.add(make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), wood_material));
-    world.add(make_shared<cylinder>(point3(0.7, -0.15, -2), point3(0.7, .3, -1.6), 0.3, sphere_mat2));
-    world.add(make_shared<cone>(point3(0, -0.5, -2),point3(0, 0.5, -2), 0.5, sphere_mat, true));
-    world.add(make_shared<torus>(point3(-2, 0.1, -2), 0.4, 0.18, vec3(0.5, 0.8, 0.8), reflective_material));
+
+    std::vector<std::shared_ptr<hittable>> Scene1 = {
+        moving_sphere,
+        make_shared<sphere>(point3(-0.9, -0.15, -2), 0.3, xadrez),
+        make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), wood_material),
+        make_shared<cylinder>(point3(0.7, -0.15, -2), point3(0.7, .3, -1.6), 0.3, sphere_mat2),
+        make_shared<cone>(point3(0, -0.5, -2), point3(0, 0.5, -2), 0.5, sphere_mat, true),
+        make_shared<torus>(point3(-2, 0.1, -2), 0.4, 0.18, vec3(0.5, 0.8, 0.8), reflective_material)
+    };
+
+
+    // Add objects to the world
+    for (const auto& obj : Scene1) {
+        world.add(obj);
+    }
 
     //Mesh Object
     try {
         MeshOBJ obj_model = load_obj("models/prism.obj");
-        add_obj_to_scene(obj_model, world, mat(white));
+        add_obj_to_scene(obj_model, world, mat(blue));
     }
     catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
