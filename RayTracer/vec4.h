@@ -13,6 +13,7 @@ public:
     // Constructors
     vec4() : x(0), y(0), z(0), w(0) {}
     vec4(double x, double y, double z, double w = 1.0) : x(x), y(y), z(z), w(w) {}
+    vec4(const vec3& v, double w = 1.0) : x(v.x()), y(v.y()), z(v.z()), w(w) {}
 
     // Addition
     vec4 operator+(const vec4& other) const {

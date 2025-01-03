@@ -83,6 +83,24 @@ public:
         return mat;
     }
 
+    static Matrix4x4 mirror(const std::string& plane) {
+        Matrix4x4 mat;
+
+        if (plane == "xy") {
+            mat.m[2][2] = -1; // Mirror across the XY plane
+        }
+        else if (plane == "yz") {
+            mat.m[0][0] = -1; // Mirror across the YZ plane
+        }
+        else if (plane == "xz") {
+            mat.m[1][1] = -1; // Mirror across the XZ plane
+        }
+        else {
+            throw std::invalid_argument("Invalid plane. Use 'xy', 'yz', or 'xz'.");
+        }
+
+        return mat;
+    }
 
     // Matrix-vector multiplication
     vec4 operator*(const vec4& v) const {
