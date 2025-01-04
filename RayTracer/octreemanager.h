@@ -182,6 +182,18 @@ public:
         return octrees[selected_octree_index].octree->volume();
     }
 
+    void PrintOctreeHierarchy(size_t index) const {
+        if (index >= octrees.size()) {
+            throw std::out_of_range("Invalid octree index");
+        }
+
+        const auto& wrapper = octrees[index];
+        const auto& octree = wrapper.octree;
+
+        std::cout << "Hierarchy for Octree: " << wrapper.name << "\n";
+        octree->root.ToHierarchicalString(std::cout, octree->bounding_box);
+    }
+
 private:
     std::vector<OctreeWrapper> octrees;
     int selected_octree_index = -1;

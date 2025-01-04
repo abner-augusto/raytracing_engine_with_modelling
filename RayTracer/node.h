@@ -108,7 +108,7 @@ public:
         return result;
     }
 
-    void ToHierarchicalString(std::ostream& os, int depth = 0, const std::string& prefix = "") const {
+    void ToHierarchicalString(std::ostream& os, const BoundingBox& root_bb, int depth = 0, const std::string& prefix = "") const {
         const std::string branch = "L__ ";
         const std::string vertical = "|   ";
         const std::string last_branch = "\\__ ";
@@ -117,15 +117,18 @@ public:
         // Identify the node's status
         std::string status = is_filled ? "Filled" : (children.empty() ? "Empty" : "Partial");
 
-        // Print the prefix and status
-        os << prefix << status << "\n";
+        // Include bounding box width
+        std::string bb_width = std::to_string(root_bb.width);
+
+        // Print the prefix, status, and bounding box width
+        os << prefix << status << " (Width: " << bb_width << ")\n";
 
         // Process children
         if (!children.empty()) {
             for (size_t i = 0; i < children.size(); ++i) {
                 std::string child_prefix = (i == children.size() - 1) ? last_branch : branch;
                 std::string next_level_prefix = (i == children.size() - 1) ? space : vertical;
-                children[i].ToHierarchicalString(os, depth + 1, prefix + next_level_prefix + child_prefix);
+                children[i].ToHierarchicalString(os, root_bb.Subdivide(i), depth + 1, prefix + next_level_prefix + child_prefix);
             }
         }
     }
