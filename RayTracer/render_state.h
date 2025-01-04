@@ -4,6 +4,7 @@
 enum RenderMode {
     DefaultRender,
     HighResolution,
+    LowResolution,
     Disabled
 };
 

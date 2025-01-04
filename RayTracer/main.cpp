@@ -39,7 +39,7 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    SDL_Window* window = CreateWindow(window_width, window_height, "Raytracing CG1");
+    SDL_Window* window = CreateWindow(window_width, window_height, "Modelagem com Raytracing - Abner Augusto");
     if (!window) {
         SDL_Quit();
         return -1;
@@ -122,8 +122,8 @@ int main(int argc, char* argv[]) {
 
     //Light
     std::vector<Light> lights = {
-        Light(vec3(-2, 2, -2), 1.0, color(1.0, 1.0, 1.0)),
-        Light(vec3(2, 2, -2), 2.0, color(0.3, 0.3, 1.0))
+        Light(vec3(-2, 2, -3), 1.0, color(1.0, 1.0, 1.0)),
+        Light(vec3(2, 2, -3), 2.0, color(0.3, 0.3, 1.0))
     };
 
     // Camera
@@ -131,10 +131,12 @@ int main(int argc, char* argv[]) {
     double viewport_height = 2.0;
     auto viewport_width = aspect_ratio * viewport_height;
     auto samples_per_pixel = 10; 
-    point3 origin(0, 0, -3);
+    point3 origin(0, 0, 0);
+    point3 lookat(0, 0, -3);
 
     Camera camera(
         origin,
+        lookat,
         image_width,
         aspect_ratio,
         camera_fov
@@ -194,7 +196,6 @@ int main(int argc, char* argv[]) {
         moving_sphere->set_center(sphereCenter);
         //Get previous render state
         RenderMode previous_mode = render_state.get_previous_mode();
-
         // Render raytraced scene
         if (render_state.is_mode(DefaultRender)) {
             if (previous_mode != DefaultRender) {
@@ -225,12 +226,31 @@ int main(int argc, char* argv[]) {
                 camera.get_image_height()
             );
 
-            camera.render(world, lights, samples_per_pixel, true);
+            camera.render(world, lights, samples_per_pixel, false);
             Uint64 end_time = SDL_GetPerformanceCounter();
             double render_time = (end_time - start_time) / (double)SDL_GetPerformanceFrequency();
             std::cout << "render time: " << render_time << " seconds" << std::endl;
             render_state.set_mode(Disabled);
         }
+        else if (render_state.is_mode(LowResolution)) {
+            Uint64 start_time = SDL_GetPerformanceCounter();
+            camera.set_image_width(480);
+            SDL_DestroyTexture(texture);
+            texture = SDL_CreateTexture(
+                renderer,
+                SDL_PIXELFORMAT_ARGB8888,
+                SDL_TEXTUREACCESS_STREAMING,
+                camera.get_image_width(),
+                camera.get_image_height()
+            );
+
+            camera.render(world, lights, samples_per_pixel, false);
+            Uint64 end_time = SDL_GetPerformanceCounter();
+            double render_time = (end_time - start_time) / (double)SDL_GetPerformanceFrequency();
+            std::cout << "render time: " << render_time << " seconds" << std::endl;
+            render_state.set_mode(Disabled);
+        }
+
 
         Uint32* pixels = camera.get_pixels();
         SDL_GetWindowSize(window, &window_width, &window_height);
