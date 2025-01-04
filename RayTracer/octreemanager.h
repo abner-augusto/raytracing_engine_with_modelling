@@ -175,6 +175,12 @@ public:
         }
     }
 
+    double ComputeSelectedOctreeVolume() const {
+        if (selected_octree_index < 0 || selected_octree_index >= static_cast<int>(octrees.size())) {
+            throw std::out_of_range("No valid octree is selected to compute volume");
+        }
+        return octrees[selected_octree_index].octree->volume();
+    }
 
 private:
     std::vector<OctreeWrapper> octrees;

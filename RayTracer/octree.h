@@ -90,6 +90,18 @@ public:
 
         return Octree(newBB, newRoot);
     }
+
+    double volume() const {
+        double totalVolume = 0.0;
+        std::vector<BoundingBox> filledBbs = GetFilledBoundingBoxes();
+
+        for (const auto& bb : filledBbs) {
+            totalVolume += bb.volume();
+        }
+
+        return totalVolume;
+    }
+
 };
 
 #endif // OCTREE_H
