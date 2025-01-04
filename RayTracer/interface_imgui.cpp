@@ -149,7 +149,7 @@ void RenderOctreeList(OctreeManager& manager) {
             // Add a button to create a new octree and remove the currently selected one
             ImGui::Separator();
             if (ImGui::Button("Add Octree")) {
-                manager.AddOctree("New Octree", BoundingBox(point3(-1, 1, -5), 2.0));
+                manager.AddOctree("New Octree", BoundingBox(point3(-1, -0.5, -5), 2.0));
             }
             ImGui::SameLine(); // Place the "Remove Octree" button on the same line
             if (ImGui::Button("Remove Octree")) {
@@ -898,7 +898,6 @@ void RenderBooleanOperations(OctreeManager& manager) {
     // Dropdowns to select the input octrees
     static int octree1_index = 0;
     static int octree2_index = 1;
-    static int depth_limit = manager.depth_limit;
 
     ImGui::Text("Select Octrees for Boolean Operation:");
     ImGui::Combo("Octree 1", &octree1_index, [](void* data, int idx, const char** out_text) {
@@ -918,15 +917,15 @@ void RenderBooleanOperations(OctreeManager& manager) {
 
     // Buttons for each Boolean operation
     if (ImGui::Button("Union (OR)")) {
-        manager.PerformBooleanOperation(octree1_index, octree2_index, "union", depth_limit);
+        manager.PerformBooleanOperation(octree1_index, octree2_index, "union", manager.depth_limit);
     }
     ImGui::SameLine();
     if (ImGui::Button("Intersection (AND)")) {
-        manager.PerformBooleanOperation(octree1_index, octree2_index, "intersection", depth_limit);
+        manager.PerformBooleanOperation(octree1_index, octree2_index, "intersection", manager.depth_limit);
     }
     ImGui::SameLine();
     if (ImGui::Button("Difference (NOT)")) {
-        manager.PerformBooleanOperation(octree1_index, octree2_index, "difference", depth_limit);
+        manager.PerformBooleanOperation(octree1_index, octree2_index, "difference", manager.depth_limit);
     }
 }
 

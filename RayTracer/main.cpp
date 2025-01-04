@@ -102,20 +102,23 @@ int main(int argc, char* argv[]) {
         make_shared<torus>(point3(-2, 0.1, -2), 0.4, 0.18, vec3(0.5, 0.8, 0.8), reflective_material)
     };
 
+    std::vector<std::shared_ptr<hittable>> Scene2 = {
+    make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), wood_material),
+    };
 
     // Add objects to the world
-    for (const auto& obj : Scene1) {
+    for (const auto& obj : Scene2) {
         world.add(obj);
     }
 
     //Mesh Object
-    try {
+    /**try {
         MeshOBJ obj_model = load_obj("models/prism.obj");
         add_obj_to_scene(obj_model, world, mat(blue));
     }
     catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
-    }
+    }**/
 
     //Light
     std::vector<Light> lights = {
@@ -128,7 +131,7 @@ int main(int argc, char* argv[]) {
     double viewport_height = 2.0;
     auto viewport_width = aspect_ratio * viewport_height;
     auto samples_per_pixel = 10; 
-    point3 origin(0, 0, 0);
+    point3 origin(0, 0, -3);
 
     Camera camera(
         origin,

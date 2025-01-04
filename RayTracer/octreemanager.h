@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <iostream>
 #include "octree.h"
 #include "hittable_list.h"
 #include "box.h"
@@ -113,7 +114,6 @@ public:
         );
     }
 
-
     void PerformBooleanOperation(int index1, int index2, const std::string& operation, int depth_limit)
     {
         // Validate indices
@@ -126,8 +126,13 @@ public:
         const Octree& octree1 = *octrees[index1].octree;
         const Octree& octree2 = *octrees[index2].octree;
 
+        std::cout << "Performing " << operation << " operation between Octree " << index1
+            << " and Octree " << index2 << " with depth limit " << depth_limit << std::endl;
+
         // Check if the bounding boxes are already aligned
         if (octree1.bounding_box == octree2.bounding_box) {
+            std::cout << "Bounding boxes are already aligned." << std::endl;
+
             // Add a new empty octree to store the result
             this->AddOctree("Result " + operation, octree1.bounding_box);
 
@@ -141,6 +146,8 @@ public:
                 octree2.root,
                 operation
             );
+
+            std::cout << "Boolean operation completed on aligned bounding boxes." << std::endl;
         }
         else {
             // Compute a bounding box that encloses both
@@ -163,8 +170,11 @@ public:
                 rebuilt2.root,
                 operation
             );
+
+            std::cout << "Boolean operation completed on rebuilt octrees." << std::endl;
         }
     }
+
 
 private:
     std::vector<OctreeWrapper> octrees;
