@@ -38,8 +38,10 @@ public:
         : scale_u(scale_u), scale_v(scale_v) {
         data = stbi_load(filename.c_str(), &width, &height, &channels, 0);
         if (!data) {
-            throw std::runtime_error("Failed to load texture: " + filename);
+            std::cerr << "Warning: Failed to load texture: " << filename << std::endl;
+            data = nullptr; // Proceed without data
         }
+
     }
 
     ~image_texture() {
@@ -47,7 +49,7 @@ public:
     }
 
     virtual color value(double u, double v) const override {
-        if (!data) return color(0, 1, 1); // Debug color (magenta) for missing textures
+        if (!data) return color(1, 1, 1);
 
         // Apply scaling factors
         u *= scale_u;

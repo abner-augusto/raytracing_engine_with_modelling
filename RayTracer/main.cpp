@@ -76,9 +76,8 @@ int main(int argc, char* argv[]) {
     color blue(0.0, 0.0, 1.0);
     color brown(0.69, 0.49, 0.38);
 
-    image_texture* wood_texture = new image_texture("textures/wood_floor.jpg");
-    checker_texture checker(black, white, 15.0);
-    mat wood_material(wood_texture);
+    checker_texture checker(black, white, 2.0);
+    //mat wood_material(new image_texture("textures/wood_floor.jpg"));
     mat xadrez(&checker, 0.8, 1.0, 100.0, 0.25);
     mat sphere_mat(red, 0.8, 1.0, 150.0);
     mat sphere_mat2(green);
@@ -93,17 +92,17 @@ int main(int argc, char* argv[]) {
     hittable_list world;
     auto moving_sphere = make_shared<sphere>(point3(0, 0.5, -3), 0.5, sphere_mat);
 
-    std::vector<std::shared_ptr<hittable>> Scene1 = {
+    /**std::vector<std::shared_ptr<hittable>> Scene1 = {
         moving_sphere,
         make_shared<sphere>(point3(-0.9, -0.15, -2), 0.3, xadrez),
         make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), wood_material),
         make_shared<cylinder>(point3(0.7, -0.15, -2), point3(0.7, .3, -1.6), 0.3, sphere_mat2),
         make_shared<cone>(point3(0, -0.5, -2), point3(0, 0.5, -2), 0.5, sphere_mat, true),
         make_shared<torus>(point3(-2, 0.1, -2), 0.4, 0.18, vec3(0.5, 0.8, 0.8), reflective_material)
-    };
+    };**/
 
     std::vector<std::shared_ptr<hittable>> Scene2 = {
-    make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), wood_material),
+    make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), xadrez),
     };
 
     // Add objects to the world
