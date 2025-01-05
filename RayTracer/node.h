@@ -75,6 +75,19 @@ public:
         return result;
     }
 
+    void GetFilledPoints(const BoundingBox& root_bb, std::vector<std::tuple<point3, double>>& points) const {
+        if (is_filled) {
+            // Add the minimum corner and width of the bounding box
+            points.emplace_back(root_bb.vmin, root_bb.width);
+        }
+        else if (!children.empty()) {
+            // Recurse into children
+            for (int i = 0; i < 8; ++i) {
+                children[i].GetFilledPoints(root_bb.Subdivide(i), points);
+            }
+        }
+    }
+
     bool TestPoint(const BoundingBox& root_bb, const point3& p) const {
         if (root_bb.TestPoint(p)) {
             if (is_filled) {

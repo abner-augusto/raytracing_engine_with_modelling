@@ -4,7 +4,6 @@
 #include <vector>
 #include <string>
 #include <stdexcept>
-#include <unordered_set>
 
 #include "node.h"
 #include "boundingBox.h"
@@ -104,30 +103,43 @@ public:
         return totalVolume;
     }
 
+    std::vector<std::tuple<point3, double>> GetFilledPoints() const {
+        std::vector<std::tuple<point3, double>> points;
+        root.GetFilledPoints(bounding_box, points);
+        return points;
+    }
+
     double CalculateHullSurfaceArea() const {
-        // Retrieve all filled bounding boxes
-        std::vector<BoundingBox> filled_boxes = GetFilledBoundingBoxes();
+        // Get all filled points with their widths
+        const auto filled_points = GetFilledPoints();
 
-        // Create a set to store the voxel positions
-        std::unordered_set<point3, Point3Hash> filled_voxels;
-        for (const auto& box : filled_boxes) {
-            filled_voxels.insert(box.vmin);
-        }
-
-        double total_surface_area = 0.0;
+        // Define directions for neighbors
         const std::vector<point3> directions = {
             point3(1, 0, 0), point3(-1, 0, 0), // x-axis
             point3(0, 1, 0), point3(0, -1, 0), // y-axis
             point3(0, 0, 1), point3(0, 0, -1)  // z-axis
         };
 
-        // Iterate through all filled voxels
-        for (const auto& box : filled_boxes) {
-            double face_area = box.width * box.width;
+        double total_surface_area = 0.0;
+
+        for (const auto& [vmin, width] : filled_points) {
+            double face_area = width * width; // Area of one face
+
             for (const auto& dir : directions) {
-                point3 neighbor_position = box.vmin + dir * box.width;
-                if (filled_voxels.find(neighbor_position) == filled_voxels.end()) {
-                    // No neighbor, face is exposed
+                // Calculate the position of the neighbor
+                point3 neighbor_position = vmin + dir * width;
+
+                // Check if the neighbor exists
+                bool neighbor_found = false;
+                for (const auto& [other_vmin, other_width] : filled_points) {
+                    if (neighbor_position == other_vmin && width == other_width) {
+                        neighbor_found = true;
+                        break;
+                    }
+                }
+
+                // If no neighbor is found, the face is exposed
+                if (!neighbor_found) {
                     total_surface_area += face_area;
                 }
             }
@@ -135,6 +147,9 @@ public:
 
         return total_surface_area;
     }
+
+
+
 
 
 };
