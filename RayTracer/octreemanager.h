@@ -194,6 +194,13 @@ public:
         octree->root.ToHierarchicalString(std::cout, octree->bounding_box);
     }
 
+    double GetHullSurfaceArea(size_t index) const {
+        if (index >= octrees.size()) {
+            throw std::out_of_range("Invalid octree index");
+        }
+        return octrees[index].octree->CalculateHullSurfaceArea();
+    }
+
 private:
     std::vector<OctreeWrapper> octrees;
     int selected_octree_index = -1;

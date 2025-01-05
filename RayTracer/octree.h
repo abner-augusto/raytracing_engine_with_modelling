@@ -4,6 +4,8 @@
 #include <vector>
 #include <string>
 #include <stdexcept>
+#include <unordered_set>
+
 #include "node.h"
 #include "boundingBox.h"
 #include "primitive.h"
@@ -101,6 +103,39 @@ public:
 
         return totalVolume;
     }
+
+    double CalculateHullSurfaceArea() const {
+        // Retrieve all filled bounding boxes
+        std::vector<BoundingBox> filled_boxes = GetFilledBoundingBoxes();
+
+        // Create a set to store the voxel positions
+        std::unordered_set<point3, Point3Hash> filled_voxels;
+        for (const auto& box : filled_boxes) {
+            filled_voxels.insert(box.vmin);
+        }
+
+        double total_surface_area = 0.0;
+        const std::vector<point3> directions = {
+            point3(1, 0, 0), point3(-1, 0, 0), // x-axis
+            point3(0, 1, 0), point3(0, -1, 0), // y-axis
+            point3(0, 0, 1), point3(0, 0, -1)  // z-axis
+        };
+
+        // Iterate through all filled voxels
+        for (const auto& box : filled_boxes) {
+            double face_area = box.width * box.width;
+            for (const auto& dir : directions) {
+                point3 neighbor_position = box.vmin + dir * box.width;
+                if (filled_voxels.find(neighbor_position) == filled_voxels.end()) {
+                    // No neighbor, face is exposed
+                    total_surface_area += face_area;
+                }
+            }
+        }
+
+        return total_surface_area;
+    }
+
 
 };
 

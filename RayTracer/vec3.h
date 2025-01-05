@@ -64,6 +64,16 @@ public:
 // Alias for geometric clarity
 using point3 = vec3;
 
+struct Point3Hash {
+    std::size_t operator()(const point3& p) const {
+        // Combine the hash of x, y, and z coordinates
+        std::size_t h1 = std::hash<double>()(p.x());
+        std::size_t h2 = std::hash<double>()(p.y());
+        std::size_t h3 = std::hash<double>()(p.z());
+        return h1 ^ (h2 << 1) ^ (h3 << 2); // Combine with XOR and shifts
+    }
+};
+
 // Vector Utility Functions
 inline std::ostream& operator<<(std::ostream& out, const vec3& v) {
     return out << v.e[0] << ' ' << v.e[1] << ' ' << v.e[2];

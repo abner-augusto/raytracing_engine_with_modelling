@@ -230,10 +230,12 @@ struct OctreeInspectorState
     float cube_width = 0.0f;
     float cube_width_max = 0.0f;
 
-    // For volume and voxels
+    // For volume and area
     double displayed_volume = 0.0;
     size_t displayed_voxels = 0;
     bool volume_voxels_updated = false;
+    double displayed_surface_area = 0.0;
+    bool surface_area_updated = false;
 };
 
 
@@ -398,14 +400,34 @@ static void RenderInspectorTab(OctreeManager& manager, int selected_index, Bound
     }
 
     if (s_state.volume_voxels_updated) {
-        ImGui::Text("Volume: %.2f m3", s_state.displayed_volume);
+        ImGui::Text("Volume: %.2f u3", s_state.displayed_volume);
         ImGui::Text("Total Voxels: %zu", s_state.displayed_voxels);
     }
+
+    // Button to calculate surface area
+    if (ImGui::Button("Calculate Surface Area")) {
+        try {
+            s_state.displayed_surface_area = manager.GetHullSurfaceArea(selected_index);
+            s_state.surface_area_updated = true;
+        }
+        catch (const std::exception& e) {
+            ImGui::Text("Error: %s", e.what());
+        }
+    }
+
+    // Display the calculated surface area
+    if (s_state.surface_area_updated) {
+        ImGui::Text("Surface Area: %.2f u2", s_state.displayed_surface_area);
+    }
+
+    ImGui::Separator();
 
     if (ImGui::Button("Print Octree")) {
         manager.PrintOctreeHierarchy(selected_index);
     }
+
 }
+
 
 
 // Helper for the main "Primitives" tab
