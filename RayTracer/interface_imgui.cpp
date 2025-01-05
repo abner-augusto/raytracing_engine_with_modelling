@@ -10,7 +10,6 @@
 #include "camera.h"
 #include "boundingbox.h"
 
-
 extern point3 random_position();
 extern color random_color();
 
@@ -27,7 +26,7 @@ void draw_menu(RenderState& render_state,
 
     if (ImGui::Begin("Menu", nullptr, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoMove)) {
         // Primitive Header
-        if (ImGui::CollapsingHeader("Primitive")) {
+        /**if (ImGui::CollapsingHeader("Primitive")) {
             float speed_f = static_cast<float>(speed);
             ImGui::SliderFloat("Sphere Speed", &speed_f, 1.0f, 50.0f);
             speed = static_cast<double>(speed_f);
@@ -42,7 +41,7 @@ void draw_menu(RenderState& render_state,
                 std::cout << "Position: " << position << "\n";
                 std::cout << "Color: " << material.diffuse_color << "\n";
             }
-        }
+        }**/
 
         // Camera Header
         if (ImGui::CollapsingHeader("Camera")) {
@@ -60,22 +59,38 @@ void draw_menu(RenderState& render_state,
             }
             ImGui::PopItemWidth();
 
+            // Look At Target Slider
+            ImGui::Text("Look At Target");
+            float target_array[3] = {
+                static_cast<float>(camera.get_look_at().x()),
+                static_cast<float>(camera.get_look_at().y()),
+                static_cast<float>(camera.get_look_at().z())
+            };
+            ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x);
+            if (ImGui::SliderFloat3("Look At", target_array, -10.0f, 10.0f)) {
+                // Update the camera's look at target using the setter
+                camera.set_look_at(point3(target_array[0], target_array[1], target_array[2]));
+            }
+            ImGui::PopItemWidth();
+
+
             // FOV Slider
-            float camera_fov_degrees = static_cast<float>(radians_to_degrees(camera.get_focal_length())); // Convert to degrees
+            float camera_fov_degrees = static_cast<float>(camera.get_fov_degrees()); // Get FOV in degrees
             ImGui::Text("Camera FOV");
             ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x);
-            if (ImGui::SliderFloat("FOV", &camera_fov_degrees, 30.0f, 120.0f)) {
-                // Update the camera's focal length using the setter
-                camera.set_focal_length(degrees_to_radians(static_cast<double>(camera_fov_degrees))); // Convert back to radians
+            if (ImGui::SliderFloat("FOV", &camera_fov_degrees, 10.0f, 120.0f)) {
+                // Update the camera's FOV using the setter
+                camera.set_fov(static_cast<double>(camera_fov_degrees)); // Set FOV in degrees
             }
             ImGui::PopItemWidth();
 
             // Reset Button
             if (ImGui::Button("Reset to Default")) {
                 // Reset camera origin, FOV, and image width to default values
-                camera.set_origin(point3(0, 0, 0));                    // Default origin
-                camera.set_focal_length(degrees_to_radians(60.0));     // Default FOV: 60 degrees
-                camera.set_image_width(480);                          // Default image width
+                camera.set_origin(point3(0, 0, 0));
+                camera.set_look_at(point3(0, 0, -3));
+                camera.set_fov(60);
+                camera.set_image_width(480);
             }
         }
 
@@ -87,6 +102,10 @@ void draw_menu(RenderState& render_state,
 
             if (ImGui::Button("High-Res Frame")) {
                 render_state.set_mode(HighResolution);
+            }
+
+            if (ImGui::Button("Low-Res Frame")) {
+                render_state.set_mode(LowResolution);
             }
 
             if (ImGui::Button("Default Render")) {
@@ -210,7 +229,13 @@ struct OctreeInspectorState
     // For cube generation
     float cube_width = 0.0f;
     float cube_width_max = 0.0f;
+
+    // For volume and voxels
+    double displayed_volume = 0.0;
+    size_t displayed_voxels = 0;
+    bool volume_voxels_updated = false;
 };
+
 
 static OctreeInspectorState s_state;
 
@@ -311,30 +336,38 @@ void RenderOctreeInspector(OctreeManager& manager, hittable_list& world)
 
 
 // Helper for the "Inspector" tab
-static void RenderInspectorTab(OctreeManager& manager, int selected_index, BoundingBox& bb)
-{
-    // Show rename field
+static void RenderInspectorTab(OctreeManager& manager, int selected_index, BoundingBox& bb) {
+    const auto& octrees = manager.GetOctrees();
+
+    // Use the provided `selected_index` parameter directly
+    if (selected_index < 0 || selected_index >= static_cast<int>(octrees.size())) {
+        ImGui::Text("No octree selected.");
+        return;
+    }
+
+    auto& selected_octree = octrees[selected_index];
+    // Use the `bb` parameter directly
+    bb = selected_octree.octree->bounding_box;
+
+    // Display the name and allow renaming
     ImGui::InputText("Octree Name", s_state.rename_buffer, sizeof(s_state.rename_buffer));
-    if (ImGui::Button("Change Name"))
-    {
+    if (ImGui::Button("Change Name")) {
         manager.SetName(selected_index, std::string(s_state.rename_buffer));
     }
 
     ImGui::Separator();
 
-    // Show bounding box corner + width
+    // Display and allow modifying the bounding box corner and width
     point3 corner = bb.vmin;
     float width = static_cast<float>(bb.width);
 
-    float corner_f[3] =
-    {
+    float corner_f[3] = {
         static_cast<float>(corner.x()),
         static_cast<float>(corner.y()),
         static_cast<float>(corner.z())
     };
 
-    if (ImGui::DragFloat3("Min Corner", corner_f, 0.1f))
-    {
+    if (ImGui::DragFloat3("Min Corner", corner_f, 0.1f)) {
         bb.set_corner(point3(
             static_cast<double>(corner_f[0]),
             static_cast<double>(corner_f[1]),
@@ -342,18 +375,38 @@ static void RenderInspectorTab(OctreeManager& manager, int selected_index, Bound
         ));
     }
 
-    if (ImGui::DragFloat("Width", &width, 0.1f))
-    {
+    if (ImGui::DragFloat("Width", &width, 0.1f)) {
         bb.set_width(static_cast<double>(width));
-        s_state.sphere_radius_max = 0.45f * width;
-        s_state.sphere_radius = s_state.sphere_radius_max * 0.5f;
     }
 
-    if (ImGui::Button("Reset Octree"))
-    {
+    if (ImGui::Button("Reset Octree")) {
         manager.ResetSelectedOctree();
     }
+
+    ImGui::Separator();
+
+    // Display volume and total voxels of the selected octree
+    if (ImGui::Button("Calculate Volume")) {
+        try {
+            s_state.displayed_volume = manager.ComputeSelectedOctreeVolume();
+            s_state.displayed_voxels = selected_octree.octree->GetFilledBoundingBoxes().size();
+            s_state.volume_voxels_updated = true;
+        }
+        catch (const std::exception& e) {
+            ImGui::Text("Error: %s", e.what());
+        }
+    }
+
+    if (s_state.volume_voxels_updated) {
+        ImGui::Text("Volume: %.2f m3", s_state.displayed_volume);
+        ImGui::Text("Total Voxels: %zu", s_state.displayed_voxels);
+    }
+
+    if (ImGui::Button("Print Octree")) {
+        manager.PrintOctreeHierarchy(selected_index);
+    }
 }
+
 
 // Helper for the main "Primitives" tab
 static void RenderPrimitivesTab(OctreeManager& manager, int selected_index, BoundingBox& bb)

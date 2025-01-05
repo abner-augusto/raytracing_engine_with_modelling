@@ -12,22 +12,27 @@
 
 class Camera {
 public:
-    Camera(const point3& origin, int image_width, double aspect_ratio, double fov)
-        : image_width(image_width),
-        aspect_ratio(aspect_ratio),
-        focal_length(focal_length),
+    Camera(
+        const point3& origin,
+        const point3& target,
+        int image_width,
+        double aspect_ratio,
+        double fov, // Expected in degrees
+        const vec3& up = vec3(0, 1, 0)
+    )
+        : origin(origin), target(target), up(up),
+        image_width(image_width), aspect_ratio(aspect_ratio),
+        fov_vertical(degrees_to_radians(fov)),
         pixels(nullptr)
     {
-        // Compute image height based on aspect ratio
         image_height = static_cast<int>(image_width / aspect_ratio);
         image_height = (image_height < 1) ? 1 : image_height;
-        focal_length = degrees_to_radians(fov);
 
         // Allocate pixel buffer
         pixels = new Uint32[image_width * image_height];
 
-        // Initialize the basis vectors
-        update_basis_vectors();
+        // Initialize camera basis vectors and matrices
+        look_at(target, up);
 
         // Clear pixels initially
         clear_pixels();
@@ -35,6 +40,65 @@ public:
 
     ~Camera() {
         delete[] pixels;
+    }
+
+    void look_at(const point3& target, const vec3& up = vec3(0, 1, 0)) {
+        this->target = target;
+        this->up = up;
+
+        // Compute the new basis vectors
+        w = unit_vector(origin - target); // Camera backward
+        u = unit_vector(cross(up, w));    // Camera right
+        v = cross(w, u);                  // Camera up
+
+        // Handle collinear `up` and `w` case
+        if (cross(up, w).length() < 1e-6) {
+            this->up = vec3(1, 0, 0); // Choose an alternative up vector
+            u = unit_vector(cross(this->up, w));
+            v = cross(w, u);
+        }
+
+        // Update focal length and viewport
+        focal_length = 0.5 * image_height / tan(fov_vertical / 2.0);
+        viewport_height = 2.0 * tan(fov_vertical / 2.0) * focal_length;
+        viewport_width = aspect_ratio * viewport_height;
+
+        // Recalculate lower_left_corner
+        lower_left_corner = origin - u * viewport_width / 2.0 - v * viewport_height / 2.0 - w * focal_length;
+
+        // Update the world-to-camera matrix
+        update_world_to_camera_matrix();
+    }
+
+    void update_world_to_camera_matrix() {
+        // Camera's rotation matrix
+        Matrix4x4 camera_rotation;
+        camera_rotation.m[0][0] = u.x();
+        camera_rotation.m[1][0] = u.y();
+        camera_rotation.m[2][0] = u.z();
+
+        camera_rotation.m[0][1] = v.x();
+        camera_rotation.m[1][1] = v.y();
+        camera_rotation.m[2][1] = v.z();
+
+        camera_rotation.m[0][2] = w.x();
+        camera_rotation.m[1][2] = w.y();
+        camera_rotation.m[2][2] = w.z();
+
+        // Camera's translation matrix
+        Matrix4x4 camera_translation = Matrix4x4::translation(-origin.x(), -origin.y(), -origin.z());
+
+        // World-to-camera matrix is the combination of rotation and translation
+        world_to_camera_matrix = camera_rotation * camera_translation;
+
+        // Debug world-to-camera matrix
+        //world_to_camera_matrix.print();
+    }
+
+
+
+    Matrix4x4 get_world_to_camera_matrix() const {
+        return world_to_camera_matrix;
     }
 
     void clear_pixels() {
@@ -76,13 +140,14 @@ public:
 
                     for (int s = 0; s < spp; s++) {
                         // Compute random offsets for anti-aliasing if enabled, else center pixel sample
-                        double u = (static_cast<double>(pixel_x) + (enable_antialias ? random_double(0.0, 1.0) : 0.5)) / (image_width - 1);
-                        double v = (static_cast<double>(pixel_y) + (enable_antialias ? random_double(0.0, 1.0) : 0.5)) / (image_height - 1);
+                        double u_pixel = (static_cast<double>(pixel_x) + (enable_antialias ? random_double(0.0, 1.0) : 0.5)) / (image_width - 1);
+                        double v_pixel = (static_cast<double>(pixel_y) + (enable_antialias ? random_double(0.0, 1.0) : 0.5)) / (image_height - 1);
 
-                        // Compute ray direction
-                        vec3 ray_direction = lower_left_corner + u * horizontal + v * vertical - origin;
+                        // Calculate ray direction through the pixel
+                        vec3 pixel_on_sensor = lower_left_corner + u * (viewport_width * u_pixel) + v * (viewport_height * v_pixel);
+                        vec3 ray_direction = unit_vector(pixel_on_sensor - origin);
 
-                        ray r(origin, unit_vector(ray_direction));
+                        ray r(origin, ray_direction);
                         accumulated_color += cast_ray(r, world, lights);
                     }
 
@@ -99,13 +164,13 @@ public:
     // Setter for origin
     void set_origin(const point3& new_origin) {
         origin = new_origin;
-        update_basis_vectors();
+        look_at(target, up);
     }
 
     // Setter for focal length
-    void set_focal_length(double new_focal_length) {
-        focal_length = new_focal_length;
-        update_basis_vectors();
+    void set_fov(double fov_in_degrees) {
+        fov_vertical = degrees_to_radians(fov_in_degrees);
+        look_at(target, up); // Recalculate camera basis vectors and matrices
     }
 
     // Setter for image width
@@ -119,39 +184,34 @@ public:
         pixels = new Uint32[image_width * image_height];
 
         clear_pixels();
-
-        update_basis_vectors();
+        look_at(target, up);
     }
 
-    // Accessors to get width, height, pixels if needed
+    // Setter for the look-at point
+    void set_look_at(const point3& new_target, const vec3& new_up = vec3(0, 1, 0)) {
+        target = new_target;
+        up = new_up;
+
+        look_at(target, up);
+    }
+    
+    // Accessors of camera
     int get_image_width() const { return image_width; }
     int get_image_height() const { return image_height; }
     point3 get_origin() const { return origin; }
-    double get_focal_length() const { return focal_length; }
-    vec3 get_horizontal() const { return horizontal; }
-    vec3 get_vertical() const { return vertical; }
-    double get_horizontal_length() const { return horizontal_length; }
-    double get_vertical_length() const { return vertical_length; }
+    double get_focal_length() const { return 0.5 * image_height / tan(fov_vertical / 2.0); }
+    vec3 get_horizontal() const { return u; } // Renamed to u
+    vec3 get_vertical() const { return v; }   // Renamed to v
+    vec3 get_look_at() const { return target; }
+    vec3 get_u() const { return u; }
+    vec3 get_v() const { return v; }
+    vec3 get_w() const { return w; }
     Uint32* get_pixels() const { return pixels; }
+    double get_viewport_width() const { return viewport_width; }
+    double get_viewport_height() const { return viewport_height; }
+    double get_fov_degrees() const { return radians_to_degrees(fov_vertical); }
 
 private:
-    double horizontal_length;
-    double vertical_length;
-
-    void update_basis_vectors() {
-        double viewport_height = 2.0 / focal_length;
-        double viewport_width = aspect_ratio * viewport_height;
-
-        horizontal = vec3(viewport_width, 0, 0);
-        vertical = vec3(0, viewport_height, 0);
-
-        horizontal_length = horizontal.length();
-        vertical_length = vertical.length();
-
-        lower_left_corner = origin - horizontal / 2.0 - vertical / 2.0 - vec3(0, 0, focal_length);
-
-    }
-
 
     color background_color(const ray& r) const {
         vec3 unit_direction = unit_vector(r.direction());
@@ -257,15 +317,22 @@ private:
 
     // Camera attributes
     point3 origin;
-    vec3 horizontal;
-    vec3 vertical;
-    point3 lower_left_corner;
-    double focal_length;
-    double aspect_ratio;
+    point3 target;
+    vec3 up;
 
     int image_width;
     int image_height;
+    double aspect_ratio;
+    double fov_vertical;
+    double focal_length;
+    double viewport_width;
+    double viewport_height;
     Uint32* pixels;
+    Matrix4x4 world_to_camera_matrix;
+
+    // Cached basis vectors
+    vec3 u, v, w;
+    point3 lower_left_corner;
 };
 
 #endif // CAMERA_H
