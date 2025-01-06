@@ -5,6 +5,7 @@
 #include "vec3.h"
 #include "material.h"
 #include "interval.h"
+#include "matrix4x4.h"
 
 class hit_record {
 public:
