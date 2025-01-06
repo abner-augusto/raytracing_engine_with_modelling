@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <stdexcept>
+
 #include "node.h"
 #include "boundingBox.h"
 #include "primitive.h"
@@ -90,6 +91,67 @@ public:
 
         return Octree(newBB, newRoot);
     }
+
+    double volume() const {
+        double totalVolume = 0.0;
+        std::vector<BoundingBox> filledBbs = GetFilledBoundingBoxes();
+
+        for (const auto& bb : filledBbs) {
+            totalVolume += bb.volume();
+        }
+
+        return totalVolume;
+    }
+
+    std::vector<std::tuple<point3, double>> GetFilledPoints() const {
+        std::vector<std::tuple<point3, double>> points;
+        root.GetFilledPoints(bounding_box, points);
+        return points;
+    }
+
+    double CalculateHullSurfaceArea() const {
+        // Get all filled points with their widths
+        const auto filled_points = GetFilledPoints();
+
+        // Define directions for neighbors
+        const std::vector<point3> directions = {
+            point3(1, 0, 0), point3(-1, 0, 0), // x-axis
+            point3(0, 1, 0), point3(0, -1, 0), // y-axis
+            point3(0, 0, 1), point3(0, 0, -1)  // z-axis
+        };
+
+        double total_surface_area = 0.0;
+
+        for (const auto& [vmin, width] : filled_points) {
+            double face_area = width * width; // Area of one face
+
+            for (const auto& dir : directions) {
+                // Calculate the position of the neighbor
+                point3 neighbor_position = vmin + dir * width;
+
+                // Check if the neighbor exists
+                bool neighbor_found = false;
+                for (const auto& [other_vmin, other_width] : filled_points) {
+                    if (neighbor_position == other_vmin && width == other_width) {
+                        neighbor_found = true;
+                        break;
+                    }
+                }
+
+                // If no neighbor is found, the face is exposed
+                if (!neighbor_found) {
+                    total_surface_area += face_area;
+                }
+            }
+        }
+
+        return total_surface_area;
+    }
+
+
+
+
+
 };
 
 #endif // OCTREE_H

@@ -62,10 +62,8 @@ public:
         int dir_x = i % 2;
         int dir_y = (i / 2) % 2;
         int dir_z = (i / 4) % 2;
-        point3 new_corner = vmin + (width / 2.0) * (
-            point3(dir_x, 0, 0)
-            + point3(0, dir_y, 0)
-            + point3(0, 0, dir_z));
+
+        point3 new_corner = vmin + (width / 2.0) * point3(dir_x, dir_y, dir_z);
         return BoundingBox(new_corner, width / 2.0);
     }
 

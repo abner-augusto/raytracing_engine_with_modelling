@@ -175,6 +175,31 @@ public:
         }
     }
 
+    double ComputeSelectedOctreeVolume() const {
+        if (selected_octree_index < 0 || selected_octree_index >= static_cast<int>(octrees.size())) {
+            throw std::out_of_range("No valid octree is selected to compute volume");
+        }
+        return octrees[selected_octree_index].octree->volume();
+    }
+
+    void PrintOctreeHierarchy(size_t index) const {
+        if (index >= octrees.size()) {
+            throw std::out_of_range("Invalid octree index");
+        }
+
+        const auto& wrapper = octrees[index];
+        const auto& octree = wrapper.octree;
+
+        std::cout << "Hierarchy for Octree: " << wrapper.name << "\n";
+        octree->root.ToHierarchicalString(std::cout, octree->bounding_box);
+    }
+
+    double GetHullSurfaceArea(size_t index) const {
+        if (index >= octrees.size()) {
+            throw std::out_of_range("Invalid octree index");
+        }
+        return octrees[index].octree->CalculateHullSurfaceArea();
+    }
 
 private:
     std::vector<OctreeWrapper> octrees;

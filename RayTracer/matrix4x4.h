@@ -3,9 +3,10 @@
 
 #include <cmath>
 #include <iostream>
-#include <iomanip> // For nice printing
+#include <iomanip> 
 
 #include "vec4.h"
+#include "raytracer.h"
 
 class Matrix4x4 {
 public:
@@ -110,6 +111,19 @@ public:
             m[2][0] * v.x + m[2][1] * v.y + m[2][2] * v.z + m[2][3] * v.w,
             m[3][0] * v.x + m[3][1] * v.y + m[3][2] * v.z + m[3][3] * v.w
         );
+    }
+
+    // Matrix-point multiplication
+    vec3 transform_vector(const vec3& v) const {
+        vec4 v4(v, 0.0);
+        vec4 result = (*this) * v4;
+        return vec3(result.x, result.y, result.z);
+    }
+
+    point3 transform_point(const point3& p) const {
+        vec4 p4(p, 1.0);
+        vec4 result = (*this) * p4;
+        return point3(result.x, result.y, result.z);
     }
 
     // Matrix-matrix multiplication
