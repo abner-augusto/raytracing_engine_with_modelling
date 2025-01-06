@@ -8,7 +8,7 @@
 #include "camera.h"
 #include "octreemanager.h"
 
-std::optional<std::pair<int, int>> project(const point3& p,
+/*std::optional<std::pair<int, int>> project(const point3& p,
     const Camera& camera,
     const SDL_Rect& viewport) {
 
@@ -165,3 +165,4 @@ void DrawOctreeManagerWireframe(SDL_Renderer* renderer,
         }
     }
 }
+*/
