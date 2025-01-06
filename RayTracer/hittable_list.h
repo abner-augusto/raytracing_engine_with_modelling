@@ -46,6 +46,13 @@ public:
 
         return hit_anything;
     }
+
+    void transform(const Matrix4x4& matrix) {
+        for (auto& object : objects) {
+            object->transform(matrix);
+        }
+    }
+
 };
 
 #endif

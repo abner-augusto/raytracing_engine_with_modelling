@@ -29,6 +29,8 @@ public:
     virtual ~hittable() = default;
 
     virtual bool hit(const ray& r, interval ray_t, hit_record& rec) const = 0;
+
+    virtual void transform(const Matrix4x4& matrix) = 0;
 };
 
 #endif

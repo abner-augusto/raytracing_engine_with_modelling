@@ -15,7 +15,7 @@ public:
 
     ~Light() = default;
 
-    // Optional: Add methods to manipulate the light properties
+
 };
 
 #endif
