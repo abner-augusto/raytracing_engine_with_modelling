@@ -122,6 +122,24 @@ public:
         return true;
     }
 
+    void transform(const Matrix4x4& matrix) override {
+        // Transform the base center and top vertex
+        base_center = matrix.transform_point(base_center);
+        top_vertex = matrix.transform_point(top_vertex);
+
+        // Transform the axis direction
+        axis_direction = matrix.transform_vector(axis_direction);
+        axis_direction = unit_vector(axis_direction); // Re-normalize the axis direction
+
+        // Adjust the radius and height for scaling (assuming uniform scaling)
+        /*double scale_factor = matrix.get_uniform_scale();
+        radius *= scale_factor;*/
+
+        // Recalculate height and other constants
+        update_constants();
+    }
+
+
 private:
     point3 base_center;
     point3 top_vertex;

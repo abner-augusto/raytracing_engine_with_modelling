@@ -186,6 +186,27 @@ public:
         return true;
     }
 
+    void transform(const Matrix4x4& matrix) override {
+        // Transform the center point
+        center = matrix.transform_point(center);
+
+        // Transform the orientation vectors
+        u = matrix.transform_vector(u);
+        v = matrix.transform_vector(v);
+        w = matrix.transform_vector(w);
+
+        // Re-orthonormalize the vectors to maintain the torus's orientation
+        w = unit_vector(w);
+        u = unit_vector(cross(vec3(0, 1, 0), w));
+        v = cross(w, u);
+
+        // If scaling is applied, adjust the radii
+        // Extract the scale factor from the matrix (assuming uniform scaling)
+        /*double scale_factor = matrix.get_uniform_scale();
+        major_radius *= scale_factor;
+        minor_radius *= scale_factor;*/
+    }
+
 private:
     point3 center;
     double major_radius;

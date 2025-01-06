@@ -50,6 +50,15 @@ public:
         if (v < 0) v += 1.0;
     }
 
+    void transform(const Matrix4x4& matrix) override {
+        // Transform the point on the plane
+        point = matrix.transform_point(point);
+
+        // Transform the normal vector
+        normal = matrix.transform_vector(normal);
+        normal = unit_vector(normal);
+    }
+
 private:
     point3 point;       // Um ponto no plano
     vec3 normal;        // O vetor normal do plano (deve ser normalizado)

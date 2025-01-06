@@ -1,11 +1,16 @@
 #ifndef HITTABLE_LIST_H
 #define HITTABLE_LIST_H
 
+#include "ray.h"
+#include "vec3.h"
+#include "material.h"
+#include "interval.h"
 #include "hittable.h"
+#include "matrix4x4.h"
 
 #include <memory>
 #include <vector>
-#include <algorithm> // For std::remove_if
+#include <algorithm>
 
 using std::make_shared;
 using std::shared_ptr;
@@ -47,7 +52,7 @@ public:
         return hit_anything;
     }
 
-    void transform(const Matrix4x4& matrix) {
+    void transform(const Matrix4x4& matrix) override {
         for (auto& object : objects) {
             object->transform(matrix);
         }

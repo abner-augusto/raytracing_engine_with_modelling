@@ -6,6 +6,7 @@
 #include <vector>
 #include "vec3.h"
 #include "triangle.h"
+#include "hittable.h"
 #include "hittable_list.h"
 
 struct MeshOBJ {
@@ -30,7 +31,7 @@ MeshOBJ load_obj(const std::string& filepath) {
             iss >> x >> y >> z;
             model.vertices.emplace_back(x, y, z);
         }
-        else if (prefix == "f") {
+       else if (prefix == "f") {
             int v0, v1, v2;
             iss >> v0 >> v1 >> v2;
             // OBJ indices are 1-based; convert to 0-based

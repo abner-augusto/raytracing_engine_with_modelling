@@ -75,6 +75,17 @@ public:
         return true;
     }
 
+    void transform(const Matrix4x4& matrix) {
+        // Transform vertices
+        v0 = matrix.transform_point(v0);
+        v1 = matrix.transform_point(v1);
+        v2 = matrix.transform_point(v2);
+
+        // Recalculate edges and normal
+        update_triangle();
+    }
+
+
 private:
     // Vertices
     point3 v0, v1, v2;
