@@ -7,19 +7,16 @@
 #include "material.h"
 #include "interval.h"
 #include "primitive.h"
+#include <array>
 #include <algorithm>
 #include <cmath>
 
 class box : public hittable, public Primitive {
 public:
-    // Public parameters
-    point3 min_corner;
-    point3 v_max;
-    mat material;
-
     // Constructor using min and max corners
     box(const point3& v_min, const point3& v_max, const mat& material)
         : min_corner(v_min), v_max(v_max), material(material) {
+        update_vertices();
     }
 
     // Alternative constructor using center and width
@@ -28,6 +25,7 @@ public:
         vec3 half_width(width / 2.0, width / 2.0, width / 2.0);
         min_corner = center - half_width;
         v_max = center + half_width;
+        update_vertices();
     }
 
     // Constructor using min corner and dimensions
@@ -35,6 +33,7 @@ public:
         : min_corner(v_min),
         v_max(v_min + point3(length, width, height)),
         material(material) {
+        update_vertices();
     }
 
     // Hit function
@@ -89,7 +88,7 @@ public:
         return true;
     }
 
-    // Axis-Aligned Instersection Test for Octree usage
+    // Axis-Aligned Intersection Test for Octree usage
     char test_bb(const BoundingBox& bb) const override {
         // Check for complete separation (no overlap)
         if (bb.vmin.x() >= v_max.x() || bb.vmax().x() <= min_corner.x() ||
@@ -109,28 +108,32 @@ public:
         return 'g';
     }
 
-    void apply_transformation(const Matrix4x4& transform) {
-        // Get all vertices of the box
-        std::vector<point3> vertices = get_vertices();
-
-        // Transform each vertex
-        for (point3& vertex : vertices) {
-            // Convert point3 to vec4 (homogeneous coordinates)
-            vec4 homogenous_vertex(vertex.x(), vertex.y(), vertex.z(), 1.0);
-
-            // Apply the transformation matrix
-            vec4 transformed_vertex = transform * homogenous_vertex;
-
-            // Convert back to point3 (Cartesian coordinates)
-            vertex = transformed_vertex.to_vec3();
+    void transform(const Matrix4x4& matrix) override {
+        // Transform each vertex using the transformation matrix
+        for (auto& vertex : vertices) {
+            vertex = matrix.transform_point(vertex);
         }
 
-        update_bounds(vertices);
+        // Update min and max bounds based on transformed vertices
+        update_bounds();
     }
 
     // Get all vertices of the box
-    std::vector<point3> get_vertices() const {
-        return {
+    const std::array<point3, 8>& get_vertices() const {
+        return vertices;
+    }
+
+private:
+    point3 min_corner;
+    point3 v_max;
+    mat material;
+
+    // Store the 8 vertices of the box
+    std::array<point3, 8> vertices;
+
+    // Update the vertices based on current min and max corners
+    void update_vertices() {
+        vertices = {
             min_corner,
             point3(v_max.x(), min_corner.y(), min_corner.z()),
             point3(v_max.x(), v_max.y(), min_corner.z()),
@@ -138,13 +141,12 @@ public:
             point3(min_corner.x(), min_corner.y(), v_max.z()),
             point3(v_max.x(), min_corner.y(), v_max.z()),
             point3(v_max.x(), v_max.y(), v_max.z()),
-            point3(min_corner.x(), v_max.y(), v_max.z()),
+            point3(min_corner.x(), v_max.y(), v_max.z())
         };
     }
 
-private:
-    // Update bounds based on a list of vertices
-    void update_bounds(const std::vector<point3>& vertices) {
+    // Update bounds based on transformed vertices
+    void update_bounds() {
         min_corner = vertices[0];
         v_max = vertices[0];
 

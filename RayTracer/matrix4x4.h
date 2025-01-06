@@ -103,7 +103,7 @@ public:
         return mat;
     }
 
-    // Matrix-vector multiplication
+    // Matrix-vector4 multiplication
     vec4 operator*(const vec4& v) const {
         return vec4(
             m[0][0] * v.x + m[0][1] * v.y + m[0][2] * v.z + m[0][3] * v.w,
@@ -113,13 +113,14 @@ public:
         );
     }
 
-    // Matrix-point multiplication
+    // Matrix-Vector3 multiplication
     vec3 transform_vector(const vec3& v) const {
         vec4 v4(v, 0.0);
         vec4 result = (*this) * v4;
         return vec3(result.x, result.y, result.z);
     }
 
+    // Matrix-Point multiplication
     point3 transform_point(const point3& p) const {
         vec4 p4(p, 1.0);
         vec4 result = (*this) * p4;
@@ -139,6 +140,17 @@ public:
         }
         return result;
     }
+
+    // Assuming a uniform scale, extract the scaling factor from the matrix
+    // by averaging the scaling components of the x, y, and z axes.
+    double get_uniform_scale() const {
+
+        double scale_x = vec3(m[0][0], m[0][1], m[0][2]).length();
+        double scale_y = vec3(m[1][0], m[1][1], m[1][2]).length();
+        double scale_z = vec3(m[2][0], m[2][1], m[2][2]).length();
+        return (scale_x + scale_y + scale_z) / 3.0;
+    }
+
 
     // Print the matrix for debugging
     void print() const {

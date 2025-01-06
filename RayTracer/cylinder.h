@@ -218,6 +218,23 @@ public:
         }
     }
 
+    void transform(const Matrix4x4& matrix) override {
+        // Transform the base and top center points
+        a = matrix.transform_point(a);
+        b = matrix.transform_point(b);
+
+        // Recompute the cylinder axis
+        cylinder_axis = b - a;
+
+        // Update height and axis length squared
+        height = cylinder_axis.length();
+        axis_length_squared = dot(cylinder_axis, cylinder_axis);
+
+        // Update radius (assuming uniform scaling)
+        /*double scale_factor = matrix.get_uniform_scale();
+        radius *= scale_factor;*/
+    }
+
 private:
     point3 a; // base_center
     point3 b; // top_center

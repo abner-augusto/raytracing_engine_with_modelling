@@ -92,6 +92,17 @@ public:
         return 'g';
     }
 
+    void transform(const Matrix4x4& matrix) override {
+        // Apply transformation to the center of the sphere
+        center = matrix.transform_point(center);
+
+        // Apply uniform scaling radius of the sphere
+        /*double scalingFactor = matrix.get_uniform_scale();
+        radius *= scalingFactor;*/
+    }
+
+
+
 private:
     point3 center;
     double radius;
