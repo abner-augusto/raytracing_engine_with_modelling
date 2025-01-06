@@ -123,6 +123,32 @@ public:
         return vertices;
     }
 
+    // Getters
+    point3 get_min_corner() const { return min_corner; }
+    point3 get_max_corner() const { return v_max; }
+    mat get_material() const { return material; }
+
+    // Setters
+    void set_min_corner(const point3& min) {
+        min_corner = min;
+        update_vertices();
+    }
+
+    void set_max_corner(const point3& max) {
+        v_max = max;
+        update_vertices();
+    }
+
+    void set_material(const mat& new_material) {
+        material = new_material;
+    }
+
+    void set_bounds(const point3& min, const point3& max) {
+        min_corner = min;
+        v_max = max;
+        update_vertices();
+    }
+
 private:
     point3 min_corner;
     point3 v_max;

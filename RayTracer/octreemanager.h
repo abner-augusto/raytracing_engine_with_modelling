@@ -88,8 +88,8 @@ public:
             world.remove_if([&](const std::shared_ptr<hittable>& obj) {
                 auto box_obj = dynamic_cast<box*>(obj.get());
                 return box_obj != nullptr &&
-                    box_obj->min_corner == bb.vmin &&
-                    box_obj->v_max == bb.vmax();
+                    box_obj->get_min_corner() == bb.vmin &&
+                    box_obj->get_max_corner() == bb.vmax();
                 });
         }
     }
