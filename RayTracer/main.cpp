@@ -280,10 +280,9 @@ int main(int argc, char* argv[]) {
         camera_fov
     );
 
-    // If in camera space, transform all objects and lights
-
+    // World to Camera
     if (isCameraSpace) {
-        std::cout << "Calling Camera Transform" << ".\n";
+        std::cout << "Calling World to Camera Transform" << ".\n";
         camera.transform_scene_and_lights(world, lights);
     }
 
