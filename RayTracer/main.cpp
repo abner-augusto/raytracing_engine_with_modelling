@@ -82,10 +82,7 @@ int main(int argc, char* argv[]) {
     image_texture* wood_texture = new image_texture("textures/wood_floor.jpg");
     image_texture* grass_texture = new image_texture("textures/grass.jpg");
     image_texture* brick_texture = new image_texture("textures/brick.jpg");
-    checker_texture checker(black, white, 15.0);
-    mat wood_material(wood_texture);
-    mat grass_material(grass_texture);
-    mat brick_material(brick_texture);
+    checker_texture checker(black, white, 3.0);
     mat xadrez(&checker, 0.8, 1.0, 100.0, 0.25);
     mat sphere_mat(red, 0.8, 1.0, 150.0);
     mat sphere_mat2(green);
@@ -98,7 +95,7 @@ int main(int argc, char* argv[]) {
 
     // Create scenes
     std::vector<std::pair<ObjectID, std::shared_ptr<hittable>>> Scene1 = {
-        {1, make_shared<plane>(point3(0, -0.50, 0), vec3(0, 1, 0), wood_material)},
+        {1, make_shared<plane>(point3(0, -0.50, 0), vec3(0, 1, 0), mat(wood_texture))},
         {2, make_shared<sphere>(point3(0, -0.15, -2), 0.3, xadrez)},
         {3, make_shared<cylinder>(point3(-1.0, -0.15, -2), point3(-0.9, 0.25, -1.6), 0.3, green)},
         {4, make_shared<cone>(point3(1, -0.15, -2), point3(1, 0.5, -2.5), 0.3, red, true)},
@@ -118,7 +115,7 @@ int main(int argc, char* argv[]) {
     }*/
 
     std::vector<std::pair<ObjectID, std::shared_ptr<hittable>>> Atividade6 = {
-    {1, make_shared<plane>(point3(0, 0, 0), vec3(0, 1, 0), grass_texture, 0.5)},
+    {1, make_shared<plane>(point3(0, 0, 0), vec3(0, 1, 0), mat(grass_texture), 0.5)},
     //Mesa
     {2, make_shared<box>(point3(0.0, 0.95, 0.0), 2.5, 0.05, 1.5, mat(orange))},
     {3, make_shared<box>(point3(0.0, 0.0, 0.0), 0.05, 0.95, 1.5, mat(white))},
@@ -142,11 +139,11 @@ int main(int argc, char* argv[]) {
     {17, make_shared<box>(point3(0.0, 0.0, 0.0), 1.0, 0.1, 1.0, mat(red))},
     {18, make_shared<box>(point3(0.0, 0.0, 0.0), 1.0, 0.1, 1.0, mat(red))},
     //Paredes
-    {19, make_shared<box>(point3(0.0, 0.0, 0), 1.0, 1.0, 1.0, mat(brick_material), 1.5)},
-    {20, make_shared<box>(point3(0.0, 0.0, 0), 1.0, 1.0, 1.0, mat(brick_material), 1.5)},
-    {21, make_shared<box>(point3(0.0, 0.0, 0), 1.0, 1.0, 1.0, mat(brick_material), 1.5)},
+    {19, make_shared<box>(point3(0.0, 0.0, 0), 1.0, 1.0, 1.0, mat(brick_texture), 1.5)},
+    {20, make_shared<box>(point3(0.0, 0.0, 0), 1.0, 1.0, 1.0, mat(brick_texture), 1.5)},
+    {21, make_shared<box>(point3(0.0, 0.0, 0), 1.0, 1.0, 1.0, mat(brick_texture), 1.5)},
     //Piso
-    {22, make_shared<box>(point3(0.0, 0.0, 0.0), 6.0, 0.1, 10.0, mat(wood_material), 3)},
+    {22, make_shared<box>(point3(0.0, 0.0, 0.0), 6.0, 0.1, 10.0, mat(wood_texture), 3)},
     };
 
     // Add all objects to the manager with their manually assigned IDs
@@ -246,7 +243,6 @@ int main(int argc, char* argv[]) {
     world.transform_object(16, portico_mirror);
 
     world.transform_object(portico_group2, movefar);
-
     //Telhado
     world.transform_object(17, telhado_transform);
     world.transform_object(18, telhado_transform2);
@@ -254,7 +250,7 @@ int main(int argc, char* argv[]) {
     world.transform_range(19, 20, parede_transform);
     world.transform_object(20, portico_mirror);
     world.transform_object(21, parede_transform2);
-
+    //Piso
     world.transform_object(22, movefloor);
 
     //Light
