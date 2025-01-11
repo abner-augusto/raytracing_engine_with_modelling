@@ -245,7 +245,6 @@ int main(int argc, char* argv[]) {
     world.transform_object(14, portico_mirror);
     world.transform_object(16, portico_mirror);
 
-    std::cout << "Transform Group portico_group2" << ".\n";
     world.transform_object(portico_group2, movefar);
 
     //Telhado
@@ -282,8 +281,9 @@ int main(int argc, char* argv[]) {
     );
 
     // If in camera space, transform all objects and lights
-    std::cout << "Calling Camera Transform" << ".\n";
+
     if (isCameraSpace) {
+        std::cout << "Calling Camera Transform" << ".\n";
         camera.transform_scene_and_lights(world, lights);
     }
 

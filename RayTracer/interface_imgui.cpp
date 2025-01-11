@@ -105,17 +105,27 @@ void draw_menu(RenderState& render_state,
 }
 
 void DrawFpsCounter(float fps) {
-    // Calculate the height of the FPS counter window
-    ImVec2 windowSize = ImVec2(90, 10);
+    // Set window flags for proper anchoring
+    ImGuiWindowFlags flags =
+        ImGuiWindowFlags_NoDecoration |     // No titlebar, resize handles, etc.
+        ImGuiWindowFlags_AlwaysAutoResize | // Auto-fit to content
+        ImGuiWindowFlags_NoSavedSettings |  // Don't save position/size
+        ImGuiWindowFlags_NoFocusOnAppearing |
+        ImGuiWindowFlags_NoNav |
+        ImGuiWindowFlags_NoMove;            // Prevent user from moving the window
+
+    // Calculate position
+    ImVec2 padding = ImVec2(10, 10);  // 10 pixel padding from edges
     ImVec2 displaySize = ImGui::GetIO().DisplaySize;
 
-    // Set the next window position to the bottom right
-    ImGui::SetNextWindowPos(ImVec2(displaySize.x - windowSize.x - 10, displaySize.y - windowSize.y - 10)); // 10 pixels from the bottom and right
-    ImGui::Begin("FPS Counter", nullptr,
-        ImGuiWindowFlags_NoTitleBar |
-        ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_AlwaysAutoResize |
-        ImGuiWindowFlags_NoMove);
+    // Start the window
+    ImGui::SetNextWindowPos(
+        ImVec2(displaySize.x - padding.x, displaySize.y - padding.y),
+        ImGuiCond_Always,
+        ImVec2(1.0f, 1.0f)  // Bottom-right pivot point
+    );
+
+    ImGui::Begin("FPS Counter", nullptr, flags);
     ImGui::Text("FPS: %.1f", fps);
     ImGui::End();
 }
