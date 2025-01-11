@@ -1,45 +1,58 @@
 #ifndef MATERIAL_H
 #define MATERIAL_H
-
 #include "color.h"
 #include "texture.h"
 
 class mat {
 public:
-    // Tipo de mapeamento: cor sólida ou textura
+    // Material type enum
     enum class Type { SolidColor, Texture };
 
-    // Atributos do material
-    Type type;                    // Tipo do material (cor sólida ou textura)
-    color diffuse_color;          // Cor difusa (para SolidColor)
-    const texture* texture_map;   // Ponteiro para textura (para Texture)
-    double k_diffuse;             // Coeficiente de reflexão difusa
-    double k_specular;            // Coeficiente de reflexão especular
-    double shininess;             // Valor de brilho do material
-    double reflection;            // Coeficiente de reflexão
+    // Material attributes
+    Type type;                    // Material type (solid color or texture)
+    color diffuse_color;          // Diffuse color (for SolidColor or fallback)
+    const texture* texture_map;   // Pointer to texture (nullable)
+    double k_diffuse;             // Diffuse reflection coefficient
+    double k_specular;            // Specular reflection coefficient
+    double shininess;             // Material shininess
+    double reflection;            // Reflection coefficient
 
-    // Construtor para cor sólida
+    // Constructor for solid color material
     mat(const color& diffuse = color(1, 1, 1), double diffuseCoeff = 0.8,
         double specularCoeff = 0.3, double shine = 10.0, double reflectCoeff = 0.0)
-        : type(Type::SolidColor), diffuse_color(diffuse), texture_map(nullptr),
-        k_diffuse(diffuseCoeff), k_specular(specularCoeff),
-        shininess(shine), reflection(reflectCoeff) {
+        : type(Type::SolidColor)
+        , diffuse_color(diffuse)
+        , texture_map(nullptr)
+        , k_diffuse(diffuseCoeff)
+        , k_specular(specularCoeff)
+        , shininess(shine)
+        , reflection(reflectCoeff) {
     }
 
-    // Construtor para textura
+    // Constructor for textured material (works for both image and checker textures)
     mat(const texture* tex, double diffuseCoeff = 0.8, double specularCoeff = 0.3,
         double shine = 10.0, double reflectCoeff = 0.0)
-        : type(Type::Texture), diffuse_color(color(1, 1, 1)), texture_map(tex),
-        k_diffuse(diffuseCoeff), k_specular(specularCoeff),
-        shininess(shine), reflection(reflectCoeff) {
+        : type(tex ? Type::Texture : Type::SolidColor)
+        , diffuse_color(color(1, 1, 1))  // Default white if texture is used
+        , texture_map(tex)
+        , k_diffuse(diffuseCoeff)
+        , k_specular(specularCoeff)
+        , shininess(shine)
+        , reflection(reflectCoeff) {
     }
 
-    // Função para obter a cor do material, levando em conta a textura
+    // Get material color at UV coordinates
     color get_color(double u, double v) const {
         if (type == Type::Texture && texture_map) {
-            return texture_map->value(u, v); // Usa a textura
+            // All texture types (image or checker) use the same interface
+            return texture_map->value(u, v);
         }
-        return diffuse_color; // Retorna cor sólida
+        return diffuse_color;
+    }
+
+    // Check if material has a valid texture
+    bool has_texture() const {
+        return type == Type::Texture && texture_map != nullptr;
     }
 };
 

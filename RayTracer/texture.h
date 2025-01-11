@@ -1,83 +1,96 @@
 #ifndef TEXTURE_H
 #define TEXTURE_H
-
 #include "color.h"
 #include "stb_image.h"
 #include <string>
 #include <cmath>
+#include <stdexcept>
 
-// Base class for texture representation
+// Base texture class
 class texture {
 public:
-    virtual ~texture() = default; // Virtual destructor for proper cleanup
-    virtual color value(double u, double v) const = 0; // Pure virtual function to get the color value at (u, v)
+    virtual ~texture() = default;
+    virtual color value(double u, double v) const = 0;
+    // New method to check if texture is valid
+    virtual bool is_valid() const = 0;
 };
 
-// Checkerboard texture class derived from texture
+// Checker pattern texture
 class checker_texture : public texture {
 public:
-    color color1, color2; // Two colors for the checker pattern
-    double scale;         // Scale of the pattern
+    color color1, color2;
+    double scale;
 
-    // Constructor to initialize the checker texture with two colors and a scale
     checker_texture(const color& c1, const color& c2, double s)
-        : color1(c1), color2(c2), scale(s) {
+        : color1(c1)
+        , color2(c2)
+        , scale(s) {
     }
 
-    // Override the value function to determine the color based on UV coordinates
     color value(double u, double v) const override {
         auto sines = std::sin(scale * u * M_PI) * std::sin(scale * v * M_PI);
-        return (sines < 0) ? color1 : color2; // Return color1 or color2 based on the sine value
+        return (sines < 0) ? color1 : color2;
     }
+
+    // Checker texture is always valid as it's procedural
+    bool is_valid() const override { return true; }
 };
 
-// Image texture class derived from texture
+// Image-based texture
 class image_texture : public texture {
-public:
-    unsigned char* data; // Pointer to the image data
+private:
+    unsigned char* data;
     int width, height, channels;
+    bool valid;
 
-    // Constructor to load the texture from a file
+public:
     image_texture(const std::string& filename)
-        : data(nullptr), width(0), height(0), channels(0) {
-        // Load image data using stb_image library
-        data = stbi_load(filename.c_str(), &width, &height, &channels, 0);
-        if (!data) {
-            throw std::runtime_error("Failed to load texture: " + filename);
+        : data(nullptr)
+        , width(0)
+        , height(0)
+        , channels(0)
+        , valid(false) {
+        try {
+            data = stbi_load(filename.c_str(), &width, &height, &channels, 0);
+            valid = (data != nullptr);
+        }
+        catch (...) {
+            valid = false;
         }
     }
 
-    // Destructor to free the image data
     ~image_texture() {
-        if (data) stbi_image_free(data); // Free the loaded image data
+        if (data) {
+            stbi_image_free(data);
+        }
     }
 
-    // Override the value function to get the color at (u, v) from the image
+    bool is_valid() const override { return valid && data != nullptr; }
+
     color value(double u, double v) const override {
-        if (!data) return color(0, 1, 1); // Return a default color if no data is loaded
+        if (!is_valid()) {
+            throw std::runtime_error("Attempting to sample invalid texture");
+        }
 
-        // Wrap UV coordinates (no scaling needed here anymore)
-        u = u - floor(u); // Wrap u to the range [0, 1]
-        v = v - floor(v); // Wrap v to the range [0, 1]
+        // Wrap UV coordinates
+        u = u - std::floor(u);
+        v = 1.0 - (v - std::floor(v)); // Flip V coordinate
 
-        // Flip V to match image data
-        v = 1.0 - v; // Invert v coordinate
-
-        // Map UV to pixel coordinates
+        // Map to pixel coordinates
         int i = static_cast<int>(u * width);
         int j = static_cast<int>(v * height);
 
-        // Clamp pixel coordinates to ensure they are within bounds
+        // Clamp coordinates
         i = std::clamp(i, 0, width - 1);
         j = std::clamp(j, 0, height - 1);
 
-        // Compute pixel index in the data array
-        int pixel_index = (j * width + i) * channels; 
+        // Get pixel data
+        int pixel_index = (j * width + i) * channels;
 
-        // Extract RGB values from the image data
-        double r = data[pixel_index] / 255.0; // Normalize red value
-        double g = data[pixel_index + 1] / 255.0; // Normalize green value
-        double b = data[pixel_index + 2] / 255.0; // Normalize blue value
+        // Convert to normalized RGB
+        double r = data[pixel_index] / 255.0;
+        double g = data[pixel_index + 1] / 255.0;
+        double b = data[pixel_index + 2] / 255.0;
 
         return color(r, g, b);
     }
