@@ -4,13 +4,14 @@
 enum RenderMode {
     DefaultRender,
     HighResolution,
+    LowResolution,
     Disabled
 };
 
 class RenderState {
 public:
     RenderState()
-        : current_mode(Disabled),
+        : current_mode(DefaultRender),
         previous_mode(Disabled)
     {
     }
