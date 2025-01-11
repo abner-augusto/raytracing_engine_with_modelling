@@ -4,9 +4,10 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <array>
 #include "vec3.h"
 #include "triangle.h"
-#include "hittable_list.h"
+#include "hittable_manager.h"
 
 struct MeshOBJ {
     std::vector<point3> vertices;
@@ -41,15 +42,36 @@ MeshOBJ load_obj(const std::string& filepath) {
     return model;
 }
 
-void add_obj_to_scene(const MeshOBJ& model, hittable_list& scene, const mat& material) {
+ObjectID add_mesh_to_manager(
+    const std::string& filepath,
+    HittableManager& manager,
+    const mat& material
+) {
+    // Load the OBJ model
+    MeshOBJ model = load_obj(filepath);
+
+    // Retrieve the next available ID from the manager
+    ObjectID current_id = manager.get_next_id();
+
+    // Create and add triangles to the manager
+    std::vector<ObjectID> triangle_ids;
+
     for (const auto& face : model.faces) {
-        scene.add(std::make_shared<triangle>(
+        auto triangle_obj = std::make_shared<triangle>(
             model.vertices[face[0]],
             model.vertices[face[1]],
             model.vertices[face[2]],
             material
-        ));
+        );
+
+        // Assign consecutive IDs starting from the current ID
+        triangle_ids.push_back(manager.add(triangle_obj, current_id++));
     }
+
+    // Group all triangles into a cohesive entity and return the group ID
+    return manager.create_group(triangle_ids);
 }
+
+
 
 #endif
