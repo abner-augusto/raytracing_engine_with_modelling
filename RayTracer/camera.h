@@ -12,22 +12,21 @@
 
 class Camera {
 public:
-    Camera(const point3& origin, int image_width, double aspect_ratio, double fov)
-        : image_width(image_width),
-        aspect_ratio(aspect_ratio),
-        focal_length(focal_length),
-        pixels(nullptr)
+    Matrix4x4 world_to_camera_matrix;
+    Matrix4x4 camera_to_world_matrix;
+
+    Camera(const point3& origin, const point3& at, int image_width, double aspect_ratio, double fov)
+        : origin(origin), look_at(at), world_up(0, 1, 0), image_width(image_width), aspect_ratio(aspect_ratio), fov(fov)
     {
-        // Compute image height based on aspect ratio
+        // Compute image height
         image_height = static_cast<int>(image_width / aspect_ratio);
-        image_height = (image_height < 1) ? 1 : image_height;
-        focal_length = degrees_to_radians(fov);
 
         // Allocate pixel buffer
         pixels = new Uint32[image_width * image_height];
 
-        // Initialize the basis vectors
-        update_basis_vectors();
+        // Compute the transformation matrix
+        calculate_axes();
+        calculate_matrices();
 
         // Clear pixels initially
         clear_pixels();
@@ -41,75 +40,186 @@ public:
         std::fill(pixels, pixels + (image_width * image_height), 0);
     }
 
-    void render(
-        const hittable& world,
-        const std::vector<Light>& lights,
-        int samples_per_pixel = 1,
-        bool enable_antialias = false
+    void calculate_axes() {
+        forward = unit_vector(origin - look_at);         // Negative look direction
+        right = unit_vector(cross(world_up, forward));   // Perpendicular to up and forward
+        up = cross(forward, right);                      // True up vector (recalculated)
+    }
+
+    void calculate_matrices() {
+        // Camera-to-World Matrix
+        camera_to_world_matrix = Matrix4x4(
+            right.x(), up.x(), forward.x(), origin.x(),
+            right.y(), up.y(), forward.y(), origin.y(),
+            right.z(), up.z(), forward.z(), origin.z(),
+            0.0,       0.0,    0.0,         1.0
+        );
+
+        // World-to-Camera Matrix
+        world_to_camera_matrix = Matrix4x4(
+            right.x(),   right.y(),   right.z(),   -dot(right, origin),
+            up.x(),      up.y(),      up.z(),      -dot(up, origin),
+            forward.x(), forward.y(), forward.z(), -dot(forward, origin),
+            0.0,         0.0,         0.0,          1.0
+        );
+    }
+
+    void tilt(double angle, const std::string& plane = "ZY") {
+        // Convert angle to radians
+        double rad = angle * M_PI / 180.0;
+
+        Matrix4x4 tilt_matrix;
+
+        if (plane == "ZY") {
+            // Rotate on the ZY plane (around the right vector)
+            tilt_matrix = Matrix4x4(
+                1.0, 0.0,      0.0,       0.0,
+                0.0, cos(rad), -sin(rad), 0.0,
+                0.0, sin(rad), cos(rad),  0.0,
+                0.0, 0.0,      0.0,       1.0
+            );
+
+            // Apply tilt to forward and up
+            forward = (tilt_matrix * vec4(forward, 0.0)).to_vec3();
+            up = (tilt_matrix * vec4(up, 0.0)).to_vec3();
+        }
+        else if (plane == "XY") {
+            // Rotate on the XY plane (around the forward vector)
+            tilt_matrix = Matrix4x4(
+                cos(rad), -sin(rad), 0.0, 0.0,
+                sin(rad), cos(rad),  0.0, 0.0,
+                0.0,      0.0,       1.0, 0.0,
+                0.0,      0.0,       0.0, 1.0
+            );
+
+            // Apply tilt to up and right
+            up = (tilt_matrix * vec4(up, 0.0)).to_vec3();
+            right = (tilt_matrix * vec4(right, 0.0)).to_vec3();
+        }
+        else {
+            throw std::invalid_argument("Unsupported plane. Use 'ZY' or 'XY'.");
+        }
+
+        // Recalculate the matrices to reflect the new orientation
+        calculate_matrices();
+    }
+
+    void transform_scene_and_lights(
+        HittableManager& manager,
+        std::vector<Light>& lights
     ) const {
-        int TILESIZE = std::min(32, image_width / 10); // Adjust tile size based on image width
+        // Transform all objects in the HittableManager
+        manager.transform(world_to_camera_matrix);
+
+        // Transform all lights into camera space
+        for (auto& light : lights) {
+            light.transform(world_to_camera_matrix);
+        }
+    }
+
+    void render(
+        HittableManager& manager,
+        std::vector<Light>& lights,
+        int samples_per_pixel = 1,
+        bool enable_antialias = false,
+        bool camera_space = false
+    ) const {
+        int TILESIZE = std::min(32, image_width / 10);
 
         // Compute the number of tiles in each dimension
         const int num_x_tiles = (image_width + TILESIZE - 1) / TILESIZE;
         const int num_y_tiles = (image_height + TILESIZE - 1) / TILESIZE;
 
+        // Precompute perspective parameters
+        double fov_radians = degrees_to_radians(fov);
+        double half_fov = 0.5 * fov_radians;
+        double tan_half_fov = std::tan(half_fov);
+        double image_plane_z = camera_space ? -1.0 : 0.0; // Camera space uses z = -1 for the image plane
+
 #pragma omp parallel for schedule(dynamic)
         for (int tile_index = 0; tile_index < num_x_tiles * num_y_tiles; ++tile_index) {
-            // Compute the starting pixel coordinates of the current tile
             const int tile_x = (tile_index % num_x_tiles) * TILESIZE;
             const int tile_y = (tile_index / num_x_tiles) * TILESIZE;
 
-            // Iterate over each pixel in the tile
             for (int j = 0; j < TILESIZE; ++j) {
                 for (int i = 0; i < TILESIZE; ++i) {
-                    // Compute the actual pixel coordinates
                     int pixel_x = tile_x + i;
                     int pixel_y = tile_y + j;
 
-                    // Ensure the pixel is within the image bounds
-                    if (pixel_x >= image_width || pixel_y >= image_height) continue;
+                    if (pixel_x >= image_width || pixel_y >= image_height)
+                        continue;
 
                     color accumulated_color(0, 0, 0);
-
-                    // Determine the number of samples to use (1 if AA is disabled)
                     int spp = enable_antialias ? samples_per_pixel : 1;
 
                     for (int s = 0; s < spp; s++) {
-                        // Compute random offsets for anti-aliasing if enabled, else center pixel sample
-                        double u = (static_cast<double>(pixel_x) + (enable_antialias ? random_double(0.0, 1.0) : 0.5)) / (image_width - 1);
-                        double v = (static_cast<double>(pixel_y) + (enable_antialias ? random_double(0.0, 1.0) : 0.5)) / (image_height - 1);
+                        double offset_x = enable_antialias ? random_double(0.0, 1.0) : 0.5;
+                        double offset_y = enable_antialias ? random_double(0.0, 1.0) : 0.5;
 
-                        // Compute ray direction
-                        vec3 ray_direction = lower_left_corner + u * horizontal + v * vertical - origin;
+                        // NDC and screen coordinates
+                        double ndc_x = (static_cast<double>(pixel_x) + offset_x) / (image_width);
+                        double ndc_y = (static_cast<double>(pixel_y) + offset_y) / (image_height);
+                        double screen_x = (2.0 * ndc_x - 1.0) * aspect_ratio * tan_half_fov;
+                        double screen_y = (1.0 - 2.0 * ndc_y) * tan_half_fov;
+                        double screen_z = camera_space ? image_plane_z : -1.0;
 
-                        ray r(origin, unit_vector(ray_direction));
-                        accumulated_color += cast_ray(r, world, lights);
+                        vec3 origin, direction;
+
+                        if (camera_space) {
+                            origin = vec3(0.0, 0.0, 0.0);
+                            direction = unit_vector(vec3(screen_x, screen_y, screen_z));
+                        }
+                        else {
+                            vec4 dir_cam(screen_x, screen_y, screen_z, 0.0);
+                            vec4 dir_world = camera_to_world_matrix * dir_cam;
+                            direction = unit_vector(dir_world.to_vec3());
+
+                            vec4 origin_cam(0.0, 0.0, 0.0, 1.0);
+                            vec4 origin_world = camera_to_world_matrix * origin_cam;
+                            origin = origin_world.to_vec3();
+                        }
+
+                        ray r(origin, direction);
+
+                        // Cast ray and accumulate color
+                        accumulated_color += cast_ray(r, manager, lights);
                     }
 
-                    // Average the color if AA is enabled
+                    // Average color and write to pixel buffer
                     accumulated_color *= (1.0 / spp);
-
-                    // Write the pixel color to the output buffer
-                    write_color(pixels, pixel_x, pixel_y, image_width, image_height, accumulated_color);
+                    int flipped_pixel_y = image_height - 1 - pixel_y;
+                    write_color(pixels, pixel_x, flipped_pixel_y, image_width, image_height, accumulated_color);
                 }
             }
         }
     }
-
-    // Setter for origin
+    // Setters
     void set_origin(const point3& new_origin) {
         origin = new_origin;
-        update_basis_vectors();
+        calculate_axes();
+        calculate_matrices();
     }
 
-    // Setter for focal length
-    void set_focal_length(double new_focal_length) {
-        focal_length = new_focal_length;
-        update_basis_vectors();
+    void set_look_at(const point3& new_look_at) {
+        look_at = new_look_at;
+        calculate_axes();
+        calculate_matrices();
     }
 
-    // Setter for image width
+    void set_fov(double new_fov) {
+        if (new_fov < 10.0 || new_fov > 120.0) {
+            throw std::invalid_argument("FOV must be between 10 and 120 degrees.");
+        }
+        fov = new_fov;
+        calculate_axes();
+        calculate_matrices();
+    }
+
     void set_image_width(int new_image_width) {
+        if (new_image_width <= 100) {
+            throw std::invalid_argument("Image width must be greater than 100.");
+        }
+
         image_width = new_image_width;
         image_height = static_cast<int>(image_width / aspect_ratio);
         image_height = (image_height < 1) ? 1 : image_height;
@@ -119,39 +229,22 @@ public:
         pixels = new Uint32[image_width * image_height];
 
         clear_pixels();
-
-        update_basis_vectors();
+        calculate_axes();
+        calculate_matrices();
     }
 
-    // Accessors to get width, height, pixels if needed
+    // Accessors
+    point3 get_origin() const { return origin; }
+    point3 get_look_at() const { return look_at; }
+    double get_fov_degrees() const { return fov; }
     int get_image_width() const { return image_width; }
     int get_image_height() const { return image_height; }
-    point3 get_origin() const { return origin; }
-    double get_focal_length() const { return focal_length; }
-    vec3 get_horizontal() const { return horizontal; }
-    vec3 get_vertical() const { return vertical; }
-    double get_horizontal_length() const { return horizontal_length; }
-    double get_vertical_length() const { return vertical_length; }
     Uint32* get_pixels() const { return pixels; }
+    vec3 get_right() const { return right; }
+    vec3 get_up() const { return up; }
+    vec3 get_forward() const { return forward; }
 
 private:
-    double horizontal_length;
-    double vertical_length;
-
-    void update_basis_vectors() {
-        double viewport_height = 2.0 / focal_length;
-        double viewport_width = aspect_ratio * viewport_height;
-
-        horizontal = vec3(viewport_width, 0, 0);
-        vertical = vec3(0, viewport_height, 0);
-
-        horizontal_length = horizontal.length();
-        vertical_length = vertical.length();
-
-        lower_left_corner = origin - horizontal / 2.0 - vertical / 2.0 - vec3(0, 0, focal_length);
-
-    }
-
 
     color background_color(const ray& r) const {
         vec3 unit_direction = unit_vector(r.direction());
@@ -222,7 +315,7 @@ private:
         return final_color;
     }
 
-    color cast_ray(const ray& r, const hittable& world, const std::vector<Light>& lights, int depth = 50) const {
+    color cast_ray(const ray& r, const hittable& world, const std::vector<Light>& lights, int depth = 5) const {
         if (depth <= 0) {
             return color(0, 0, 0);
         }
@@ -256,15 +349,19 @@ private:
     }
 
     // Camera attributes
-    point3 origin;
-    vec3 horizontal;
-    vec3 vertical;
-    point3 lower_left_corner;
-    double focal_length;
-    double aspect_ratio;
-
+    point3 origin;          // Camera position (Eye)
+    point3 look_at;         // Look-at point (At)
+    vec3 world_up;          // World Up vector (Up)
+    double fov;             // Field of view
     int image_width;
     int image_height;
+    double aspect_ratio;
+
+    // Camera Axis
+    vec3 right;
+    vec3 up;
+    vec3 forward;
+
     Uint32* pixels;
 };
 
