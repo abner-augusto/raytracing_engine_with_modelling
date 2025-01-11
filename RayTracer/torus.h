@@ -1,12 +1,13 @@
 #ifndef TORUS_H
 #define TORUS_H
 
+
+#include <cmath>
+#include <algorithm>
 #include "hittable.h"
 #include "vec3.h"
 #include "material.h"
-#include "interval.h"
-#include <cmath>
-#include <algorithm>
+#include "matrix4x4.h"
 
 // Intersection routine adapted for index-based access and no vec2 class
 static double torIntersect(const vec3& ro, const vec3& rd, double major_radius, double minor_radius) {

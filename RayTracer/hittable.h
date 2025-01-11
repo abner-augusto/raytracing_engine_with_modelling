@@ -5,7 +5,6 @@
 #include "vec3.h"
 #include "material.h"
 #include "interval.h"
-#include "matrix4x4.h"
 
 class hit_record {
 public:
@@ -31,7 +30,9 @@ public:
 
     virtual bool hit(const ray& r, interval ray_t, hit_record& rec) const = 0;
 
-    virtual void transform(const Matrix4x4& matrix) = 0;
+    // Transform the object using a 4x4 matrix
+    virtual void transform(const Matrix4x4& transform) = 0;
+
 };
 
 #endif

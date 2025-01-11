@@ -1,186 +1,123 @@
 #ifndef BOX_H
 #define BOX_H
 
+#include <vector>
 #include "hittable.h"
+#include "triangle.h"
+#include "material.h"
 #include "vec3.h"
 #include "matrix4x4.h"
-#include "material.h"
-#include "interval.h"
-#include "primitive.h"
-#include <array>
-#include <algorithm>
-#include <cmath>
+#include "boundingbox.h"
 
-class box : public hittable, public Primitive {
+class box : public hittable {
 public:
-    // Constructor using min and max corners
-    box(const point3& v_min, const point3& v_max, const mat& material)
-        : min_corner(v_min), v_max(v_max), material(material) {
-        update_vertices();
+    // Constructor: specify min and max corners with UV scaling
+    box(const point3& _vmin, const point3& _vmax, const mat& _material, double uv_scale = 1.0)
+        : vmin(_vmin), vmax(_vmax), material(_material), uv_scale(uv_scale) {
+        create_box_triangles();
     }
 
-    // Alternative constructor using center and width
-    box(const point3& center, double width, const mat& material)
-        : material(material) {
-        vec3 half_width(width / 2.0, width / 2.0, width / 2.0);
-        min_corner = center - half_width;
-        v_max = center + half_width;
-        update_vertices();
+    // Constructor: specify center and width (cube) with UV scaling
+    box(const point3& center, double width, const mat& _material, double uv_scale = 1.0)
+        : material(_material), uv_scale(uv_scale) {
+        double half_width = width * 0.5;
+        vmin = point3(center.x() - half_width, center.y() - half_width, center.z() - half_width);
+        vmax = point3(center.x() + half_width, center.y() + half_width, center.z() + half_width);
+        create_box_triangles();
     }
 
-    // Constructor using min corner and dimensions
-    box(const point3& v_min, double length, double width, double height, const mat& material)
-        : min_corner(v_min),
-        v_max(v_min + point3(length, width, height)),
-        material(material) {
-        update_vertices();
+    // Constructor: specify vmin and dimensions with UV scaling
+    box(const point3& _vmin, double width, double height, double depth, const mat& _material, double uv_scale = 1.0)
+        : vmin(_vmin), material(_material), uv_scale(uv_scale) {
+        vmax = point3(_vmin.x() + width, _vmin.y() + height, _vmin.z() + depth);
+        create_box_triangles();
     }
 
-    // Hit function
-    bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
-        const vec3& origin = r.origin();
-        const vec3& direction = r.direction();
-
-        double t_min = ray_t.min;
-        double t_max = ray_t.max;
-        int hit_axis = -1;
-
-        for (int i = 0; i < 3; ++i) {
-            if (std::fabs(direction[i]) < 1e-12) {
-                if (origin[i] < min_corner[i] || origin[i] > v_max[i]) {
-                    return false;
-                }
-            }
-            else {
-                double inv_d = 1.0 / direction[i];
-                double t0 = (min_corner[i] - origin[i]) * inv_d;
-                double t1 = (v_max[i] - origin[i]) * inv_d;
-                if (t0 > t1) std::swap(t0, t1);
-
-                if (t0 > t_min) {
-                    t_min = t0;
-                    hit_axis = i;
-                }
-                t_max = (t1 < t_max) ? t1 : t_max;
-
-                if (t_max <= t_min) {
-                    return false;
-                }
-            }
-        }
-
-        rec.t = t_min;
-        rec.p = r.at(t_min);
-        rec.material = &material;
-
-        vec3 outward_normal(0, 0, 0);
-        if (hit_axis >= 0) {
-            double mid_point = 0.5 * (min_corner[hit_axis] + v_max[hit_axis]);
-            outward_normal[hit_axis] = (rec.p[hit_axis] < mid_point) ? -1.0 : 1.0;
-        }
-
-        rec.set_face_normal(r, outward_normal);
-
-        if (!rec.front_face) {
-            return false;
-        }
-
-        return true;
-    }
-
-    // Axis-Aligned Intersection Test for Octree usage
-    char test_bb(const BoundingBox& bb) const override {
-        // Check for complete separation (no overlap)
-        if (bb.vmin.x() >= v_max.x() || bb.vmax().x() <= min_corner.x() ||
-            bb.vmin.y() >= v_max.y() || bb.vmax().y() <= min_corner.y() ||
-            bb.vmin.z() >= v_max.z() || bb.vmax().z() <= min_corner.z()) {
-            return 'w'; // Completely outside
-        }
-
-        // Check if the bounding box is completely inside this box
-        if (bb.vmin.x() >= min_corner.x() && bb.vmax().x() <= v_max.x() &&
-            bb.vmin.y() >= min_corner.y() && bb.vmax().y() <= v_max.y() &&
-            bb.vmin.z() >= min_corner.z() && bb.vmax().z() <= v_max.z()) {
-            return 'b'; // Completely inside
-        }
-
-        // Otherwise, there is partial overlap
-        return 'g';
-    }
-
+    // Apply a transformation matrix to the entire box
     void transform(const Matrix4x4& matrix) override {
-        // Transform each vertex using the transformation matrix
-        for (auto& vertex : vertices) {
-            vertex = matrix.transform_point(vertex);
+        // Transform the corner points
+        vmin = matrix.transform_point(vmin);
+        vmax = matrix.transform_point(vmax);
+
+        // Transform all the internal triangles
+        for (auto& tri : triangles) {
+            tri->transform(matrix);
+        }
+    }
+
+    // Ray hit function for the box
+    bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
+        bool hit_anything = false;
+        double closest_so_far = ray_t.max;
+
+        for (const auto& tri : triangles) {
+            hit_record temp_rec;
+            if (tri->hit(r, interval(ray_t.min, closest_so_far), temp_rec)) {
+                hit_anything = true;
+                closest_so_far = temp_rec.t;
+                rec = temp_rec;
+            }
         }
 
-        // Update min and max bounds based on transformed vertices
-        update_bounds();
-    }
-
-    // Get all vertices of the box
-    const std::array<point3, 8>& get_vertices() const {
-        return vertices;
-    }
-
-    // Getters
-    point3 get_min_corner() const { return min_corner; }
-    point3 get_max_corner() const { return v_max; }
-    mat get_material() const { return material; }
-
-    // Setters
-    void set_min_corner(const point3& min) {
-        min_corner = min;
-        update_vertices();
-    }
-
-    void set_max_corner(const point3& max) {
-        v_max = max;
-        update_vertices();
-    }
-
-    void set_material(const mat& new_material) {
-        material = new_material;
-    }
-
-    void set_bounds(const point3& min, const point3& max) {
-        min_corner = min;
-        v_max = max;
-        update_vertices();
+        return hit_anything;
     }
 
 private:
-    point3 min_corner;
-    point3 v_max;
-    mat material;
+    point3 vmin;
+    point3 vmax;
+    const mat& material;
+    double uv_scale;
+    std::vector<std::shared_ptr<triangle>> triangles;
 
-    // Store the 8 vertices of the box
-    std::array<point3, 8> vertices;
+    // Build 12 triangles for the box with consistent UV mapping and scaling
+    void create_box_triangles() {
+        double x0 = vmin.x();
+        double y0 = vmin.y();
+        double z0 = vmin.z();
+        double x1 = vmax.x();
+        double y1 = vmax.y();
+        double z1 = vmax.z();
 
-    // Update the vertices based on current min and max corners
-    void update_vertices() {
-        vertices = {
-            min_corner,
-            point3(v_max.x(), min_corner.y(), min_corner.z()),
-            point3(v_max.x(), v_max.y(), min_corner.z()),
-            point3(min_corner.x(), v_max.y(), min_corner.z()),
-            point3(min_corner.x(), min_corner.y(), v_max.z()),
-            point3(v_max.x(), min_corner.y(), v_max.z()),
-            point3(v_max.x(), v_max.y(), v_max.z()),
-            point3(min_corner.x(), v_max.y(), v_max.z())
-        };
+        // Corner points
+        point3 A(x0, y0, z0);
+        point3 B(x1, y0, z0);
+        point3 C(x1, y1, z0);
+        point3 D(x0, y1, z0);
+        point3 E(x0, y0, z1);
+        point3 F(x1, y0, z1);
+        point3 G(x1, y1, z1);
+        point3 H(x0, y1, z1);
+
+        // Scale factor for UVs
+        double us = uv_scale;
+        double vs = uv_scale;
+
+        // Add 2 triangles per face with scaled UVs
+        // Front face (+Z)
+        triangles.push_back(std::make_shared<triangle>(E, F, G, 0.0 * us, 0.0 * vs, 1.0 * us, 0.0 * vs, 1.0 * us, 1.0 * vs, material));
+        triangles.push_back(std::make_shared<triangle>(E, G, H, 0.0 * us, 0.0 * vs, 1.0 * us, 1.0 * vs, 0.0 * us, 1.0 * vs, material));
+
+        // Back face (-Z)
+        triangles.push_back(std::make_shared<triangle>(A, B, C, 0.0 * us, 0.0 * vs, 1.0 * us, 0.0 * vs, 1.0 * us, 1.0 * vs, material));
+        triangles.push_back(std::make_shared<triangle>(A, C, D, 0.0 * us, 0.0 * vs, 1.0 * us, 1.0 * vs, 0.0 * us, 1.0 * vs, material));
+
+        // Right face (+X)
+        triangles.push_back(std::make_shared<triangle>(F, B, G, 0.0 * us, 0.0 * vs, 1.0 * us, 0.0 * vs, 1.0 * us, 1.0 * vs, material));
+        triangles.push_back(std::make_shared<triangle>(G, B, C, 0.0 * us, 1.0 * vs, 1.0 * us, 0.0 * vs, 1.0 * us, 1.0 * vs, material));
+
+        // Left face (-X)
+        triangles.push_back(std::make_shared<triangle>(A, E, H, 0.0 * us, 0.0 * vs, 1.0 * us, 0.0 * vs, 1.0 * us, 1.0 * vs, material));
+        triangles.push_back(std::make_shared<triangle>(A, H, D, 0.0 * us, 0.0 * vs, 1.0 * us, 1.0 * vs, 0.0 * us, 1.0 * vs, material));
+
+        // Top face (+Y)
+        triangles.push_back(std::make_shared<triangle>(C, D, G, 1.0 * us, 0.0 * vs, 0.0 * us, 0.0 * vs, 1.0 * us, 1.0 * vs, material));
+        triangles.push_back(std::make_shared<triangle>(G, D, H, 1.0 * us, 1.0 * vs, 0.0 * us, 0.0 * vs, 0.0 * us, 1.0 * vs, material));
+
+        // Bottom face (-Y)
+        triangles.push_back(std::make_shared<triangle>(F, E, B, 0.0 * us, 0.0 * vs, 1.0 * us, 0.0 * vs, 1.0 * us, 1.0 * vs, material));
+        triangles.push_back(std::make_shared<triangle>(B, E, A, 0.0 * us, 0.0 * vs, 1.0 * us, 1.0 * vs, 0.0 * us, 1.0 * vs, material));
     }
 
-    // Update bounds based on transformed vertices
-    void update_bounds() {
-        min_corner = vertices[0];
-        v_max = vertices[0];
-
-        for (const auto& vertex : vertices) {
-            min_corner = min(min_corner, vertex); // Update minimum bounds
-            v_max = max(v_max, vertex);          // Update maximum bounds
-        }
-    }
 };
 
-#endif
+#endif // BOX_H

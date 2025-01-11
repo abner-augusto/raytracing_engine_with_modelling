@@ -65,7 +65,7 @@ void Cleanup_SDL(SDL_Window* window, SDL_Renderer* renderer, SDL_Texture* textur
     SDL_Quit();
 }
 
-void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, double aspect_ratio) {
+void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, double aspect_ratio, Camera& camera, RenderState& render_state ,float speed = 0.1f) {
     if (event.type == SDL_QUIT) {
         running = false;
     }
@@ -95,4 +95,103 @@ void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, dou
             SDL_SetWindowSize(window, adjusted_width, adjusted_height);
         }
     }
+
+    if (event.type == SDL_KEYDOWN) {
+        switch (event.key.keysym.sym) {
+        case SDLK_ESCAPE:
+            running = false;
+            break;
+
+        case SDLK_w: { // Move forward
+            vec3 forward = camera.get_look_at() - camera.get_origin();
+            forward = unit_vector(forward); // Normalize the forward vector
+            camera.set_origin(camera.get_origin() + forward * speed);
+            camera.set_look_at(camera.get_look_at() + forward * speed);
+            break;
+        }
+
+        case SDLK_s: { // Move backward
+            vec3 forward = camera.get_look_at() - camera.get_origin();
+            forward = unit_vector(forward); // Normalize the forward vector
+            camera.set_origin(camera.get_origin() - forward * speed);
+            camera.set_look_at(camera.get_look_at() - forward * speed);
+            break;
+        }
+
+        case SDLK_a: { // Move left
+            vec3 right = cross(camera.get_up(), camera.get_look_at() - camera.get_origin());
+            right = unit_vector(right); // Normalize the right vector
+            camera.set_origin(camera.get_origin() + right * speed);
+            camera.set_look_at(camera.get_look_at() + right * speed);
+            break;
+        }
+
+        case SDLK_d: { // Move right
+            vec3 right = cross(camera.get_up(), camera.get_look_at() - camera.get_origin());
+            right = unit_vector(right); // Normalize the right vector
+            camera.set_origin(camera.get_origin() - right * speed);
+            camera.set_look_at(camera.get_look_at() - right * speed);
+            break;
+        }
+
+        case SDLK_UP: { // Move look_at up
+            point3 look_at = camera.get_look_at();
+            camera.set_look_at(look_at + camera.get_up() * speed);
+            break;
+        }
+
+        case SDLK_DOWN: { // Move look_at down
+            point3 look_at = camera.get_look_at();
+            camera.set_look_at(look_at - camera.get_up() * speed);
+            break;
+        }
+
+        case SDLK_LEFT: { // Move look_at left
+            point3 look_at = camera.get_look_at();
+            camera.set_look_at(look_at - camera.get_right() * speed);
+            break;
+        }
+
+        case SDLK_RIGHT: { // Move look_at right
+            point3 look_at = camera.get_look_at();
+            camera.set_look_at(look_at + camera.get_right() * speed);
+            break;
+        }
+
+        case SDLK_q: { // Move origin and look_at up
+            point3 origin = camera.get_origin();
+            point3 look_at = camera.get_look_at();
+            vec3 up = camera.get_up();
+            camera.set_origin(origin + up * speed);
+            camera.set_look_at(look_at + up * speed);
+            break;
+        }
+
+        case SDLK_e: { // Move origin and look_at down
+            point3 origin = camera.get_origin();
+            point3 look_at = camera.get_look_at();
+            vec3 up = camera.get_up();
+            camera.set_origin(origin - up * speed);
+            camera.set_look_at(look_at - up * speed);
+            break;
+        }
+
+        case SDLK_1: // Set render mode: HighResolution
+            render_state.set_mode(DefaultRender);
+            break;
+
+        case SDLK_2: // Set render mode: LowResolution
+            render_state.set_mode(LowResolution);
+            break;
+
+        case SDLK_3: // Set render mode: DefaultRender
+            render_state.set_mode(HighResolution);
+            break;
+
+        case SDLK_4: // Set render mode: Disabled
+            render_state.set_mode(Disabled);
+            break;
+        }
+    }
+
 }

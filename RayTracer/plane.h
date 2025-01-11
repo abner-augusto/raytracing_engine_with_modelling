@@ -1,33 +1,34 @@
 #ifndef PLANE_H
 #define PLANE_H
-
 #include "hittable.h"
 #include "vec3.h"
 #include "material.h"
+#include "matrix4x4.h"
 
 class plane : public hittable {
 public:
-    plane(const point3& point_on_plane, const vec3& normal_vector, const mat& material)
-        : point(point_on_plane), normal(unit_vector(normal_vector)), material(material) {
+    plane(const point3& point_on_plane, const vec3& normal_vector, const mat& material,
+        double scale_factor = 1.0)  // Add scale factor parameter
+        : point(point_on_plane), normal(unit_vector(normal_vector)),
+        material(material), scale(scale_factor) {
     }
 
     virtual bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
         // Compute the denominator of the intersection formula
         auto denom = dot(normal, r.direction());
 
-        // Se o denominador for próximo de zero, o raio é paralelo ao plano
+        // If the denominator is close to zero, the ray is parallel to the plane
         if (fabs(denom) < 1e-6) {
             return false;
         }
 
-        // Calcula o ponto de interseção
+        // Calculate the intersection point
         auto t = dot(point - r.origin(), normal) / denom;
 
-        // Verifica se t está dentro do intervalo válido
+        // Check if t is within the valid range
         if (!ray_t.surrounds(t)) {
             return false;
         }
-
         rec.t = t;
         rec.p = r.at(rec.t);
         rec.set_face_normal(r, normal);
@@ -35,15 +36,15 @@ public:
 
         // Calculate UV coordinates
         calculate_uv(rec.p, rec.u, rec.v);
-
         return true;
     }
 
     void calculate_uv(const point3& hit_point, double& u, double& v) const {
-        // Map hit_point to the local X-Z plane for UV mapping
+        // Scale the local point coordinates before UV mapping
         vec3 local_point = hit_point - point;
-        u = fmod(local_point.x(), 1.0);
-        v = fmod(local_point.z(), 1.0);
+        // Apply the scale factor here
+        u = fmod(local_point.x() * scale, 1.0);
+        v = fmod(local_point.z() * scale, 1.0);
 
         // Ensure UV are positive
         if (u < 0) u += 1.0;
@@ -51,18 +52,15 @@ public:
     }
 
     void transform(const Matrix4x4& matrix) override {
-        // Transform the point on the plane
         point = matrix.transform_point(point);
-
-        // Transform the normal vector
         normal = matrix.transform_vector(normal);
         normal = unit_vector(normal);
     }
 
 private:
-    point3 point;       // Um ponto no plano
-    vec3 normal;        // O vetor normal do plano (deve ser normalizado)
+    point3 point;
+    vec3 normal;
     mat material;
+    double scale;
 };
-
 #endif

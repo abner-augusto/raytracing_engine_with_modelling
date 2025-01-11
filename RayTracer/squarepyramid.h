@@ -4,10 +4,9 @@
 #include "hittable.h"
 #include "vec3.h"
 #include "boundingbox.h"
-#include "primitive.h"
 #include <cmath>
 
-class SquarePyramid : public Primitive {
+class SquarePyramid {
 public:
     point3 inferiorPoint; // Bottom center of the pyramid's base
     double height;        // Height of the pyramid
@@ -60,50 +59,50 @@ public:
 
 
     // Intersection test with a bounding box
-    char test_bb(const BoundingBox& bb) const override {
-        // Step 1: Quick bounding-box overlap check
-        //         If the pyramid's bounding box and 'bb' do not intersect, return 'w'.
-        if (!bb.Intersects(this->boundingBox())) {
-            return 'w'; // completely outside
-        }
+    //char test_bb(const BoundingBox& bb) const override {
+    //    // Step 1: Quick bounding-box overlap check
+    //    //         If the pyramid's bounding box and 'bb' do not intersect, return 'w'.
+    //    if (!bb.Intersects(this->boundingBox())) {
+    //        return 'w'; // completely outside
+    //    }
 
-        // Step 2a: Count how many corners of 'bb' are inside the pyramid.
-        unsigned int bbCornersInsidePyramid = 0;
-        for (const auto& corner : bb.Vertices()) {
-            if (is_point_inside_pyramid(corner)) {
-                bbCornersInsidePyramid++;
-            }
-        }
+    //    // Step 2a: Count how many corners of 'bb' are inside the pyramid.
+    //    unsigned int bbCornersInsidePyramid = 0;
+    //    for (const auto& corner : bb.Vertices()) {
+    //        if (is_point_inside_pyramid(corner)) {
+    //            bbCornersInsidePyramid++;
+    //        }
+    //    }
 
-        // Step 2b: Count how many corners of the pyramid's bounding box are inside 'bb'.
-        unsigned int pyramidBBCornersInsideBB = 0;
-        auto pyramidBBVertices = this->boundingBox().Vertices();
-        for (const auto& corner : pyramidBBVertices) {
-            // The bounding box class has a TestPoint(...) function.
-            if (bb.TestPoint(corner)) {
-                pyramidBBCornersInsideBB++;
-            }
-        }
+    //    // Step 2b: Count how many corners of the pyramid's bounding box are inside 'bb'.
+    //    unsigned int pyramidBBCornersInsideBB = 0;
+    //    auto pyramidBBVertices = this->boundingBox().Vertices();
+    //    for (const auto& corner : pyramidBBVertices) {
+    //        // The bounding box class has a TestPoint(...) function.
+    //        if (bb.TestPoint(corner)) {
+    //            pyramidBBCornersInsideBB++;
+    //        }
+    //    }
 
-        // Decision logic:
-        // 1) If all corners of 'bb' are inside the pyramid => 'b' (completely inside).
-        if (bbCornersInsidePyramid == 8) {
-            return 'b';
-        }
+    //    // Decision logic:
+    //    // 1) If all corners of 'bb' are inside the pyramid => 'b' (completely inside).
+    //    if (bbCornersInsidePyramid == 8) {
+    //        return 'b';
+    //    }
 
-        // 2) If more than one corner of the pyramid’s bounding box is inside 'bb' => 'g' (partial).
-        if (pyramidBBCornersInsideBB > 1) {
-            return 'g';
-        }
+    //    // 2) If more than one corner of the pyramid’s bounding box is inside 'bb' => 'g' (partial).
+    //    if (pyramidBBCornersInsideBB > 1) {
+    //        return 'g';
+    //    }
 
-        // 3) If at least one corner of 'bb' is inside the pyramid => 'g' (partial).
-        if (bbCornersInsidePyramid > 0) {
-            return 'g';
-        }
+    //    // 3) If at least one corner of 'bb' is inside the pyramid => 'g' (partial).
+    //    if (bbCornersInsidePyramid > 0) {
+    //        return 'g';
+    //    }
 
-        // 4) Otherwise => 'w' (completely outside).
-        return 'w';
-    }
+    //    // 4) Otherwise => 'w' (completely outside).
+    //    return 'w';
+    //}
 
 
 };

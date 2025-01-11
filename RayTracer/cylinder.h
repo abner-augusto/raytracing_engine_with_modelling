@@ -1,15 +1,15 @@
 #ifndef CYLINDER_H
 #define CYLINDER_H
 
+#include <cmath>
 #include "hittable.h"
 #include "vec3.h"
 #include "material.h"
-#include "interval.h"
 #include "boundingbox.h"
-#include "primitive.h"
-#include <cmath>
+#include "matrix4x4.h"
 
-class cylinder : public hittable, public Primitive {
+
+class cylinder : public hittable {
 public:
     cylinder(const point3& base_center, double height, double radius, const mat& material, bool capped = true)
         : a(base_center),

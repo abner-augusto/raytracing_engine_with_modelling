@@ -15,7 +15,14 @@ public:
 
     ~Light() = default;
 
+    // Transform method to apply a Matrix4x4 transformation
+    void transform(const Matrix4x4& matrix) {
+        //std::cout << "Applying transformation to light at: " << position << "\n";
+        position = matrix.transform_point(position);
+        //std::cout << "New position: " << position << "\n";
+    }
 
 };
+
 
 #endif

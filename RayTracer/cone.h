@@ -1,11 +1,11 @@
 #ifndef CONE_H
 #define CONE_H
 
+#include <cmath>
 #include "hittable.h"
 #include "vec3.h"
 #include "material.h"
-#include "interval.h"
-#include <cmath>
+#include "matrix4x4.h"
 
 class cone : public hittable {
 public:
