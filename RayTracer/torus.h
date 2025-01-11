@@ -1,12 +1,13 @@
 #ifndef TORUS_H
 #define TORUS_H
 
+
+#include <cmath>
+#include <algorithm>
 #include "hittable.h"
 #include "vec3.h"
 #include "material.h"
-#include "interval.h"
-#include <cmath>
-#include <algorithm>
+#include "matrix4x4.h"
 
 // Intersection routine adapted for index-based access and no vec2 class
 static double torIntersect(const vec3& ro, const vec3& rd, double major_radius, double minor_radius) {
@@ -184,6 +185,27 @@ public:
         rec.material = &material;
 
         return true;
+    }
+
+    void transform(const Matrix4x4& matrix) override {
+        // Transform the center point
+        center = matrix.transform_point(center);
+
+        // Transform the orientation vectors
+        u = matrix.transform_vector(u);
+        v = matrix.transform_vector(v);
+        w = matrix.transform_vector(w);
+
+        // Re-orthonormalize the vectors to maintain the torus's orientation
+        w = unit_vector(w);
+        u = unit_vector(cross(vec3(0, 1, 0), w));
+        v = cross(w, u);
+
+        // If scaling is applied, adjust the radii
+        // Extract the scale factor from the matrix (assuming uniform scaling)
+        /*double scale_factor = matrix.get_uniform_scale();
+        major_radius *= scale_factor;
+        minor_radius *= scale_factor;*/
     }
 
 private:

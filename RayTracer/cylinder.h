@@ -1,15 +1,15 @@
 #ifndef CYLINDER_H
 #define CYLINDER_H
 
+#include <cmath>
 #include "hittable.h"
 #include "vec3.h"
 #include "material.h"
-#include "interval.h"
 #include "boundingbox.h"
-#include "primitive.h"
-#include <cmath>
+#include "matrix4x4.h"
 
-class cylinder : public hittable, public Primitive {
+
+class cylinder : public hittable {
 public:
     cylinder(const point3& base_center, double height, double radius, const mat& material, bool capped = true)
         : a(base_center),
@@ -216,6 +216,23 @@ public:
             // Some corners in, some out => partial
             return 'g';
         }
+    }
+
+    void transform(const Matrix4x4& matrix) override {
+        // Transform the base and top center points
+        a = matrix.transform_point(a);
+        b = matrix.transform_point(b);
+
+        // Recompute the cylinder axis
+        cylinder_axis = b - a;
+
+        // Update height and axis length squared
+        height = cylinder_axis.length();
+        axis_length_squared = dot(cylinder_axis, cylinder_axis);
+
+        // Update radius (assuming uniform scaling)
+        /*double scale_factor = matrix.get_uniform_scale();
+        radius *= scale_factor;*/
     }
 
 private:

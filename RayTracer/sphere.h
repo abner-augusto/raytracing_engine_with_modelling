@@ -7,9 +7,8 @@
 #include "vec3.h"
 #include "material.h"
 #include "boundingbox.h"
-#include "primitive.h"
 
-class sphere : public hittable, public Primitive {
+class sphere : public hittable {
 public:
     sphere(const point3& center, double radius, const mat& material)
         : center(center), radius(std::fmax(0, radius)), material(material) {
@@ -90,6 +89,15 @@ public:
         }
 
         return 'g';
+    }
+
+    void transform(const Matrix4x4& matrix) override {
+        // Apply transformation to the center of the sphere
+        center = matrix.transform_point(center);
+
+        // Apply uniform scaling radius of the sphere
+        /*double scalingFactor = matrix.get_uniform_scale();
+        radius *= scalingFactor;*/
     }
 
 private:
