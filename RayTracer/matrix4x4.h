@@ -35,14 +35,57 @@ public:
                 m[i][j] = (i == j) ? 1.0 : 0.0;
     }
 
-    // Transpose the matrix
-    Matrix4x4 transpose() const {
+    //Transpose Lines into Columns
+    Matrix4x4 transpose(const Matrix4x4& mat) {
         Matrix4x4 result;
         for (int i = 0; i < 4; ++i) {
             for (int j = 0; j < 4; ++j) {
-                result.m[i][j] = m[j][i];
+                result.m[i][j] = mat.m[j][i];
             }
         }
+        return result;
+    }
+
+    // Matrix-Vector3 multiplication
+    vec3 transform_vector(const vec3& v) const {
+        vec4 v4(v, 0.0);
+        vec4 result = (*this) * v4;
+        return vec3(result.x, result.y, result.z);
+    }
+
+    // Matrix-Point multiplication
+    point3 transform_point(const point3& p) const {
+        vec4 p4(p, 1.0);
+        vec4 result = (*this) * p4;
+        return point3(result.x, result.y, result.z);
+    }
+
+    // Print the matrix for debugging
+    void print() const {
+        for (int i = 0; i < 4; ++i) {
+            for (int j = 0; j < 4; ++j) {
+                std::cout << std::setw(10) << m[i][j] << " ";
+            }
+            std::cout << "\n";
+        }
+    }
+    // Matrix-matrix multiplication
+    Matrix4x4 operator*(const Matrix4x4& other) const {
+        Matrix4x4 result;
+
+        // Initialize result matrix more effiently
+        std::memset(result.m, 0, sizeof(result.m));
+
+        for (int i = 0; i < 4; ++i) {
+            for (int j = 0; j < 4; ++j) {
+                result.m[i][j] =
+                    m[i][0] * other.m[0][j] +
+                    m[i][1] * other.m[1][j] +
+                    m[i][2] * other.m[2][j] +
+                    m[i][3] * other.m[3][j];
+            }
+        }
+
         return result;
     }
 
@@ -62,6 +105,18 @@ public:
         return mat;
     }
 
+    // Matrix-vector4 multiplication
+    vec4 operator*(const vec4& v) const {
+        return vec4(
+            m[0][0] * v.x + m[0][1] * v.y + m[0][2] * v.z + m[0][3] * v.w,
+            m[1][0] * v.x + m[1][1] * v.y + m[1][2] * v.z + m[1][3] * v.w,
+            m[2][0] * v.x + m[2][1] * v.y + m[2][2] * v.z + m[2][3] * v.w,
+            m[3][0] * v.x + m[3][1] * v.y + m[3][2] * v.z + m[3][3] * v.w
+        );
+    }
+
+    //Multiplies a 4D vector by the matrix represented by the current object,
+    //followed by a perspective division to normalize the resulting vector.
     vec4 mul_vec4_project(const vec4& v) const {
         // Use the matrix-vector multiplication operator
         vec4 result = (*this) * v;
@@ -171,50 +226,6 @@ public:
         return mat;
     }
 
-    // Matrix-vector4 multiplication
-    vec4 operator*(const vec4& v) const {
-        return vec4(
-            m[0][0] * v.x + m[0][1] * v.y + m[0][2] * v.z + m[0][3] * v.w,
-            m[1][0] * v.x + m[1][1] * v.y + m[1][2] * v.z + m[1][3] * v.w,
-            m[2][0] * v.x + m[2][1] * v.y + m[2][2] * v.z + m[2][3] * v.w,
-            m[3][0] * v.x + m[3][1] * v.y + m[3][2] * v.z + m[3][3] * v.w
-        );
-    }
-
-    // Matrix-matrix multiplication
-    Matrix4x4 operator*(const Matrix4x4& other) const {
-        Matrix4x4 result;
-
-        // Initialize result matrix more effiently
-        std::memset(result.m, 0, sizeof(result.m));
-
-        for (int i = 0; i < 4; ++i) {
-            for (int j = 0; j < 4; ++j) {
-                result.m[i][j] =
-                    m[i][0] * other.m[0][j] +
-                    m[i][1] * other.m[1][j] +
-                    m[i][2] * other.m[2][j] +
-                    m[i][3] * other.m[3][j];
-            }
-        }
-
-        return result;
-    }
-
-    // Matrix-Vector3 multiplication
-    vec3 transform_vector(const vec3& v) const {
-        vec4 v4(v, 0.0);
-        vec4 result = (*this) * v4;
-        return vec3(result.x, result.y, result.z);
-    }
-
-    // Matrix-Point multiplication
-    point3 transform_point(const point3& p) const {
-        vec4 p4(p, 1.0);
-        vec4 result = (*this) * p4;
-        return point3(result.x, result.y, result.z);
-    }
-
     // Assuming a uniform scale, extract the scaling factor from the matrix
     // by averaging the scaling components of the x, y, and z axes.
     double get_uniform_scale() const {
@@ -225,26 +236,6 @@ public:
         return (scale_x + scale_y + scale_z) / 3.0;
     }
 
-    // Print the matrix for debugging
-    void print() const {
-        for (int i = 0; i < 4; ++i) {
-            for (int j = 0; j < 4; ++j) {
-                std::cout << std::setw(10) << m[i][j] << " ";
-            }
-            std::cout << "\n";
-        }
-    }
-
-    //Transpose Lines into Columns
-    Matrix4x4 transpose(const Matrix4x4& mat) {
-        Matrix4x4 result;
-        for (int i = 0; i < 4; ++i) {
-            for (int j = 0; j < 4; ++j) {
-                result.m[i][j] = mat.m[j][i];
-            }
-        }
-        return result;
-    }
 
     Matrix4x4 inverse() const {
         Matrix4x4 inv;
