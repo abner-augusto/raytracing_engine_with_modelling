@@ -184,14 +184,20 @@ public:
     // Matrix-matrix multiplication
     Matrix4x4 operator*(const Matrix4x4& other) const {
         Matrix4x4 result;
+
+        // Initialize result matrix more effiently
+        std::memset(result.m, 0, sizeof(result.m));
+
         for (int i = 0; i < 4; ++i) {
             for (int j = 0; j < 4; ++j) {
-                result.m[i][j] = 0.0;
-                for (int k = 0; k < 4; ++k) {
-                    result.m[i][j] += m[i][k] * other.m[k][j];
-                }
+                result.m[i][j] =
+                    m[i][0] * other.m[0][j] +
+                    m[i][1] * other.m[1][j] +
+                    m[i][2] * other.m[2][j] +
+                    m[i][3] * other.m[3][j];
             }
         }
+
         return result;
     }
 
@@ -227,6 +233,17 @@ public:
             }
             std::cout << "\n";
         }
+    }
+
+    //Transpose Lines into Columns
+    Matrix4x4 transpose(const Matrix4x4& mat) {
+        Matrix4x4 result;
+        for (int i = 0; i < 4; ++i) {
+            for (int j = 0; j < 4; ++j) {
+                result.m[i][j] = mat.m[j][i];
+            }
+        }
+        return result;
     }
 
     Matrix4x4 inverse() const {
