@@ -161,9 +161,14 @@ int main(int argc, char* argv[]) {
 
     // Matrix List
     point3 viga_vmin = point3(0.5, 0.0, 0.0);
+    point3 table_center = point3(1.25, 0.975, 0.75);
 
     Matrix4x4 movetable;
     movetable = movetable.translation(vec3(-1.25, 0, -5.75));
+    Matrix4x4 movetable_origin;
+    movetable_origin = movetable_origin.translation(-table_center);
+    Matrix4x4 movetable_back;
+    movetable_back = movetable_back.translation(table_center);
 
     Matrix4x4 movetree;
     movetree = movetree.translation(vec3(0, 1.0, -5));
@@ -219,6 +224,8 @@ int main(int argc, char* argv[]) {
     Matrix4x4 portico_mirror;
     portico_mirror = portico_mirror.mirror('y');
 
+    Matrix4x4 mesa_transform = movetable_back * movetable * parede_rotate * movetable_origin;
+
     Matrix4x4 viga_transform = moveback * moveup * shear * viga_scale * move;
 
     Matrix4x4 telhado_transform = moveup * rotate * telhado_scale;
@@ -228,7 +235,7 @@ int main(int argc, char* argv[]) {
     Matrix4x4 parede_transform2 = movewall2 * parede_rotate * parede_scale2;
 
     //Mesa
-    world.transform_range(2, 4, movetable);
+    world.transform_range(2, 4, mesa_transform);
     //Arvore de Natal
     world.transform_range(5, 8, movetree);
     //Portico
