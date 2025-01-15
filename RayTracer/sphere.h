@@ -78,12 +78,12 @@ public:
     // 'b' if the bounding box is completely inside the sphere (full)
     // 'g' otherwise (partial)
     char test_bb(const BoundingBox& bb) const {
-        point3 closest = bb.ClosestPoint(center);
+        point3 closest = bb.getClosestPoint(center);
         if (!test_point(closest)) {
             return 'w';
         }
 
-        point3 furthest = bb.FurthestPoint(center);
+        point3 furthest = bb.getFurthestPoint(center);
         if (test_point(furthest)) {
             return 'b';
         }

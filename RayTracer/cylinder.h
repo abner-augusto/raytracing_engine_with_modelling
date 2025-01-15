@@ -174,8 +174,7 @@ public:
     }
 
     char test_bb(const BoundingBox& bb) const {
-        const auto vertices = bb.Vertices();
-
+        const auto vertices = bb.getVertices();
         // Count how many corners are inside
         unsigned int inside_count = 0;
         for (auto& v : vertices) {
@@ -183,33 +182,30 @@ public:
                 inside_count++;
             }
         }
-
         if (inside_count == 8) {
             return 'b'; // all corners inside
         }
         else if (inside_count == 0) {
             // 1) Check the center of the box
-            point3 c = bb.Center();
+            point3 c = bb.getCenter();
             if (IsPointInside(c)) {
                 return 'g';
             }
-
-            // 2) Optionally check the center of each face
+            // 2) Check the center of each face
+            point3 dims = bb.getDimensions();
             point3 faceCenters[6] = {
-                bb.vmin + vec3(bb.width / 2, bb.width / 2, 0),          // "top" face center
-                bb.vmin + vec3(bb.width / 2, bb.width / 2, bb.width),   // "bottom" face center
-                bb.vmin + vec3(bb.width / 2, 0, bb.width / 2),          // front 
-                bb.vmin + vec3(bb.width / 2, bb.width, bb.width / 2),   // back
-                bb.vmin + vec3(0, bb.width / 2, bb.width / 2),          // left
-                bb.vmin + vec3(bb.width, bb.width / 2, bb.width / 2)    // right
+                bb.vmin + vec3(dims.x() / 2, dims.y() / 2, 0),                // "top" face center
+                bb.vmin + vec3(dims.x() / 2, dims.y() / 2, dims.z()),         // "bottom" face center
+                bb.vmin + vec3(dims.x() / 2, 0, dims.z() / 2),                // front 
+                bb.vmin + vec3(dims.x() / 2, dims.y(), dims.z() / 2),         // back
+                bb.vmin + vec3(0, dims.y() / 2, dims.z() / 2),                // left
+                bb.vmin + vec3(dims.x(), dims.y() / 2, dims.z() / 2)          // right
             };
-
             for (auto& fc : faceCenters) {
                 if (IsPointInside(fc)) {
                     return 'g';
                 }
             }
-
             return 'w';
         }
         else {
