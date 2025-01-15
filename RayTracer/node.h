@@ -174,40 +174,51 @@ public:
         const Node& n1, const Node& n2,
         const std::string& operation)
     {
-        // Handle leaf node cases directly
+        // Handle cases where both nodes are leaf nodes (no children)
         if (n1.children.empty() && n2.children.empty()) {
+            // Extract the filled state of the leaf nodes
             bool fillA = n1.is_filled;
             bool fillB = n2.is_filled;
 
+            // Perform the specified boolean operation for leaf nodes
             if (operation == "intersection") {
+                // Intersection: Both nodes must be filled
                 return (fillA && fillB) ? FullNode() : EmptyNode();
             }
             else if (operation == "union") {
+                // Union: At least one node must be filled
                 return (fillA || fillB) ? FullNode() : EmptyNode();
             }
             else if (operation == "difference") {
+                // Difference: First node filled, second node not filled
                 return (fillA && !fillB) ? FullNode() : EmptyNode();
             }
         }
 
-        // Handle cases where one node is a leaf
+        // Handle cases where one node is a leaf node
         if (n1.children.empty()) {
             if (n1.is_filled) {
+                // If the first node is a filled leaf
                 if (operation == "intersection") {
+                    // Intersection: Result is the second node
                     return n2;
                 }
                 else if (operation == "union") {
+                    // Union: Result is the filled first node
                     return n1;
                 }
                 else if (operation == "difference") {
+                    // Difference: Invert the second node
                     return InvertNode(n2);
                 }
             }
-            else {  // n1 is empty
+            else { // The first node is an empty leaf
                 if (operation == "intersection" || operation == "difference") {
+                    // Intersection or difference with an empty node yields an empty node
                     return EmptyNode();
                 }
                 else if (operation == "union") {
+                    // Union with an empty node yields the second node
                     return n2;
                 }
             }
@@ -215,36 +226,47 @@ public:
 
         if (n2.children.empty()) {
             if (n2.is_filled) {
+                // If the second node is a filled leaf
                 if (operation == "intersection") {
+                    // Intersection: Result is the first node
                     return n1;
                 }
                 else if (operation == "union") {
+                    // Union: Result is the filled second node
                     return n2;
                 }
                 else if (operation == "difference") {
+                    // Difference: Empty result
                     return EmptyNode();
                 }
             }
-            else {  // n2 is empty
+            else { // The second node is an empty leaf
                 if (operation == "intersection") {
+                    // Intersection with an empty node yields an empty node
                     return EmptyNode();
                 }
                 else if (operation == "union" || operation == "difference") {
+                    // Union or difference with an empty node yields the first node
                     return n1;
                 }
             }
         }
 
-        // Both nodes have children, recurse
+        // Recursive case: Both nodes have children
         Node result;
-        result.Subdivide();
+        result.Subdivide(); // Subdivide the result node to match child structure
+
+        // Recurse through all child nodes
         for (int i = 0; i < 8; ++i) {
             result.children[i] = BooleanRecursive(
                 n1.children[i], n2.children[i], operation
             );
         }
+
+        // Return the constructed result node
         return result;
     }
+
 
     static Node InvertNode(const Node& node)
     {
