@@ -19,22 +19,40 @@ public:
 class checker_texture : public texture {
 public:
     color color1, color2;
-    double scale;
+    double scale; // Controls the size of the checker pattern
 
     checker_texture(const color& c1, const color& c2, double s)
-        : color1(c1)
-        , color2(c2)
-        , scale(s) {
+        : color1(c1), color2(c2), scale(s) {
     }
 
-    color value(double u, double v) const override {
-        auto sines = std::sin(scale * u * M_PI) * std::sin(scale * v * M_PI);
-        return (sines < 0) ? color1 : color2;
+    virtual color value(double u, double v) const override {
+        // Wrap UV coordinates to the range [0, 1]
+        u = u - std::floor(u);
+        v = v - std::floor(v);
+
+        // Scale UV coordinates
+        double u_scaled = u * scale;
+        double v_scaled = v * scale;
+
+        // Determine which checker square we're in
+        int checker_u = static_cast<int>(std::floor(u_scaled));
+        int checker_v = static_cast<int>(std::floor(v_scaled));
+
+        // Alternate between colors based on the parity of the grid square
+        if ((checker_u + checker_v) % 2 == 0) {
+            return color1;
+        }
+        else {
+            return color2;
+        }
     }
 
-    // Checker texture is always valid as it's procedural
-    bool is_valid() const override { return true; }
+    virtual bool is_valid() const override {
+        return true; // Checker textures are always valid
+    }
 };
+
+
 
 // Image-based texture
 class image_texture : public texture {
