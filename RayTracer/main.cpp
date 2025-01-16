@@ -25,7 +25,7 @@
 #include "stb_image.h"
 
 RenderState render_state;
-bool isCameraSpace = true;
+bool isCameraSpace = false;
 
 int main(int argc, char* argv[]) {
     // Image
@@ -82,7 +82,7 @@ int main(int argc, char* argv[]) {
     image_texture* wood_texture = new image_texture("textures/wood_floor.jpg");
     image_texture* grass_texture = new image_texture("textures/grass.jpg");
     image_texture* brick_texture = new image_texture("textures/brick.jpg");
-    checker_texture checker(black, white, 3.0);
+    checker_texture checker(black, white, 2);
     mat xadrez(&checker, 0.8, 1.0, 100.0, 0.25);
     mat sphere_mat(red, 0.8, 1.0, 150.0);
     mat sphere_mat2(green);
@@ -95,24 +95,12 @@ int main(int argc, char* argv[]) {
 
     // Create scenes
     std::vector<std::pair<ObjectID, std::shared_ptr<hittable>>> Scene1 = {
-        {1, make_shared<plane>(point3(0, -0.50, 0), vec3(0, 1, 0), mat(wood_texture))},
-        {2, make_shared<sphere>(point3(0, -0.15, -2), 0.3, xadrez)},
-        {3, make_shared<cylinder>(point3(-1.0, -0.15, -2), point3(-0.9, 0.25, -1.6), 0.3, green)},
-        {4, make_shared<cone>(point3(1, -0.15, -2), point3(1, 0.5, -2.5), 0.3, red, true)},
-        {5, make_shared<box>(point3(2.3, 0.3, -2.0), point3(1.5, -0.50, -1.5), mat(white))}
+        {0, make_shared<plane>(point3(0, -0.50, 0), vec3(0, 1, 0), xadrez)},
+        //{1, make_shared<sphere>(point3(0, 0, -2), 0.5, mat(white))},
+        //{2, make_shared<cylinder>(point3(-1.0, -0.15, -2), point3(-0.9, 0.25, -1.6), 0.3, green)},
+        //{3, make_shared<cone>(point3(1, -0.15, -2), point3(1, 0.5, -2.5), 0.3, red, true)},
+        //{4, make_shared<box>(point3(2.3, 0.3, -2.0), point3(1.5, -0.50, -1.5), mat(white))}
     };
-
-    //Mesh Object
-    /*try {
-        // Load an OBJ mesh and add it to the manager
-        ObjectID mesh_id = add_mesh_to_manager("models/prism.obj", world, blue);
-        Matrix4x4 translate;
-        translate = translate.translation(-3.5, 0.0, 0.0);
-        world.transform_object(mesh_id, translate);
-    }
-    catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << "\n";
-    }*/
 
     std::vector<std::pair<ObjectID, std::shared_ptr<hittable>>> Atividade6 = {
     {1, make_shared<plane>(point3(0, 0, 0), vec3(0, 1, 0), mat(grass_texture), 0.5)},
@@ -147,123 +135,145 @@ int main(int argc, char* argv[]) {
     };
 
     // Add all objects to the manager with their manually assigned IDs
-    for (const auto& [id, obj] : Atividade6) {
+    for (const auto& [id, obj] : Scene1) {
         world.add(obj, id);
         //std::cout << "Added object with ID " << id << ".\n";
     }
 
-    // Group objects
-    std::vector<ObjectID> portico_ids = { 9, 10, 11, 12 };
-    ObjectID portico_group1 = world.create_group(portico_ids);
 
-    std::vector<ObjectID> portico_ids2 = { 13, 14, 15, 16 };
-    ObjectID portico_group2 = world.create_group(portico_ids2);
+    MeshOBJ mesh;
+    //Mesh Object
+    try {
+        // Load an OBJ mesh and add it to the manager
+        mesh = add_mesh_to_manager("models/dragon.obj", world, orange);
 
-    // Matrix List
-    point3 viga_vmin = point3(0.5, 0.0, 0.0);
-    point3 table_center = point3(1.25, 0.975, 0.75);
+        // Apply transformation to all triangles in the mesh
+        if (!mesh.triangle_ids.empty()) {
 
-    Matrix4x4 movetable;
-    movetable = movetable.translation(vec3(-1.25, 0, -5.75));
-    Matrix4x4 movetable_origin;
-    movetable_origin = movetable_origin.translation(-table_center);
-    Matrix4x4 movetable_back;
-    movetable_back = movetable_back.translation(table_center);
+            Matrix4x4 translate = Matrix4x4::translation(vec3(1.0, -0.4, -2.0));
+            Matrix4x4 scale = Matrix4x4::scaling(0.5, 0.5, 0.5);
+            Matrix4x4 translate_origin = Matrix4x4::translation(-mesh.first_vertex.value());
+            Matrix4x4 translate_back = Matrix4x4::translation(mesh.first_vertex.value());
+            //Matrix4x4 rotate_mesh = Matrix4x4::rotation(15, 'Y');
+            //Matrix4x4 shear = Matrix4x4::shearing(0.1, 0.3, 0);
+            Matrix4x4 mesh_transform = translate * translate_back *  scale * translate_origin;
 
-    Matrix4x4 movetree;
-    movetree = movetree.translation(vec3(0, 1.0, -5));
+            for (ObjectID id : mesh.triangle_ids) {
+                world.transform_object(id, mesh_transform);
+            }
+        }
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << "\n";
+    }
 
-    Matrix4x4 movewall;
-    movewall = movewall.translation(vec3(3, 0, 0));
+    //// Matrix List
+    //point3 viga_vmin = point3(0.5, 0.0, 0.0);
+    //point3 table_center = point3(1.25, 0.975, 0.75);
 
-    Matrix4x4 movewall2;
-    movewall2 = movewall2.translation(vec3(3, 0, -10));
+    //Matrix4x4 movetable;
+    //movetable = movetable.translation(vec3(-1.25, 0, -5.75));
+    //Matrix4x4 movetable_origin;
+    //movetable_origin = movetable_origin.translation(-table_center);
+    //Matrix4x4 movetable_back;
+    //movetable_back = movetable_back.translation(table_center);
 
-    Matrix4x4 movefloor;
-    movefloor = movefloor.translation(vec3(-3.0, 0.0, -10));
+    //Matrix4x4 movetree;
+    //movetree = movetree.translation(vec3(0, 1.0, -5));
 
-    Matrix4x4 shear;
-    shear = shear.shearing(0.0, 0.75, 0.0);
+    //Matrix4x4 movewall;
+    //movewall = movewall.translation(vec3(3, 0, 0));
 
-    Matrix4x4 shear2;
-    shear2 = shear2.shearing(0.0, 0.75, 0.0);
+    //Matrix4x4 movewall2;
+    //movewall2 = movewall2.translation(vec3(3, 0, -10));
 
-    Matrix4x4 viga_scale;
-    viga_scale = viga_scale.scaling(6.0, 1.0, 0.6);
+    //Matrix4x4 movefloor;
+    //movefloor = movefloor.translation(vec3(-3.0, 0.0, -10));
 
-    Matrix4x4 telhado_scale;
-    telhado_scale = telhado_scale.scaling(4.5, 1.0, -10.0);
+    //Matrix4x4 shear;
+    //shear = shear.shearing(0.0, 0.75, 0.0);
 
-    Matrix4x4 parede_scale;
-    parede_scale = parede_scale.scaling(0.2, 4.5, -10.0);
+    //Matrix4x4 shear2;
+    //shear2 = shear2.shearing(0.0, 0.75, 0.0);
 
-    Matrix4x4 parede_scale2;
-    parede_scale2 = parede_scale2.scaling(0.2, 4.5, -6.0);
+    //Matrix4x4 viga_scale;
+    //viga_scale = viga_scale.scaling(6.0, 1.0, 0.6);
 
-    Matrix4x4 move;
-    move = move.translation(-viga_vmin);
+    //Matrix4x4 telhado_scale;
+    //telhado_scale = telhado_scale.scaling(4.5, 1.0, -10.0);
 
-    Matrix4x4 moveup;
-    moveup = moveup.translation(vec3(-3.5, 4.5, 0));
+    //Matrix4x4 parede_scale;
+    //parede_scale = parede_scale.scaling(0.2, 4.5, -10.0);
 
-    Matrix4x4 movefar;
-    movefar = movefar.translation(vec3(0, 0, -10));
+    //Matrix4x4 parede_scale2;
+    //parede_scale2 = parede_scale2.scaling(0.2, 4.5, -6.0);
 
-    Matrix4x4 pilar_move;
-    pilar_move = pilar_move.translation(vec3(-3.5, 0.0, 0));
+    //Matrix4x4 move;
+    //move = move.translation(-viga_vmin);
 
-    Matrix4x4 moveback;
-    moveback = moveback.translation(viga_vmin);
+    //Matrix4x4 moveup;
+    //moveup = moveup.translation(vec3(-3.5, 4.5, 0));
 
-    Matrix4x4 rotate;
-    rotate = rotate.rotation(37, 'Z');
+    //Matrix4x4 movefar;
+    //movefar = movefar.translation(vec3(0, 0, -10));
 
-    Matrix4x4 parede_rotate;
-    parede_rotate = parede_rotate.rotation(90, 'y');
+    //Matrix4x4 pilar_move;
+    //pilar_move = pilar_move.translation(vec3(-3.5, 0.0, 0));
 
-    Matrix4x4 portico_mirror;
-    portico_mirror = portico_mirror.mirror('y');
+    //Matrix4x4 moveback;
+    //moveback = moveback.translation(viga_vmin);
 
-    Matrix4x4 mesa_transform = movetable_back * movetable * parede_rotate * movetable_origin;
+    //Matrix4x4 rotate;
+    //rotate = rotate.rotation(37, 'Z');
 
-    Matrix4x4 viga_transform = moveback * moveup * shear * viga_scale * move;
+    //Matrix4x4 parede_rotate;
+    //parede_rotate = parede_rotate.rotation(90, 'y');
 
-    Matrix4x4 telhado_transform = moveup * rotate * telhado_scale;
-    Matrix4x4 telhado_transform2 = portico_mirror * moveup * rotate * telhado_scale;
+    //Matrix4x4 portico_mirror;
+    //portico_mirror = portico_mirror.mirror('y');
 
-    Matrix4x4 parede_transform = movewall * parede_scale;
-    Matrix4x4 parede_transform2 = movewall2 * parede_rotate * parede_scale2;
+    //Matrix4x4 mesa_transform = movetable_back * movetable * parede_rotate * movetable_origin;
 
-    //Mesa
-    world.transform_range(2, 4, mesa_transform);
-    //Arvore de Natal
-    world.transform_range(5, 8, movetree);
-    //Portico
-    world.transform_range(9, 10, pilar_move);
-    world.transform_range(11, 12, viga_transform);
-    world.transform_object(10, portico_mirror);
-    world.transform_object(12, portico_mirror);
+    //Matrix4x4 viga_transform = moveback * moveup * shear * viga_scale * move;
 
-    world.transform_range(13, 14, pilar_move);
-    world.transform_range(15, 16, viga_transform);
-    world.transform_object(14, portico_mirror);
-    world.transform_object(16, portico_mirror);
+    //Matrix4x4 telhado_transform = moveup * rotate * telhado_scale;
+    //Matrix4x4 telhado_transform2 = portico_mirror * moveup * rotate * telhado_scale;
 
-    world.transform_object(portico_group2, movefar);
-    //Telhado
-    world.transform_object(17, telhado_transform);
-    world.transform_object(18, telhado_transform2);
-    //Parede
-    world.transform_range(19, 20, parede_transform);
-    world.transform_object(20, portico_mirror);
-    world.transform_object(21, parede_transform2);
-    //Piso
-    world.transform_object(22, movefloor);
+    //Matrix4x4 parede_transform = movewall * parede_scale;
+    //Matrix4x4 parede_transform2 = movewall2 * parede_rotate * parede_scale2;
+
+    ////Mesa
+    //world.transform_range(2, 4, mesa_transform);
+    ////Arvore de Natal
+    //world.transform_range(5, 8, movetree);
+    ////Portico
+    //world.transform_range(9, 10, pilar_move);
+    //world.transform_range(11, 12, viga_transform);
+    //world.transform_object(10, portico_mirror);
+    //world.transform_object(12, portico_mirror);
+
+    //world.transform_range(13, 14, pilar_move);
+    //world.transform_range(15, 16, viga_transform);
+    //world.transform_object(14, portico_mirror);
+    //world.transform_object(16, portico_mirror);
+
+    //world.transform_range(13, 16, movefar);
+    ////Telhado
+    //world.transform_object(17, telhado_transform);
+    //world.transform_object(18, telhado_transform2);
+    ////Parede
+    //world.transform_range(19, 20, parede_transform);
+    //world.transform_object(20, portico_mirror);
+    //world.transform_object(21, parede_transform2);
+    ////Piso
+    //world.transform_object(22, movefloor);
+
+    world.buildBVH();
 
     //Light
     std::vector<Light> lights = {
-        Light(vec3(0.0, 3, -4), 1.2, color(1.0, 1.0, 1.0)),
-        Light(vec3(-5, 4.5, 0), 1.5, color(1.0, 0.82, 0.20)),
+        Light(vec3(0.0, 1, -0), 1.2, color(1.0, 1.0, 1.0)),
+        //Light(vec3(-5, 4.5, 0), 1.5, color(1.0, 0.82, 0.20)),
         //Light(vec3(2.5, 6, -1), 2.0, color(0.3, 0.3, 1.0))
     };
 
@@ -272,8 +282,11 @@ int main(int argc, char* argv[]) {
     double viewport_height = 2.0;
     auto viewport_width = aspect_ratio * viewport_height;
     auto samples_per_pixel = 4; 
-    point3 origin(-4.1, 4.3, 6.9);
-    point3 look_at(-1.8 , 3.7, 3.0);
+    //point3 origin(-4.1, 4.3, 6.9);
+    //point3 look_at(-1.8 , 3.7, 3.0);
+    point3 origin(0, 0, 1);
+    point3 look_at(0 , 0, -3.0);
+
 
     Camera camera(
         origin,
