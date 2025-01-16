@@ -62,6 +62,22 @@ public:
         return hit_anything;
     }
 
+    BoundingBox bounding_box() const override {
+        if (triangles.empty()) {
+            throw std::runtime_error("Bounding box requested for a box with no triangles.");
+        }
+
+        // Initialize min and max points with the first triangle's bounding box
+        BoundingBox box = triangles[0]->bounding_box();
+
+        // Expand the box to include all triangle bounding boxes
+        for (size_t i = 1; i < triangles.size(); ++i) {
+            box = box.enclose(triangles[i]->bounding_box());
+        }
+
+        return box;
+    }
+
 private:
     point3 vmin;
     point3 vmax;

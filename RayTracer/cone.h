@@ -139,6 +139,25 @@ public:
         update_constants();
     }
 
+    BoundingBox bounding_box() const override {
+        // Find the axis-aligned bounding box of the cone
+        vec3 radius_vector(radius, radius, radius);
+
+        // Compute the min and max points for the bounding box
+        point3 min_point(
+            std::min(base_center.x() - radius, top_vertex.x()),
+            std::min(base_center.y() - radius, top_vertex.y()),
+            std::min(base_center.z() - radius, top_vertex.z())
+        );
+
+        point3 max_point(
+            std::max(base_center.x() + radius, top_vertex.x()),
+            std::max(base_center.y() + radius, top_vertex.y()),
+            std::max(base_center.z() + radius, top_vertex.z())
+        );
+
+        return BoundingBox(min_point, max_point);
+    }
 
 private:
     point3 base_center;

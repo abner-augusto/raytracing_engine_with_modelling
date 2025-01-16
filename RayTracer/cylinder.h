@@ -231,6 +231,23 @@ public:
         radius *= scale_factor;*/
     }
 
+    BoundingBox bounding_box() const override {
+        // Calculate the min and max points in the axis-aligned directions
+        point3 min_point(
+            std::min(a.x() - radius, b.x() - radius),
+            std::min(a.y() - radius, b.y() - radius),
+            std::min(a.z() - radius, b.z() - radius)
+        );
+
+        point3 max_point(
+            std::max(a.x() + radius, b.x() + radius),
+            std::max(a.y() + radius, b.y() + radius),
+            std::max(a.z() + radius, b.z() + radius)
+        );
+
+        return BoundingBox(min_point, max_point);
+    }
+
 private:
     point3 a; // base_center
     point3 b; // top_center

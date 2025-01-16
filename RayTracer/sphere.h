@@ -100,6 +100,15 @@ public:
         radius *= scalingFactor;*/
     }
 
+    BoundingBox bounding_box() const override {
+        // Calculate the min and max points for the bounding box
+        point3 min_point = center - vec3(radius, radius, radius);
+        point3 max_point = center + vec3(radius, radius, radius);
+
+        return BoundingBox(min_point, max_point);
+    }
+
+
 private:
     point3 center;
     double radius;

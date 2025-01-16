@@ -116,6 +116,23 @@ public:
         }
     }
 
+    BoundingBox bounding_box() const override {
+        // Compute the min and max coordinates for the bounding box
+        point3 min_point(
+            std::min({ v0.x(), v1.x(), v2.x() }),
+            std::min({ v0.y(), v1.y(), v2.y() }),
+            std::min({ v0.z(), v1.z(), v2.z() })
+        );
+
+        point3 max_point(
+            std::max({ v0.x(), v1.x(), v2.x() }),
+            std::max({ v0.y(), v1.y(), v2.y() }),
+            std::max({ v0.z(), v1.z(), v2.z() })
+        );
+
+        return BoundingBox(min_point, max_point);
+    }
+
 private:
     point3 v0, v1, v2;         // Vertices of the triangle
     double u0, v0_uv;          // UV coordinates for v0

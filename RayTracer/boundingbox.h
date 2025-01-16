@@ -3,7 +3,8 @@
 
 #include <vector>
 #include <algorithm>
-#include "vec3.h"
+#include "hittable.h"
+#include "ray.h"
 
 class BoundingBox {
 public:
@@ -25,6 +26,7 @@ public:
         : BoundingBox(corner, corner + point3(width, width, width)) {
     }
 
+    // Equality operators
     bool operator==(const BoundingBox& other) const {
         return (vmin == other.vmin && vmax == other.vmax);
     }
@@ -33,6 +35,7 @@ public:
         return (vmax != other.vmax) || (vmin != other.vmin);
     }
 
+    // Geometry functions
     point3 getCenter() const {
         return vmin + (vmax - vmin) * 0.5;
     }
@@ -162,6 +165,9 @@ public:
         return true;
     }
 
+    BoundingBox bounding_box() const {
+        return *this;
+    }
 };
 
 #endif // BOUNDINGBOX_H

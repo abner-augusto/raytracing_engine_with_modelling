@@ -208,6 +208,17 @@ public:
         minor_radius *= scale_factor;*/
     }
 
+    BoundingBox bounding_box() const override {
+        // The torus's extent is determined by the sum of the major and minor radii
+        double max_extent = major_radius + minor_radius;
+
+        // Compute the min and max points for the bounding box
+        point3 min_point = center - vec3(max_extent, max_extent, max_extent);
+        point3 max_point = center + vec3(max_extent, max_extent, max_extent);
+
+        return BoundingBox(min_point, max_point);
+    }
+
 private:
     point3 center;
     double major_radius;
