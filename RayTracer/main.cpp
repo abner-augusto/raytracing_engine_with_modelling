@@ -268,8 +268,6 @@ int main(int argc, char* argv[]) {
     ////Piso
     //world.transform_object(22, movefloor);
 
-    world.buildBVH();
-
     //Light
     std::vector<Light> lights = {
         Light(vec3(0.0, 1, -0), 1.2, color(1.0, 1.0, 1.0)),
@@ -301,6 +299,9 @@ int main(int argc, char* argv[]) {
         std::cout << "Calling World to Camera Transform" << ".\n";
         camera.transform_scene_and_lights(world, lights);
     }
+
+    //Build a BVH Tree
+    world.buildBVH();
 
     // FPS Counter
     float deltaTime = 0.0f;
