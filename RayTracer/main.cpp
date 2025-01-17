@@ -11,11 +11,13 @@
 #include "cone.h"
 #include "box.h"
 #include "mesh.h"
-#include "interface_imgui.h"
+#include "torus.h"
 
 //scene setup
+#include "interface_imgui.h"
 #include "sdl_setup.h"
 #include "render_state.h"
+//#include "scene_builder.h"
 
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
@@ -96,42 +98,10 @@ int main(int argc, char* argv[]) {
     // Create scenes
     std::vector<std::pair<ObjectID, std::shared_ptr<hittable>>> Scene1 = {
         {0, make_shared<plane>(point3(0, -0.50, 0), vec3(0, 1, 0), xadrez)},
-        //{1, make_shared<sphere>(point3(0, 0, -2), 0.5, mat(white))},
-        //{2, make_shared<cylinder>(point3(-1.0, -0.15, -2), point3(-0.9, 0.25, -1.6), 0.3, green)},
-        //{3, make_shared<cone>(point3(1, -0.15, -2), point3(1, 0.5, -2.5), 0.3, red, true)},
-        //{4, make_shared<box>(point3(2.3, 0.3, -2.0), point3(1.5, -0.50, -1.5), mat(white))}
-    };
-
-    std::vector<std::pair<ObjectID, std::shared_ptr<hittable>>> Atividade6 = {
-    {1, make_shared<plane>(point3(0, 0, 0), vec3(0, 1, 0), mat(grass_texture), 0.5)},
-    //Mesa
-    {2, make_shared<box>(point3(0.0, 0.95, 0.0), 2.5, 0.05, 1.5, mat(orange))},
-    {3, make_shared<box>(point3(0.0, 0.0, 0.0), 0.05, 0.95, 1.5, mat(white))},
-    {4, make_shared<box>(point3(2.45, 0.0, 0.0), 0.05, 0.95, 1.5, mat(white))},
-    //Arvore de Natal
-    {5, make_shared<cylinder>(point3(0, 0.0, 0.0), point3(0, 0.09, 0), 0.3, mat(brown))},
-    {6, make_shared<cylinder>(point3(0, 0.09, 0.0), point3(0, 0.49, 0), 0.06, mat(brown))},
-    {7, make_shared<cone>(point3(0, 0.49, 0.0), point3(0, 1.99, 0), 0.60, mat(green))},
-    {8, make_shared<sphere>(point3(0, 2.0, 0.0), 0.045, mat(red))},
-    //Portico 1
-    {9, make_shared<box>(point3(0, 0.0, 0.0), 0.5, 5.0, 0.3, mat(white))},
-    {10, make_shared<box>(point3(0.0, 0.0, 0.0), 0.5, 5.0, 0.3, mat(white))},
-    {11, make_shared<box>(point3(0.5, 0.0, 0.0), 0.5, 0.5, 0.5, mat(white))},
-    {12, make_shared<box>(point3(0.5, 0.0, 0.0), 0.5, 0.5, 0.5, mat(white))},
-    //Portico 2
-    {13, make_shared<box>(point3(0, 0.0, 0.0), 0.5, 5.0, 0.3, mat(white))},
-    {14, make_shared<box>(point3(0.0, 0.0, 0.0), 0.5, 5.0, 0.3, mat(white))},
-    {15, make_shared<box>(point3(0.5, 0.0, 0.0), 0.5, 0.5, 0.5, mat(white))},
-    {16, make_shared<box>(point3(0.5, 0.0, 0.0), 0.5, 0.5, 0.5, mat(white))},
-    //Telhado
-    {17, make_shared<box>(point3(0.0, 0.0, 0.0), 1.0, 0.1, 1.0, mat(red))},
-    {18, make_shared<box>(point3(0.0, 0.0, 0.0), 1.0, 0.1, 1.0, mat(red))},
-    //Paredes
-    {19, make_shared<box>(point3(0.0, 0.0, 0), 1.0, 1.0, 1.0, mat(brick_texture), 1.5)},
-    {20, make_shared<box>(point3(0.0, 0.0, 0), 1.0, 1.0, 1.0, mat(brick_texture), 1.5)},
-    {21, make_shared<box>(point3(0.0, 0.0, 0), 1.0, 1.0, 1.0, mat(brick_texture), 1.5)},
-    //Piso
-    {22, make_shared<box>(point3(0.0, 0.0, 0.0), 6.0, 0.1, 10.0, mat(wood_texture), 3)},
+        {1, make_shared<sphere>(point3(0, 0, -2), 0.5, mat(white))},
+        {2, make_shared<cylinder>(point3(-1.0, -0.15, -2), point3(-1.0, 0.35, -2), 0.3, mat(blue))},
+        {3, make_shared<cone>(point3(1, -0.15, -2), point3(1, 0.5, -2.5), 0.3, mat(red), false)},
+        {4, make_shared<torus>(point3(-2, 0, -2), 0.3, 0.1, vec3(0, 0.5, 0.5), mat(cyan))}
     };
 
     // Add all objects to the manager with their manually assigned IDs
@@ -140,133 +110,44 @@ int main(int argc, char* argv[]) {
         //std::cout << "Added object with ID " << id << ".\n";
     }
 
+    //MeshOBJ mesh;
+    ////Mesh Object
+    //try {
+    //    // Load an OBJ mesh and add it to the manager
+    //    mesh = add_mesh_to_manager("models/suzanne.obj", world, orange);
 
-    MeshOBJ mesh;
-    //Mesh Object
-    try {
-        // Load an OBJ mesh and add it to the manager
-        mesh = add_mesh_to_manager("models/dragon.obj", world, orange);
+    //    // Apply transformation to all triangles in the mesh
+    //    if (!mesh.triangle_ids.empty()) {
 
-        // Apply transformation to all triangles in the mesh
-        if (!mesh.triangle_ids.empty()) {
+    //        Matrix4x4 translate = Matrix4x4::translation(vec3(0.0, 1, -3.0));
+    //        Matrix4x4 scale = Matrix4x4::scaling(0.5, 0.5, 0.5);
+    //        Matrix4x4 translate_origin = Matrix4x4::translation(-mesh.first_vertex.value());
+    //        Matrix4x4 translate_back = Matrix4x4::translation(mesh.first_vertex.value());
+    //        //Matrix4x4 rotate_mesh = Matrix4x4::rotation(15, 'Y');
+    //        //Matrix4x4 shear = Matrix4x4::shearing(0.1, 0.3, 0);
+    //        Matrix4x4 mesh_transform = translate * translate_back *  scale * translate_origin;
 
-            Matrix4x4 translate = Matrix4x4::translation(vec3(1.0, -0.4, -2.0));
-            Matrix4x4 scale = Matrix4x4::scaling(0.5, 0.5, 0.5);
-            Matrix4x4 translate_origin = Matrix4x4::translation(-mesh.first_vertex.value());
-            Matrix4x4 translate_back = Matrix4x4::translation(mesh.first_vertex.value());
-            //Matrix4x4 rotate_mesh = Matrix4x4::rotation(15, 'Y');
-            //Matrix4x4 shear = Matrix4x4::shearing(0.1, 0.3, 0);
-            Matrix4x4 mesh_transform = translate * translate_back *  scale * translate_origin;
+    //        for (ObjectID id : mesh.triangle_ids) {
+    //            world.transform_object(id, translate);
+    //        }
+    //    }
+    //}
+    //catch (const std::exception& e) {
+    //    std::cerr << "Error: " << e.what() << "\n";
+    //}
 
-            for (ObjectID id : mesh.triangle_ids) {
-                world.transform_object(id, mesh_transform);
-            }
-        }
-    }
-    catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << "\n";
-    }
-
-    //// Matrix List
-    //point3 viga_vmin = point3(0.5, 0.0, 0.0);
-    //point3 table_center = point3(1.25, 0.975, 0.75);
-
-    //Matrix4x4 movetable;
-    //movetable = movetable.translation(vec3(-1.25, 0, -5.75));
-    //Matrix4x4 movetable_origin;
-    //movetable_origin = movetable_origin.translation(-table_center);
-    //Matrix4x4 movetable_back;
-    //movetable_back = movetable_back.translation(table_center);
-
-    //Matrix4x4 movetree;
-    //movetree = movetree.translation(vec3(0, 1.0, -5));
-
-    //Matrix4x4 movewall;
-    //movewall = movewall.translation(vec3(3, 0, 0));
-
-    //Matrix4x4 movewall2;
-    //movewall2 = movewall2.translation(vec3(3, 0, -10));
-
-    //Matrix4x4 movefloor;
-    //movefloor = movefloor.translation(vec3(-3.0, 0.0, -10));
-
-    //Matrix4x4 shear;
-    //shear = shear.shearing(0.0, 0.75, 0.0);
-
-    //Matrix4x4 shear2;
-    //shear2 = shear2.shearing(0.0, 0.75, 0.0);
-
-    //Matrix4x4 viga_scale;
-    //viga_scale = viga_scale.scaling(6.0, 1.0, 0.6);
-
-    //Matrix4x4 telhado_scale;
-    //telhado_scale = telhado_scale.scaling(4.5, 1.0, -10.0);
-
-    //Matrix4x4 parede_scale;
-    //parede_scale = parede_scale.scaling(0.2, 4.5, -10.0);
-
-    //Matrix4x4 parede_scale2;
-    //parede_scale2 = parede_scale2.scaling(0.2, 4.5, -6.0);
-
-    //Matrix4x4 move;
-    //move = move.translation(-viga_vmin);
-
-    //Matrix4x4 moveup;
-    //moveup = moveup.translation(vec3(-3.5, 4.5, 0));
-
-    //Matrix4x4 movefar;
-    //movefar = movefar.translation(vec3(0, 0, -10));
-
-    //Matrix4x4 pilar_move;
-    //pilar_move = pilar_move.translation(vec3(-3.5, 0.0, 0));
-
-    //Matrix4x4 moveback;
-    //moveback = moveback.translation(viga_vmin);
-
-    //Matrix4x4 rotate;
-    //rotate = rotate.rotation(37, 'Z');
-
-    //Matrix4x4 parede_rotate;
-    //parede_rotate = parede_rotate.rotation(90, 'y');
-
-    //Matrix4x4 portico_mirror;
-    //portico_mirror = portico_mirror.mirror('y');
-
-    //Matrix4x4 mesa_transform = movetable_back * movetable * parede_rotate * movetable_origin;
-
-    //Matrix4x4 viga_transform = moveback * moveup * shear * viga_scale * move;
-
-    //Matrix4x4 telhado_transform = moveup * rotate * telhado_scale;
-    //Matrix4x4 telhado_transform2 = portico_mirror * moveup * rotate * telhado_scale;
-
-    //Matrix4x4 parede_transform = movewall * parede_scale;
-    //Matrix4x4 parede_transform2 = movewall2 * parede_rotate * parede_scale2;
-
-    ////Mesa
-    //world.transform_range(2, 4, mesa_transform);
-    ////Arvore de Natal
-    //world.transform_range(5, 8, movetree);
-    ////Portico
-    //world.transform_range(9, 10, pilar_move);
-    //world.transform_range(11, 12, viga_transform);
-    //world.transform_object(10, portico_mirror);
-    //world.transform_object(12, portico_mirror);
-
-    //world.transform_range(13, 14, pilar_move);
-    //world.transform_range(15, 16, viga_transform);
-    //world.transform_object(14, portico_mirror);
-    //world.transform_object(16, portico_mirror);
-
-    //world.transform_range(13, 16, movefar);
-    ////Telhado
-    //world.transform_object(17, telhado_transform);
-    //world.transform_object(18, telhado_transform2);
-    ////Parede
-    //world.transform_range(19, 20, parede_transform);
-    //world.transform_object(20, portico_mirror);
-    //world.transform_object(21, parede_transform2);
-    ////Piso
-    //world.transform_object(22, movefloor);
+    // Build Atividade 6 Scene
+    //SceneBuilder::buildAtividade6Scene(
+    //    world,
+    //    mat(grass_texture),
+    //    mat(orange),
+    //    mat(white),
+    //    mat(brown),
+    //    mat(green),
+    //    mat(red),
+    //    mat(brick_texture),
+    //    mat(wood_texture)
+    //);
 
     //Light
     std::vector<Light> lights = {
@@ -301,7 +182,7 @@ int main(int argc, char* argv[]) {
     }
 
     //Build a BVH Tree
-    world.buildBVH();
+    //world.buildBVH();
 
     // FPS Counter
     float deltaTime = 0.0f;
@@ -357,6 +238,30 @@ int main(int argc, char* argv[]) {
                     camera.get_image_width(),
                     camera.get_image_height()
                 );
+            }
+
+            for (const auto& [id, object] : Scene1) {
+                if (id == 2) {
+                    // Extract the bounding box
+                    BoundingBox bb = object->bounding_box();
+
+                    // Get the center of the bounding box
+                    point3 bb_center = bb.getCenter();
+                    vec3 axis(1, 0, 0);
+                    vec3 vector = bb_center - camera.get_origin();
+                    vec3 up_vector = camera.get_up();
+                    vec3 cross_product = cross(vector, up_vector);
+
+                    vec4 quaternion = quaternion.createQuaternion(cross_product, 5);
+                    Matrix4x4 quatMatrix = quatMatrix.quaternion(quaternion);
+                    Matrix4x4 moveOrigin = moveOrigin.translation(-bb_center);
+                    Matrix4x4 moveBack = moveBack.translation(bb_center);
+                    Matrix4x4 objTransform = moveBack * quatMatrix * moveOrigin;
+
+                    world.transform_object(2, objTransform);
+
+                    break;
+                }
             }
 
             camera.render(world, lights, samples_per_pixel, false, isCameraSpace);
