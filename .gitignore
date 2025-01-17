@@ -5,7 +5,6 @@
 *.slo
 *.lo
 *.o
-*.obj
 
 # Precompiled Headers
 *.gch
@@ -31,7 +30,6 @@
 *.out
 *.app
 
-
 #vs
 *.opendb
 *.suo
@@ -54,4 +52,5 @@
 *.user
 
 **/imgui.ini
-/*/qbRaytracing
+
+RayTracer/x64/**/*.obj
