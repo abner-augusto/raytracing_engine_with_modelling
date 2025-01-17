@@ -1,7 +1,6 @@
 #ifndef TORUS_H
 #define TORUS_H
 
-
 #include <cmath>
 #include <algorithm>
 #include "hittable.h"
@@ -9,60 +8,64 @@
 #include "material.h"
 #include "matrix4x4.h"
 
-// Intersection routine adapted for index-based access and no vec2 class
-static double torIntersect(const vec3& ro, const vec3& rd, double major_radius, double minor_radius) {
-    double Ra = major_radius;
-    double ra = minor_radius;
-    double Ra2 = Ra * Ra;
-    double ra2 = ra * ra;
+// Computes intersection of a ray with a torus
+// ro: ray origin (in object space)
+// rd: ray direction (in object space)
+// major_radius: Radius from the torus center to the tube center
+// minor_radius: Radius of the tube itself
+static double compute_torus_intersection(const vec3& ray_origin, const vec3& ray_direction, double major_radius, double minor_radius) {
+    double majorR = major_radius;
+    double minorR = minor_radius;
+    double majorRadiusSquared = majorR * majorR;
+    double minorRadiusSquared = minorR * minorR;
 
-    double m = dot(ro, ro);
-    double n = dot(ro, rd);
-    double k = (m + Ra2 - ra2) / 2.0;
+    double origin_dot = dot(ray_origin, ray_origin);
+    double origin_dir_dot = dot(ray_origin, ray_direction);
+    double constant_term = (origin_dot + majorRadiusSquared - minorRadiusSquared) / 2.0;
 
-    double k3 = n;
-    double k2 = n * n - Ra2 * (rd[0] * rd[0] + rd[1] * rd[1]) + k;
-    double k1 = n * k - Ra2 * (rd[0] * ro[0] + rd[1] * ro[1]);
-    double k0 = k * k - Ra2 * (ro[0] * ro[0] + ro[1] * ro[1]);
+    double cubic_term = origin_dir_dot;
+    double quadratic_term = origin_dir_dot * origin_dir_dot - majorRadiusSquared * (ray_direction[0] * ray_direction[0] + ray_direction[1] * ray_direction[1]) + constant_term;
+    double linear_term = origin_dir_dot * constant_term - majorRadiusSquared * (ray_direction[0] * ray_origin[0] + ray_direction[1] * ray_origin[1]);
+    double constant_term_final = constant_term * constant_term - majorRadiusSquared * (ray_origin[0] * ray_origin[0] + ray_origin[1] * ray_origin[1]);
 
-    double po = 1.0;
-    if (std::fabs(k3 * (k3 * k3 - k2) + k1) < 0.01) {
-        po = -1.0;
-        double tmp = k1;
-        k1 = k3;
-        k3 = tmp;
-        k0 = 1.0 / k0;
-        k1 = k1 * k0;
-        k2 = k2 * k0;
-        k3 = k3 * k0;
+    double sign_adjustment = 1.0;
+    if (std::fabs(cubic_term * (cubic_term * cubic_term - quadratic_term) + linear_term) < 0.01) {
+        sign_adjustment = -1.0;
+        std::swap(cubic_term, linear_term);
+        constant_term_final = 1.0 / constant_term_final;
+        linear_term *= constant_term_final;
+        quadratic_term *= constant_term_final;
+        cubic_term *= constant_term_final;
     }
 
-    double c2 = k2 * 2.0 - 3.0 * k3 * k3;
-    double c1 = k3 * (k3 * k3 - k2) + k1;
-    double c0 = k3 * (k3 * (c2 + 2.0 * k2) - 8.0 * k1) + 4.0 * k0;
-    c2 /= 3.0;
-    c1 *= 2.0;
-    c0 /= 3.0;
-    double Q = c2 * c2 + c0;
-    double R = c2 * c2 * c2 - 3.0 * c2 * c0 + c1 * c1;
-    double h = R * R - Q * Q * Q;
+    double adjusted_quadratic = quadratic_term * 2.0 - 3.0 * cubic_term * cubic_term;
+    double adjusted_linear = cubic_term * (cubic_term * cubic_term - quadratic_term) + linear_term;
+    double adjusted_constant = cubic_term * (cubic_term * (adjusted_quadratic + 2.0 * quadratic_term) - 8.0 * linear_term) + 4.0 * constant_term_final;
+
+    adjusted_quadratic /= 3.0;
+    adjusted_linear *= 2.0;
+    adjusted_constant /= 3.0;
+
+    double Q = adjusted_quadratic * adjusted_quadratic + adjusted_constant;
+    double adjustedR = adjusted_quadratic * adjusted_quadratic * adjusted_quadratic - 3.0 * adjusted_quadratic * adjusted_constant + adjusted_linear * adjusted_linear;
+    double discriminant = adjustedR * adjustedR - Q * Q * Q;
 
     auto sign = [](double x) { return (x > 0.0) ? 1.0 : (x < 0.0 ? -1.0 : 0.0); };
 
     double t = -1.0;
 
-    if (h >= 0.0) {
-        double sqh = std::sqrt(h);
-        double v = sign(R + sqh) * std::pow(std::fabs(R + sqh), 1.0 / 3.0);
-        double u = sign(R - sqh) * std::pow(std::fabs(R - sqh), 1.0 / 3.0);
-        double s[2] = { (v + u) + 4.0 * c2, (v - u) * std::sqrt(3.0) };
+    if (discriminant >= 0.0) {
+        double sqrt_discriminant = std::sqrt(discriminant);
+        double v = sign(adjustedR + sqrt_discriminant) * std::pow(std::fabs(adjustedR + sqrt_discriminant), 1.0 / 3.0);
+        double u = sign(adjustedR - sqrt_discriminant) * std::pow(std::fabs(adjustedR - sqrt_discriminant), 1.0 / 3.0);
+        double s[2] = { (v + u) + 4.0 * adjusted_quadratic, (v - u) * std::sqrt(3.0) };
         double y = std::sqrt(0.5 * (std::sqrt(s[0] * s[0] + s[1] * s[1]) + s[0]));
         double x = 0.5 * s[1] / y;
-        double r = 2.0 * c1 / (x * x + y * y);
-        double t1 = x - r - k3;
-        t1 = (po < 0.0) ? 2.0 / t1 : t1;
-        double t2 = -x - r - k3;
-        t2 = (po < 0.0) ? 2.0 / t2 : t2;
+        double r = 2.0 * adjusted_linear / (x * x + y * y);
+        double t1 = x - r - cubic_term;
+        t1 = (sign_adjustment < 0.0) ? 2.0 / t1 : t1;
+        double t2 = -x - r - cubic_term;
+        t2 = (sign_adjustment < 0.0) ? 2.0 / t2 : t2;
 
         double t_min = 1e20;
         if (t1 > 0.0) t_min = t1;
@@ -70,22 +73,22 @@ static double torIntersect(const vec3& ro, const vec3& rd, double major_radius, 
         t = (t_min < 1e20) ? t_min : -1.0;
     }
     else {
-        double sQ = std::sqrt(Q);
-        double w = sQ * std::cos(std::acos(-R / (sQ * Q)) / 3.0);
-        double d2 = -(w + c2);
-        if (d2 < 0.0) return -1.0;
-        double d1 = std::sqrt(d2);
-        double h1 = std::sqrt(w - 2.0 * c2 + c1 / d1);
-        double h2 = std::sqrt(w - 2.0 * c2 - c1 / d1);
+        double sqrt_Q = std::sqrt(Q);
+        double w = sqrt_Q * std::cos(std::acos(-adjustedR / (sqrt_Q * Q)) / 3.0);
+        double delta_2 = -(w + adjusted_quadratic);
+        if (delta_2 < 0.0) return -1.0;
+        double delta_1 = std::sqrt(delta_2);
+        double h1 = std::sqrt(w - 2.0 * adjusted_quadratic + adjusted_linear / delta_1);
+        double h2 = std::sqrt(w - 2.0 * adjusted_quadratic - adjusted_linear / delta_1);
 
-        double t1 = -d1 - h1 - k3;
-        t1 = (po < 0.0) ? 2.0 / t1 : t1;
-        double t2 = -d1 + h1 - k3;
-        t2 = (po < 0.0) ? 2.0 / t2 : t2;
-        double t3 = d1 - h2 - k3;
-        t3 = (po < 0.0) ? 2.0 / t3 : t3;
-        double t4 = d1 + h2 - k3;
-        t4 = (po < 0.0) ? 2.0 / t4 : t4;
+        double t1 = -delta_1 - h1 - cubic_term;
+        t1 = (sign_adjustment < 0.0) ? 2.0 / t1 : t1;
+        double t2 = -delta_1 + h1 - cubic_term;
+        t2 = (sign_adjustment < 0.0) ? 2.0 / t2 : t2;
+        double t3 = delta_1 - h2 - cubic_term;
+        t3 = (sign_adjustment < 0.0) ? 2.0 / t3 : t3;
+        double t4 = delta_1 + h2 - cubic_term;
+        t4 = (sign_adjustment < 0.0) ? 2.0 / t4 : t4;
 
         double t_min = 1e20;
         if (t1 > 0.0) t_min = t1;
@@ -99,29 +102,30 @@ static double torIntersect(const vec3& ro, const vec3& rd, double major_radius, 
     return t;
 }
 
-static vec3 torNormal(const vec3& pos, double major_radius, double minor_radius) {
-    double R = major_radius;
-    double r = minor_radius;
+// Computes the surface normal at a given point on the torus
+// pos: Position on the torus (in object space)
+// major_radius: Radius from the torus center to the tube center
+// minor_radius: Radius of the tube itself
+static vec3 compute_torus_normal(const vec3& position, double major_radius, double minor_radius) {
+    double majorR = major_radius;
 
-    double X = pos[0];
-    double Y = pos[1];
-    double Z = pos[2];
+    double X = position[0];
+    double Y = position[1];
+    double Z = position[2];
 
-    double d = std::sqrt(X * X + Y * Y);
+    double distance = std::sqrt(X * X + Y * Y);
 
-    if (d < 1e-14) {
+    if (distance < 1e-14) {
         return unit_vector(vec3(X, Y, Z));
     }
 
-    double factor = (d - R) / d;
-
-    vec3 grad(
-        2.0 * (d - R) * (X / d),
-        2.0 * (d - R) * (Y / d),
+    vec3 gradient(
+        2.0 * (distance - majorR) * (X / distance),
+        2.0 * (distance - majorR) * (Y / distance),
         2.0 * Z
     );
 
-    return unit_vector(grad);
+    return unit_vector(gradient);
 }
 
 class torus : public hittable {
@@ -136,7 +140,6 @@ public:
         u = unit_vector(cross(arbitrary, w));
         v = cross(w, u);
     }
-
 
     void set_center(const point3& c) {
         center = c;
@@ -162,57 +165,66 @@ public:
     }
 
     bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
-        vec3 ro = r.origin() - center;
-        vec3 rd = r.direction();
+        // Translate ray origin to the torus's local coordinate system
+        vec3 ray_origin_object_space = r.origin() - center;
+        vec3 ray_direction_object_space = r.direction();
 
-        vec3 ro_local(dot(ro, u), dot(ro, v), dot(ro, w));
-        vec3 rd_local(dot(rd, u), dot(rd, v), dot(rd, w));
+        // Convert ray to the torus's local object space using basis vectors
+        vec3 local_origin(
+            dot(ray_origin_object_space, u),
+            dot(ray_origin_object_space, v),
+            dot(ray_origin_object_space, w)
+        );
+        vec3 local_direction(
+            dot(ray_direction_object_space, u),
+            dot(ray_direction_object_space, v),
+            dot(ray_direction_object_space, w)
+        );
 
-        double t = torIntersect(ro_local, rd_local, major_radius, minor_radius);
+        // Compute the intersection of the ray with the torus
+        double t = compute_torus_intersection(local_origin, local_direction, major_radius, minor_radius);
+
+        // Check if there is a valid intersection within the ray's bounds
         if (t < 0.0 || !ray_t.contains(t))
             return false;
 
+        // Populate the hit record with intersection data
         rec.t = t;
         rec.p = r.at(t);
 
-        vec3 p_local = ro_local + t * rd_local;
+        // Compute the surface normal at the hit point in local space
+        vec3 hit_point_local = local_origin + t * local_direction;
+        vec3 normal_local = compute_torus_normal(hit_point_local, major_radius, minor_radius);
 
-        vec3 n_local = torNormal(p_local, major_radius, minor_radius);
+        // Transform the normal back to world space
+        vec3 normal_world = normal_local[0] * u + normal_local[1] * v + normal_local[2] * w;
 
-        vec3 n_world = n_local[0] * u + n_local[1] * v + n_local[2] * w;
-
-        rec.set_face_normal(r, n_world);
+        rec.set_face_normal(r, normal_world);
         rec.material = &material;
 
         return true;
     }
 
     void transform(const Matrix4x4& matrix) override {
-        // Transform the center point
         center = matrix.transform_point(center);
 
-        // Transform the orientation vectors
         u = matrix.transform_vector(u);
         v = matrix.transform_vector(v);
         w = matrix.transform_vector(w);
 
-        // Re-orthonormalize the vectors to maintain the torus's orientation
         w = unit_vector(w);
         u = unit_vector(cross(vec3(0, 1, 0), w));
         v = cross(w, u);
 
-        // If scaling is applied, adjust the radii
-        // Extract the scale factor from the matrix (assuming uniform scaling)
+        // Adjust radii for uniform scaling (if applicable)
         /*double scale_factor = matrix.get_uniform_scale();
         major_radius *= scale_factor;
         minor_radius *= scale_factor;*/
     }
 
     BoundingBox bounding_box() const override {
-        // The torus's extent is determined by the sum of the major and minor radii
         double max_extent = major_radius + minor_radius;
 
-        // Compute the min and max points for the bounding box
         point3 min_point = center - vec3(max_extent, max_extent, max_extent);
         point3 max_point = center + vec3(max_extent, max_extent, max_extent);
 

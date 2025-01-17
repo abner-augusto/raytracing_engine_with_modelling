@@ -29,11 +29,10 @@ public:
     }
 
     bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
-        const double EPSILON = 1e-7; // Small value to avoid division by zero
-        const double BARYCENTRIC_EPSILON = 1e-7; // Small value for barycentric checks
+        const double epsilon = 1e-7; // Small value to avoid division by zero
 
         // Apply bias to the ray interval to avoid precision issues
-        interval biased_ray_t = ray_t.with_bias(EPSILON);
+        interval biased_ray_t = ray_t.with_bias(epsilon);
 
         // Calculate edges of the triangle
         const vec3 edge01 = v1 - v0;
@@ -44,7 +43,7 @@ public:
         const double determinant = dot(edge01, P);
 
         // If the determinant is near zero, the ray is parallel to the triangle
-        if (std::fabs(determinant) < EPSILON) {
+        if (std::fabs(determinant) < epsilon) {
             return false; // No hit
         }
 
@@ -56,7 +55,7 @@ public:
 
         // Define a valid barycentric range and expand it for precision
         interval valid_barycentric(0.0, 1.0);
-        valid_barycentric.expand(BARYCENTRIC_EPSILON);
+        valid_barycentric.expand(epsilon);
 
         // Check if u is within the valid range
         if (!valid_barycentric.contains(u_bary)) {

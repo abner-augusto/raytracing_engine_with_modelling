@@ -9,7 +9,7 @@
 
 class cone : public hittable {
 public:
-    cone(const point3& base_center, const point3& top_vertex, double radius, const mat& material, bool capped = false)
+    cone(const point3& base_center, const point3& top_vertex, double radius, const mat& material, bool capped = true)
         : base_center(base_center), top_vertex(top_vertex), radius(std::fmax(0, radius)), material(material), capped(capped) {
         update_constants();
     }
