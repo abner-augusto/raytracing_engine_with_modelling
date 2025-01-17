@@ -87,6 +87,25 @@ public:
     friend std::ostream& operator<<(std::ostream& os, const vec4& v) {
         return os << "[" << v.x << ", " << v.y << ", " << v.z << ", " << v.w << "]";
     }
+
+    vec4 createQuaternion(const vec3& u, double angle) {
+        // Convert angle to radians and calculate half-angle
+        double halfAngle = angle * M_PI / 360.0;
+        double sinHalfAngle = std::sin(halfAngle);
+        double cosHalfAngle = std::cos(halfAngle);
+
+        // Normalize the axis of rotation
+        vec3 axis = unit_vector(u);
+
+        // Create and return the quaternion
+        return vec4(
+            axis.x() * sinHalfAngle, // x-component
+            axis.y() * sinHalfAngle, // y-component
+            axis.z() * sinHalfAngle, // z-component
+            cosHalfAngle             // w-component
+        );
+    }
+
 };
 
 #endif

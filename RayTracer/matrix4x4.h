@@ -202,7 +202,7 @@ public:
         return mat;
     }
 
-
+    // Create a reflection matrix based on the world axis
     static Matrix4x4 mirror(char plane) {
         Matrix4x4 mat;
 
@@ -222,6 +222,41 @@ public:
         default:
             throw std::invalid_argument("Invalid plane. Use 'x', 'y', or 'z'.");
         }
+
+        return mat;
+    }
+
+    // Create rotation matrix baed on quaternion
+    static Matrix4x4 quaternion(const vec4& quaternion) {
+        Matrix4x4 mat;
+        double x = quaternion.x, y = quaternion.y, z = quaternion.z, w = quaternion.w;
+        double xx = x * x;
+        double yy = y * y;
+        double zz = z * z;
+        double xy = x * y;
+        double xz = x * z;
+        double yz = y * z;
+        double wx = w * x;
+        double wy = w * y;
+        double wz = w * z;
+        double ww = w * w;
+
+        //mat.m[0][0] = 1.0 - 2.0 * (yy + zz);
+        mat.m[0][0] = ww + xx - yy - zz;
+        mat.m[0][1] = 2.0 * (xy - wz);
+        mat.m[0][2] = 2.0 * (xz + wy);
+
+        mat.m[1][0] = 2.0 * (xy + wz);
+        //mat.m[1][1] = 1.0 - 2.0 * (xx + zz);
+        mat.m[1][1] = ww - xx + yy - zz;
+        mat.m[1][2] = 2.0 * (yz - wx);
+
+        mat.m[2][0] = 2.0 * (xz - wy);
+        mat.m[2][1] = 2.0 * (yz + wx);
+        //mat.m[2][2] = 1.0 - 2.0 * (xx + yy);
+        mat.m[2][2] = ww - xx - yy + zz;
+
+        mat.m[3][3] = ww + xx + yy + zz;
 
         return mat;
     }
