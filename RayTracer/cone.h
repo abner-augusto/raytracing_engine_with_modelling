@@ -37,88 +37,81 @@ public:
         capped = is_capped;
     }
 
-    bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
-        vec3 ro = r.origin();
-        vec3 rd = r.direction();
-        vec3 co = ro - top_vertex; // vetores do apex para a origem do raio
+    bool hit(const ray& ray, interval ray_t, hit_record& record) const override {
+        vec3 ray_origin = ray.origin();
+        vec3 ray_direction = ray.direction();
+        vec3 cone_to_origin = ray_origin - top_vertex; // Vector from cone apex to ray origin
 
-        double vv = dot(axis_direction, axis_direction); // deve ser 1, já que axis_direction é unitário
-        double dv = dot(rd, axis_direction);
-        double cv = dot(co, axis_direction);
+        // Precompute reusable dot products
+        double axis_dot_direction = dot(ray_direction, axis_direction);
+        double axis_dot_cone_to_origin = dot(cone_to_origin, axis_direction);
+        double direction_dot_cone_to_origin = dot(ray_direction, cone_to_origin);
+        double cone_to_origin_dot_cone_to_origin = dot(cone_to_origin, cone_to_origin);
 
-        double cosa2 = cos_angle_sq;
-        double rdco = dot(rd, co);
-        double coco = dot(co, co);
+        // Calculate quadratic coefficients
+        double a = axis_dot_direction * axis_dot_direction - cos_angle_sq;
+        double b = 2.0 * (axis_dot_direction * axis_dot_cone_to_origin - direction_dot_cone_to_origin * cos_angle_sq);
+        double c = axis_dot_cone_to_origin * axis_dot_cone_to_origin - cone_to_origin_dot_cone_to_origin * cos_angle_sq;
 
-        double a = dv * dv - cosa2;
-        double b = 2.0 * (dv * cv - rdco * cosa2);
-        double c = cv * cv - coco * cosa2;
-
+        // Compute the discriminant
         double discriminant = b * b - 4.0 * a * c;
-        if (discriminant < 0.0) return false;
+        if (discriminant < 0.0) return false; // No real solutions, no intersection
 
-        double sqrt_disc = std::sqrt(discriminant);
+        double sqrt_discriminant = std::sqrt(discriminant);
+        double t1 = (-b - sqrt_discriminant) / (2.0 * a);
+        double t2 = (-b + sqrt_discriminant) / (2.0 * a);
 
-        double t1 = (-b - sqrt_disc) / (2.0 * a);
-        double t2 = (-b + sqrt_disc) / (2.0 * a);
+        // Helper function to check if t value hits the cone
+        auto is_valid_cone_hit = [&](double t) {
+            if (t <= 0.0 || !ray_t.contains(t)) return false;
+            vec3 intersection_to_apex = (ray_origin + t * ray_direction) - top_vertex;
+            double height_at_t = dot(intersection_to_apex, axis_direction);
+            return height_at_t >= 0.0 && height_at_t <= height;
+            };
 
-        bool hit_found = false;
+        bool hit_detected = false;
         double t = 0.0;
-        vec3 cp; // cp = ponto de interseção - apex
+        vec3 surface_normal;
 
-        // Verifica t1
-        if (t1 > 0.0 && ray_t.contains(t1)) {
-            cp = (ro + t1 * rd) - top_vertex;
-            double h_val = dot(cp, axis_direction);
-            if (h_val >= 0.0 && h_val <= height) {
-                hit_found = true;
-                t = t1;
-            }
+        // Check intersections with the cone surface
+        if (is_valid_cone_hit(t1)) {
+            hit_detected = true;
+            t = t1;
+            vec3 intersection_to_apex = (ray_origin + t * ray_direction) - top_vertex;
+            double height_at_intersection = dot(intersection_to_apex, axis_direction);
+            surface_normal = unit_vector(intersection_to_apex - axis_direction * height_at_intersection);
+        }
+        if (is_valid_cone_hit(t2) && (!hit_detected || t2 < t)) {
+            hit_detected = true;
+            t = t2;
+            vec3 intersection_to_apex = (ray_origin + t * ray_direction) - top_vertex;
+            double height_at_intersection = dot(intersection_to_apex, axis_direction);
+            surface_normal = unit_vector(intersection_to_apex - axis_direction * height_at_intersection);
         }
 
-        // Verifica t2, se t1 não foi válido ou se t2 é menor
-        if (t2 > 0.0 && ray_t.contains(t2)) {
-            vec3 cp2 = (ro + t2 * rd) - top_vertex;
-            double h_val2 = dot(cp2, axis_direction);
-            if (h_val2 >= 0.0 && h_val2 <= height && (!hit_found || t2 < t)) {
-                hit_found = true;
-                t = t2;
-                cp = cp2;
-            }
-        }
-
-        if (!hit_found) return false;
-
-        double h_val = dot(cp, axis_direction);
-        vec3 normal = unit_vector(cp - axis_direction * h_val);
-
-        // Verifica a base se for tampado.
-        if (capped) {
-            // Verifica interseção com a base (plano da base)
-            double denom = dot(rd, axis_direction);
-            if (std::fabs(denom) > 1e-8) {
-                double t_base = dot(base_center - ro, axis_direction) / denom;
+        // Check intersection with the base if necessary
+        if (capped && (!hit_detected || ray_t.contains(t))) {
+            double denominator = dot(ray_direction, axis_direction);
+            if (std::fabs(denominator) > 1e-8) {
+                double t_base = dot(base_center - ray_origin, axis_direction) / denominator;
                 if (ray_t.contains(t_base) && t_base > 0.0) {
-                    point3 p_base = r.at(t_base);
-                    if ((p_base - base_center).length_squared() <= radius * radius) {
-                        // Se a base for mais próxima, use ela
-                        if (!hit_found || t_base < t) {
-                            t = t_base;
-                            cp = (p_base - top_vertex); // só para coerência, se precisar
-                            normal = -axis_direction;
-                            hit_found = true;
-                        }
+                    point3 base_intersection = ray.at(t_base);
+                    if ((base_intersection - base_center).length_squared() <= radius * radius) {
+                        t = t_base;
+                        surface_normal = -axis_direction;
+                        hit_detected = true;
                     }
                 }
             }
         }
 
-        if (!hit_found) return false;
+        if (!hit_detected) return false;
 
-        rec.t = t;
-        rec.p = r.at(t);
-        rec.set_face_normal(r, normal);
-        rec.material = &material;
+        // Fill the hit record with intersection details
+        record.t = t;
+        record.p = ray.at(t);
+        record.set_face_normal(ray, surface_normal);
+        record.material = &material;
         return true;
     }
 
