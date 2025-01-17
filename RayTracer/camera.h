@@ -263,12 +263,11 @@ private:
         return k_specular * spec * light_color * light_intensity;
     }
 
-    color phong_shading(const hit_record& rec, const vec3& view_dir, const std::vector<Light>& lights, const hittable& world, const color& diffuse_color) const {
+    color phong_shading(const hit_record& rec, const vec3& view_dir, const std::vector<Light>& lights,
+        const hittable& world, const color& diffuse_color) const {
         // Ambient light
         double ambient_light_intensity = 0.4;
-        //color ambient_light_color(0.8, 0.85, 1.0);  // Soft blue skylight
         color ambient_light_color(1.0, 0.95, 0.8);  // Warm yellow
-
         color ambient = ambient_light_intensity * ambient_light_color * diffuse_color;
 
         // Initialize diffuse and specular components
@@ -276,13 +275,55 @@ private:
         color specular(0, 0, 0);
         const double shadow_bias = 1e-3;
 
-#pragma omp parallel
-        {
-            color local_diffuse(0, 0, 0);
-            color local_specular(0, 0, 0);
-#pragma omp for
-            for (int i = 0; i < static_cast<int>(lights.size()); ++i) {
-                const auto& light = lights[i];
+        // Only parallelize if we have enough lights to justify the overhead
+        if (lights.size() > 4) {
+            // Use a smaller number of threads for this inner loop
+            int available_threads = omp_get_num_threads();
+            int shading_threads = std::max(1, available_threads / 2);  // Use half of currently available threads
+
+#pragma omp parallel num_threads(shading_threads) if(lights.size() > 4)
+            {
+                color local_diffuse(0, 0, 0);
+                color local_specular(0, 0, 0);
+
+#pragma omp for nowait
+                for (int i = 0; i < static_cast<int>(lights.size()); ++i) {
+                    const auto& light = lights[i];
+                    vec3 light_dir = unit_vector(light.position - rec.p);
+                    double light_distance = (light.position - rec.p).length();
+
+                    // Skip lights that don't contribute (back-facing)
+                    if (dot(rec.normal, light_dir) <= 0) {
+                        continue;
+                    }
+
+                    // Shadow check
+                    ray shadow_ray(rec.p + rec.normal * shadow_bias, light_dir);
+                    hit_record shadow_rec;
+                    if (world.hit(shadow_ray, interval(0.001, light_distance), shadow_rec)) {
+                        continue;
+                    }
+
+                    // Diffuse and specular contributions
+                    double attenuation = 1.0 / (1.0 + 0.1 * light_distance + 0.01 * light_distance * light_distance);
+                    local_diffuse += calculate_diffuse(rec.normal, light_dir, diffuse_color,
+                        rec.material->k_diffuse, light.light_color,
+                        light.intensity) * attenuation;
+                    local_specular += calculate_specular(rec.normal, light_dir, view_dir,
+                        rec.material->shininess, rec.material->k_specular,
+                        light.light_color, light.intensity) * attenuation;
+                }
+
+#pragma omp critical
+                {
+                    diffuse += local_diffuse;
+                    specular += local_specular;
+                }
+            }
+        }
+        else {
+            // Sequential processing for small number of lights
+            for (const auto& light : lights) {
                 vec3 light_dir = unit_vector(light.position - rec.p);
                 double light_distance = (light.position - rec.p).length();
 
@@ -300,19 +341,17 @@ private:
 
                 // Diffuse and specular contributions
                 double attenuation = 1.0 / (1.0 + 0.1 * light_distance + 0.01 * light_distance * light_distance);
-                local_diffuse += calculate_diffuse(rec.normal, light_dir, diffuse_color, rec.material->k_diffuse, light.light_color, light.intensity) * attenuation;
-                local_specular += calculate_specular(rec.normal, light_dir, view_dir, rec.material->shininess, rec.material->k_specular, light.light_color, light.intensity) * attenuation;
-            }
-#pragma omp critical
-            {
-                diffuse += local_diffuse;
-                specular += local_specular;
+                diffuse += calculate_diffuse(rec.normal, light_dir, diffuse_color,
+                    rec.material->k_diffuse, light.light_color,
+                    light.intensity) * attenuation;
+                specular += calculate_specular(rec.normal, light_dir, view_dir,
+                    rec.material->shininess, rec.material->k_specular,
+                    light.light_color, light.intensity) * attenuation;
             }
         }
 
         // Combine components
-        color final_color = ambient + diffuse + specular;
-        return final_color;
+        return ambient + diffuse + specular;
     }
 
     color cast_ray(const ray& r, const hittable& world, const std::vector<Light>& lights, int depth = 5) const {
