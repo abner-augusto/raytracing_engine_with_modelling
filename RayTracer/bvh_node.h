@@ -9,11 +9,15 @@
 #include <stdexcept>
 #include <omp.h>
 
+constexpr size_t LEAF_SIZE_THRESHOLD = 4;
+
 class BVHNode : public hittable {
 private:
+    std::vector<std::shared_ptr<hittable>> leaf_objects;  // Store multiple objects in leaf nodes
     std::shared_ptr<hittable> left;
     std::shared_ptr<hittable> right;
     BoundingBox box;
+    bool is_leaf;
 
     // Determine optimal split axis using parallel reduction
     static size_t determineSplitAxis(std::vector<std::shared_ptr<hittable>>& objects, size_t start, size_t end) {
@@ -44,7 +48,8 @@ private:
     static std::shared_ptr<BVHNode> buildSubtree(std::vector<std::shared_ptr<hittable>>& objects, size_t start, size_t end, int depth = 0) {
         auto node = std::make_shared<BVHNode>();
 
-        if (end - start <= 2) {
+        // Create a leaf node if number of objects is below threshold
+        if (end - start <= LEAF_SIZE_THRESHOLD) {
             node->buildLeafNode(objects, start, end);
             return node;
         }
@@ -91,26 +96,33 @@ private:
             node->right = buildSubtree(objects, mid, end, depth + 1);
         }
 
+        node->is_leaf = false;
         node->box = node->left->bounding_box().enclose(node->right->bounding_box());
         return node;
     }
 
     void buildLeafNode(std::vector<std::shared_ptr<hittable>>& objects, size_t start, size_t end) {
-        if (end - start == 1) {
-            left = right = objects[start];
-            box = objects[start]->bounding_box();
+        is_leaf = true;
+        leaf_objects.clear();
+
+        // Copy all objects in range to leaf node
+        for (size_t i = start; i < end; ++i) {
+            leaf_objects.push_back(objects[i]);
         }
-        else {  // end - start == 2
-            left = objects[start];
-            right = objects[start + 1];
-            box = left->bounding_box().enclose(right->bounding_box());
+
+        // Compute bounding box for all objects
+        box = leaf_objects[0]->bounding_box();
+        for (size_t i = 1; i < leaf_objects.size(); ++i) {
+            box = box.enclose(leaf_objects[i]->bounding_box());
         }
+
+        left = right = nullptr;  // Leaf nodes don't have children
     }
 
 public:
-    BVHNode() = default;
+    BVHNode() : is_leaf(false) {}
 
-    BVHNode(std::vector<std::shared_ptr<hittable>>& objects, size_t start, size_t end) {
+    BVHNode(std::vector<std::shared_ptr<hittable>>& objects, size_t start, size_t end) : is_leaf(false) {
         // Set optimal number of threads based on hardware
         int num_threads = omp_get_max_threads();
         omp_set_dynamic(1);  // Enable dynamic adjustment of threads
@@ -124,6 +136,8 @@ public:
                 left = root->left;
                 right = root->right;
                 box = root->box;
+                is_leaf = root->is_leaf;
+                leaf_objects = root->leaf_objects;
             }
         }
     }
@@ -135,6 +149,22 @@ public:
             return false;
         }
 
+        if (is_leaf) {
+            bool hit_anything = false;
+            interval closest_so_far = ray_t;
+
+            // Check all objects in leaf node
+            for (const auto& object : leaf_objects) {
+                if (object->hit(r, closest_so_far, rec)) {
+                    hit_anything = true;
+                    closest_so_far.max = rec.t;
+                }
+            }
+
+            return hit_anything;
+        }
+
+        // Internal node traversal
         bool hit_left = left && left->hit(r, ray_t, rec);
         interval right_t(ray_t.min, hit_left ? rec.t : ray_t.max);
         bool hit_right = right && right->hit(r, right_t, rec);
@@ -143,9 +173,6 @@ public:
     }
 
     BoundingBox bounding_box() const override {
-        if (!left && !right) {
-            throw std::runtime_error("BVHNode does not have children to compute a bounding box.");
-        }
         return box;
     }
 };
