@@ -194,5 +194,8 @@
     <ClInclude Include="scene_builder.h">
       <Filter>Header Files\scenes</Filter>
     </ClInclude>
+    <ClInclude Include="CSG.h">
+      <Filter>Header Files\modelagem</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
