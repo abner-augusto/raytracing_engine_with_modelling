@@ -30,6 +30,7 @@ RenderState render_state;
 bool isCameraSpace = false;
 
 int main(int argc, char* argv[]) {
+
     // Image
     auto aspect_ratio = 16.0 / 9.0;
     int image_width = 480;
@@ -110,31 +111,32 @@ int main(int argc, char* argv[]) {
         //std::cout << "Added object with ID " << id << ".\n";
     }
 
-    //MeshOBJ mesh;
-    ////Mesh Object
-    //try {
-    //    // Load an OBJ mesh and add it to the manager
-    //    mesh = add_mesh_to_manager("models/suzanne.obj", world, orange);
+    //Mesh Object
 
-    //    // Apply transformation to all triangles in the mesh
-    //    if (!mesh.triangle_ids.empty()) {
+    MeshOBJ mesh;
+    try {
+        // Load an OBJ mesh and add it to the manager
+        mesh = add_mesh_to_manager("models/suzanne.obj", world, orange);
 
-    //        Matrix4x4 translate = Matrix4x4::translation(vec3(0.0, 1, -3.0));
-    //        Matrix4x4 scale = Matrix4x4::scaling(0.5, 0.5, 0.5);
-    //        Matrix4x4 translate_origin = Matrix4x4::translation(-mesh.first_vertex.value());
-    //        Matrix4x4 translate_back = Matrix4x4::translation(mesh.first_vertex.value());
-    //        //Matrix4x4 rotate_mesh = Matrix4x4::rotation(15, 'Y');
-    //        //Matrix4x4 shear = Matrix4x4::shearing(0.1, 0.3, 0);
-    //        Matrix4x4 mesh_transform = translate * translate_back *  scale * translate_origin;
+        // Apply transformation to all triangles in the mesh
+        if (!mesh.triangle_ids.empty()) {
 
-    //        for (ObjectID id : mesh.triangle_ids) {
-    //            world.transform_object(id, translate);
-    //        }
-    //    }
-    //}
-    //catch (const std::exception& e) {
-    //    std::cerr << "Error: " << e.what() << "\n";
-    //}
+            Matrix4x4 translate = Matrix4x4::translation(vec3(0.0, 1, -3.0));
+            Matrix4x4 scale = Matrix4x4::scaling(0.5, 0.5, 0.5);
+            Matrix4x4 translate_origin = Matrix4x4::translation(-mesh.first_vertex.value());
+            Matrix4x4 translate_back = Matrix4x4::translation(mesh.first_vertex.value());
+            //Matrix4x4 rotate_mesh = Matrix4x4::rotation(15, 'Y');
+            //Matrix4x4 shear = Matrix4x4::shearing(0.1, 0.3, 0);
+            Matrix4x4 mesh_transform = translate * translate_back *  scale * translate_origin;
+
+            for (ObjectID id : mesh.triangle_ids) {
+                world.transform_object(id, translate);
+            }
+        }
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << "\n";
+    }
 
     // Build Atividade 6 Scene
     //SceneBuilder::buildAtividade6Scene(
@@ -160,7 +162,7 @@ int main(int argc, char* argv[]) {
     double camera_fov = 60;
     double viewport_height = 2.0;
     auto viewport_width = aspect_ratio * viewport_height;
-    auto samples_per_pixel = 4; 
+    auto samples_per_pixel = 5; 
     //point3 origin(-4.1, 4.3, 6.9);
     //point3 look_at(-1.8 , 3.7, 3.0);
     point3 origin(0, 0, 1);
@@ -182,7 +184,7 @@ int main(int argc, char* argv[]) {
     }
 
     //Build a BVH Tree
-    //world.buildBVH();
+    world.buildBVH();
 
     // FPS Counter
     float deltaTime = 0.0f;
@@ -240,35 +242,35 @@ int main(int argc, char* argv[]) {
                 );
             }
 
-            for (const auto& [id, object] : Scene1) {
-                if (id == 2) {
-                    // Extract the bounding box
-                    BoundingBox bb = object->bounding_box();
+            //for (const auto& [id, object] : Scene1) {
+            //    if (id == 2) {
+            //        // Extract the bounding box
+            //        BoundingBox bb = object->bounding_box();
 
-                    // Get the center of the bounding box
-                    point3 bb_center = bb.getCenter();
-                    vec3 axis(1, 0, 0);
-                    vec3 vector = bb_center - camera.get_origin();
-                    vec3 up_vector = camera.get_up();
-                    vec3 cross_product = cross(vector, up_vector);
+            //        // Get the center of the bounding box
+            //        point3 bb_center = bb.getCenter();
+            //        vec3 axis(1, 0, 0);
+            //        vec3 vector = bb_center - camera.get_origin();
+            //        vec3 up_vector = camera.get_up();
+            //        vec3 cross_product = cross(vector, up_vector);
 
-                    vec4 quaternion = quaternion.createQuaternion(cross_product, 5);
-                    Matrix4x4 quatMatrix = quatMatrix.quaternion(quaternion);
-                    Matrix4x4 moveOrigin = moveOrigin.translation(-bb_center);
-                    Matrix4x4 moveBack = moveBack.translation(bb_center);
-                    Matrix4x4 objTransform = moveBack * quatMatrix * moveOrigin;
+            //        vec4 quaternion = quaternion.createQuaternion(cross_product, 5);
+            //        Matrix4x4 quatMatrix = quatMatrix.quaternion(quaternion);
+            //        Matrix4x4 moveOrigin = moveOrigin.translation(-bb_center);
+            //        Matrix4x4 moveBack = moveBack.translation(bb_center);
+            //        Matrix4x4 objTransform = moveBack * quatMatrix * moveOrigin;
 
-                    world.transform_object(2, objTransform);
+            //        world.transform_object(2, objTransform);
 
-                    break;
-                }
-            }
+            //        break;
+            //    }
+            //}
 
             camera.render(world, lights, samples_per_pixel, false, isCameraSpace);
         }
         else if (render_state.is_mode(HighResolution)) {
             Uint64 start_time = SDL_GetPerformanceCounter();
-            camera.set_image_width(1920);
+            camera.set_image_width(1280);
             SDL_DestroyTexture(texture);
             texture = SDL_CreateTexture(
                 renderer,
@@ -286,7 +288,7 @@ int main(int argc, char* argv[]) {
         }
         else if (render_state.is_mode(LowResolution)) {
             Uint64 start_time = SDL_GetPerformanceCounter();
-            camera.set_image_width(480);
+            camera.set_image_width(640);
             SDL_DestroyTexture(texture);
             texture = SDL_CreateTexture(
                 renderer,
@@ -296,7 +298,7 @@ int main(int argc, char* argv[]) {
                 camera.get_image_height()
             );
 
-            camera.render(world, lights, samples_per_pixel, false, isCameraSpace);
+            camera.render(world, lights, samples_per_pixel * 2, true, isCameraSpace);
             Uint64 end_time = SDL_GetPerformanceCounter();
             double render_time = (end_time - start_time) / (double)SDL_GetPerformanceFrequency();
             std::cout << "render time: " << render_time << " seconds" << std::endl;
