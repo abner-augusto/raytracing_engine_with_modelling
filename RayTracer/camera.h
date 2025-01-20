@@ -233,6 +233,13 @@ public:
         calculate_matrices();
     }
 
+    void transform(const Matrix4x4& matrix) {
+        origin = matrix.transform_point(origin);
+        look_at = matrix.transform_point(look_at);
+        calculate_axes();
+        calculate_matrices();
+    }
+
     // Accessors
     point3 get_origin() const { return origin; }
     point3 get_look_at() const { return look_at; }
