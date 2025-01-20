@@ -65,6 +65,35 @@ void Cleanup_SDL(SDL_Window* window, SDL_Renderer* renderer, SDL_Texture* textur
     SDL_Quit();
 }
 
+// Define thresholds and store stick values
+const float DEAD_ZONE = 8000; // Approx 24% of full range
+float leftStickX = 0.0f, leftStickY = 0.0f;
+float rightStickX = 0.0f, rightStickY = 0.0f;
+bool moveUp = false;
+bool moveDown = false;
+
+// Call this function in the game loop to apply continuous movement
+void update_camera(Camera& camera, float speed) {
+    vec3 up = camera.get_up();
+
+    // Move camera based on left stick (movement)
+    camera.set_origin(camera.get_origin() + vec3(leftStickX * speed, 0, -leftStickY * speed));
+    camera.set_look_at(camera.get_look_at() + vec3(leftStickX * speed, 0, -leftStickY * speed));
+
+    // Adjust look_at with right stick (view direction)
+    camera.set_look_at(camera.get_look_at() + vec3(rightStickX * speed, -rightStickY * speed, 0));
+
+    // Move camera up and down based on shoulder button states
+    if (moveUp) {
+        camera.set_origin(camera.get_origin() + up * (0.3 * speed));
+        camera.set_look_at(camera.get_look_at() + up * (0.3 * speed));
+    }
+    if (moveDown) {
+        camera.set_origin(camera.get_origin() - up * (0.3 * speed));
+        camera.set_look_at(camera.get_look_at() - up * (0.3 * speed));
+    }
+}
+
 void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, double aspect_ratio, Camera& camera, RenderState& render_state ,float speed = 0.1f) {
     if (event.type == SDL_QUIT) {
         running = false;
@@ -194,4 +223,73 @@ void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, dou
         }
     }
 
+    if (event.type == SDL_CONTROLLERAXISMOTION) {
+        if (event.caxis.axis == SDL_CONTROLLER_AXIS_LEFTX) {
+            if (abs(event.caxis.value) > DEAD_ZONE) {
+                leftStickX = event.caxis.value / 32767.0f;
+            }
+            else {
+                leftStickX = 0.0f;
+            }
+        }
+        else if (event.caxis.axis == SDL_CONTROLLER_AXIS_LEFTY) {
+            if (abs(event.caxis.value) > DEAD_ZONE) {
+                leftStickY = -(event.caxis.value / 32767.0f);
+            }
+            else {
+                leftStickY = 0.0f;
+            }
+        }
+        else if (event.caxis.axis == SDL_CONTROLLER_AXIS_RIGHTX) {
+            if (abs(event.caxis.value) > DEAD_ZONE) {
+                rightStickX = event.caxis.value / 32767.0f;
+            }
+            else {
+                rightStickX = 0.0f;
+            }
+        }
+        else if (event.caxis.axis == SDL_CONTROLLER_AXIS_RIGHTY) {
+            if (abs(event.caxis.value) > DEAD_ZONE) {
+                rightStickY = event.caxis.value / 32767.0f;
+            }
+            else {
+                rightStickY = 0.0f;
+            }
+        }
+    }
+
+    // Handle gamepad button events
+    if (event.type == SDL_CONTROLLERBUTTONDOWN) {
+        switch (event.cbutton.button) {
+        case SDL_CONTROLLER_BUTTON_A:
+            render_state.set_mode(DefaultRender);
+            break;
+        case SDL_CONTROLLER_BUTTON_B:
+            render_state.set_mode(LowResolution);
+            break;
+        case SDL_CONTROLLER_BUTTON_X:
+            render_state.set_mode(HighResolution);
+            break;
+        }
+    }
+
+    if (event.type == SDL_CONTROLLERBUTTONDOWN) {
+        if (event.cbutton.button == SDL_CONTROLLER_BUTTON_LEFTSHOULDER) {
+            moveUp = true;
+        }
+        else if (event.cbutton.button == SDL_CONTROLLER_BUTTON_RIGHTSHOULDER) {
+            moveDown = true;
+        }
+    }
+
+    if (event.type == SDL_CONTROLLERBUTTONUP) {
+        if (event.cbutton.button == SDL_CONTROLLER_BUTTON_LEFTSHOULDER) {
+            moveUp = false;
+        }
+        else if (event.cbutton.button == SDL_CONTROLLER_BUTTON_RIGHTSHOULDER) {
+            moveDown = false;
+        }
+    }
 }
+
+

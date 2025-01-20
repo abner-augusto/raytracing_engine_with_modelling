@@ -226,6 +226,8 @@ int main(int argc, char* argv[]) {
         //Get previous render state
         RenderMode previous_mode = render_state.get_previous_mode();
 
+        update_camera(camera, 0.2f);
+
         // Render raytraced scene
         if (render_state.is_mode(DefaultRender)) {
             if (previous_mode != DefaultRender) {
