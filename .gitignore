@@ -39,8 +39,8 @@
 *.json
 *.vsidx
 *.ipch
-*.sln
-*.filters
+#*.sln
+#*.filters
 *.recipe
 *.log
 *.tlog
@@ -48,7 +48,7 @@
 *.idb
 *.pdb
 *.txt
-*.vcxproj
+#*.vcxproj
 *.user
 
 **/imgui.ini

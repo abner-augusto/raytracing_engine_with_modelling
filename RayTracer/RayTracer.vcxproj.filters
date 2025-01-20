@@ -1,0 +1,198 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Resource Files\imgui">
+      <UniqueIdentifier>{69816e2e-ef2b-4ea2-8bee-fab9b31bf3a1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\imgui">
+      <UniqueIdentifier>{7b9e5a0e-43a6-4009-91a0-320016aa8458}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\utilities">
+      <UniqueIdentifier>{ba81d1eb-ffcb-406e-9a4e-9a69e42276ba}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\primitivas">
+      <UniqueIdentifier>{6090b6ad-cf15-48af-822c-32433ee62fba}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\material e cores">
+      <UniqueIdentifier>{5ae385de-4bb5-437a-bcba-2c565badb0d9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\geometria">
+      <UniqueIdentifier>{566d7951-e993-4e71-a08f-bcd5095a98fa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\modelagem">
+      <UniqueIdentifier>{bcba8361-c07e-47e6-8198-d01d52ab3332}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\raytracing">
+      <UniqueIdentifier>{ec69889e-ea1c-49c8-95ef-1ac165c370a8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\scenes">
+      <UniqueIdentifier>{4e4466eb-34c4-47d5-acc3-01cb528c5344}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui\imgui.cpp">
+      <Filter>Resource Files\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui\imgui_demo.cpp">
+      <Filter>Resource Files\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui\imgui_draw.cpp">
+      <Filter>Resource Files\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui\imgui_impl_sdl2.cpp">
+      <Filter>Resource Files\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui\imgui_impl_sdlrenderer2.cpp">
+      <Filter>Resource Files\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui\imgui_tables.cpp">
+      <Filter>Resource Files\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui\imgui_widgets.cpp">
+      <Filter>Resource Files\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="interval.cpp">
+      <Filter>Source Files\utilities</Filter>
+    </ClCompile>
+    <ClCompile Include="interface_imgui.cpp">
+      <Filter>Source Files\utilities</Filter>
+    </ClCompile>
+    <ClCompile Include="scene_builder.cpp">
+      <Filter>Header Files\scenes</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="imgui\imgui_impl_opengl3.h">
+      <Filter>Header Files\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui\imgui_impl_sdl2.h">
+      <Filter>Header Files\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui\imgui_impl_sdlrenderer2.h">
+      <Filter>Header Files\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui\imgui_internal.h">
+      <Filter>Header Files\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui\imstb_rectpack.h">
+      <Filter>Header Files\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui\imstb_textedit.h">
+      <Filter>Header Files\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui\imstb_truetype.h">
+      <Filter>Header Files\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui\imconfig.h">
+      <Filter>Header Files\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui\imgui.h">
+      <Filter>Header Files\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="sdl_setup.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="camera.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="sphere.h">
+      <Filter>Header Files\primitivas</Filter>
+    </ClInclude>
+    <ClInclude Include="color.h">
+      <Filter>Header Files\material e cores</Filter>
+    </ClInclude>
+    <ClInclude Include="material.h">
+      <Filter>Header Files\material e cores</Filter>
+    </ClInclude>
+    <ClInclude Include="texture.h">
+      <Filter>Header Files\material e cores</Filter>
+    </ClInclude>
+    <ClInclude Include="stb\stb_image.h">
+      <Filter>Header Files\material e cores</Filter>
+    </ClInclude>
+    <ClInclude Include="vec4.h">
+      <Filter>Header Files\geometria</Filter>
+    </ClInclude>
+    <ClInclude Include="vec3.h">
+      <Filter>Header Files\geometria</Filter>
+    </ClInclude>
+    <ClInclude Include="ray.h">
+      <Filter>Header Files\geometria</Filter>
+    </ClInclude>
+    <ClInclude Include="matrix4x4.h">
+      <Filter>Header Files\geometria</Filter>
+    </ClInclude>
+    <ClInclude Include="plane.h">
+      <Filter>Header Files\primitivas</Filter>
+    </ClInclude>
+    <ClInclude Include="torus.h">
+      <Filter>Header Files\primitivas</Filter>
+    </ClInclude>
+    <ClInclude Include="triangle.h">
+      <Filter>Header Files\primitivas</Filter>
+    </ClInclude>
+    <ClInclude Include="box.h">
+      <Filter>Header Files\primitivas</Filter>
+    </ClInclude>
+    <ClInclude Include="cone.h">
+      <Filter>Header Files\primitivas</Filter>
+    </ClInclude>
+    <ClInclude Include="cylinder.h">
+      <Filter>Header Files\primitivas</Filter>
+    </ClInclude>
+    <ClInclude Include="squarepyramid.h">
+      <Filter>Header Files\primitivas</Filter>
+    </ClInclude>
+    <ClInclude Include="mesh.h">
+      <Filter>Header Files\primitivas</Filter>
+    </ClInclude>
+    <ClInclude Include="interface_imgui.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="boundingbox.h">
+      <Filter>Header Files\modelagem</Filter>
+    </ClInclude>
+    <ClInclude Include="raytracer.h">
+      <Filter>Header Files\raytracing</Filter>
+    </ClInclude>
+    <ClInclude Include="interval.h">
+      <Filter>Header Files\raytracing</Filter>
+    </ClInclude>
+    <ClInclude Include="hittable.h">
+      <Filter>Header Files\raytracing</Filter>
+    </ClInclude>
+    <ClInclude Include="render_state.h">
+      <Filter>Header Files\raytracing</Filter>
+    </ClInclude>
+    <ClInclude Include="light.h">
+      <Filter>Header Files\material e cores</Filter>
+    </ClInclude>
+    <ClInclude Include="hit_record.h">
+      <Filter>Header Files\raytracing</Filter>
+    </ClInclude>
+    <ClInclude Include="bvh_node.h">
+      <Filter>Header Files\raytracing</Filter>
+    </ClInclude>
+    <ClInclude Include="hittable_manager.h">
+      <Filter>Header Files\raytracing</Filter>
+    </ClInclude>
+    <ClInclude Include="scene_builder.h">
+      <Filter>Header Files\scenes</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
