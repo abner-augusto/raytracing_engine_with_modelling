@@ -12,6 +12,7 @@
 #include "box.h"
 #include "mesh.h"
 #include "torus.h"
+#include "csg.h"
 
 //scene setup
 #include "interface_imgui.h"
@@ -99,10 +100,10 @@ int main(int argc, char* argv[]) {
     // Create scenes
     std::vector<std::pair<ObjectID, std::shared_ptr<hittable>>> Scene1 = {
         {0, make_shared<plane>(point3(0, -0.50, 0), vec3(0, 1, 0), xadrez)},
-        {1, make_shared<sphere>(point3(0, 0, -2), 0.5, mat(white))},
-        {2, make_shared<cylinder>(point3(-1.0, -0.15, -2), point3(-1.0, 0.35, -2), 0.3, mat(blue))},
-        {3, make_shared<cone>(point3(1, -0.15, -2), point3(1, 0.5, -2.5), 0.3, mat(red), false)},
-        {4, make_shared<torus>(point3(-2, 0, -2), 0.3, 0.1, vec3(0, 0.5, 0.5), mat(cyan))}
+        //{1, make_shared<sphere>(point3(0, 0, -2), 0.5, mat(white))},
+        //{2, make_shared<cylinder>(point3(-1.0, -0.15, -2), point3(-1.0, 0.35, -2), 0.3, mat(blue))},
+        //{3, make_shared<cone>(point3(1, -0.15, -2), point3(1, 0.5, -2.5), 0.3, mat(red), false)},
+        //{4, make_shared<torus>(point3(-2, 0, -2), 0.3, 0.1, vec3(0, 0.5, 0.5), mat(cyan))}
     };
 
     // Add all objects to the manager with their manually assigned IDs
@@ -111,32 +112,40 @@ int main(int argc, char* argv[]) {
         //std::cout << "Added object with ID " << id << ".\n";
     }
 
+    auto sphere1 = std::make_shared<CSGPrimitive>(std::make_shared<sphere>(point3(0, 0, -1), 0.5, mat(blue)));
+    auto sphere2 = std::make_shared<CSGPrimitive>(std::make_shared<sphere>(point3(0.3, 0, -1), 0.5, mat(blue)));
+
+    // Create a CSG union operation of the two spheres
+    auto csgUnion = std::make_shared<CSGNode<Difference>>(sphere1, sphere2);
+
+    ObjectID csg_id = world.add(csgUnion);
+
     //Mesh Object
 
-    MeshOBJ mesh;
-    try {
-        // Load an OBJ mesh and add it to the manager
-        mesh = add_mesh_to_manager("models/suzanne.obj", world, orange);
+    //MeshOBJ mesh;
+    //try {
+    //    // Load an OBJ mesh and add it to the manager
+    //    mesh = add_mesh_to_manager("models/suzanne.obj", world, orange);
 
-        // Apply transformation to all triangles in the mesh
-        if (!mesh.triangle_ids.empty()) {
+    //    // Apply transformation to all triangles in the mesh
+    //    if (!mesh.triangle_ids.empty()) {
 
-            Matrix4x4 translate = Matrix4x4::translation(vec3(0.0, 1, -3.0));
-            Matrix4x4 scale = Matrix4x4::scaling(0.5, 0.5, 0.5);
-            Matrix4x4 translate_origin = Matrix4x4::translation(-mesh.first_vertex.value());
-            Matrix4x4 translate_back = Matrix4x4::translation(mesh.first_vertex.value());
-            //Matrix4x4 rotate_mesh = Matrix4x4::rotation(15, 'Y');
-            //Matrix4x4 shear = Matrix4x4::shearing(0.1, 0.3, 0);
-            Matrix4x4 mesh_transform = translate * translate_back *  scale * translate_origin;
+    //        Matrix4x4 translate = Matrix4x4::translation(vec3(0.0, 1, -3.0));
+    //        Matrix4x4 scale = Matrix4x4::scaling(0.5, 0.5, 0.5);
+    //        Matrix4x4 translate_origin = Matrix4x4::translation(-mesh.first_vertex.value());
+    //        Matrix4x4 translate_back = Matrix4x4::translation(mesh.first_vertex.value());
+    //        //Matrix4x4 rotate_mesh = Matrix4x4::rotation(15, 'Y');
+    //        //Matrix4x4 shear = Matrix4x4::shearing(0.1, 0.3, 0);
+    //        Matrix4x4 mesh_transform = translate * translate_back *  scale * translate_origin;
 
-            for (ObjectID id : mesh.triangle_ids) {
-                world.transform_object(id, translate);
-            }
-        }
-    }
-    catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << "\n";
-    }
+    //        for (ObjectID id : mesh.triangle_ids) {
+    //            world.transform_object(id, translate);
+    //        }
+    //    }
+    //}
+    //catch (const std::exception& e) {
+    //    std::cerr << "Error: " << e.what() << "\n";
+    //}
 
     // Build Atividade 6 Scene
     //SceneBuilder::buildAtividade6Scene(
