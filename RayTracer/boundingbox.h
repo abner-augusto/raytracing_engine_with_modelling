@@ -144,6 +144,21 @@ public:
         return BoundingBox(new_vmin, new_vmax);
     }
 
+    BoundingBox intersect(const BoundingBox& other) const {
+        point3 new_vmin(
+            std::max(vmin.x(), other.vmin.x()),
+            std::max(vmin.y(), other.vmin.y()),
+            std::max(vmin.z(), other.vmin.z())
+        );
+
+        point3 new_vmax(
+            std::min(vmax.x(), other.vmax.x()),
+            std::min(vmax.y(), other.vmax.y()),
+            std::min(vmax.z(), other.vmax.z())
+        );
+        return BoundingBox(new_vmin, new_vmax);
+    }
+
     // Hit function to test ray intersection
     bool hit(const ray& r, interval ray_t, hit_record& rec) const {
         for (int i = 0; i < 3; i++) {
