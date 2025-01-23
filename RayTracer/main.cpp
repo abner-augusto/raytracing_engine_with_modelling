@@ -10,6 +10,7 @@
 #include "cylinder.h"
 #include "cone.h"
 #include "box.h"
+#include "box_csg.h"
 #include "mesh.h"
 #include "torus.h"
 #include "csg.h"
@@ -99,14 +100,15 @@ int main(int argc, char* argv[]) {
 
     // Create scenes
     std::vector<std::pair<ObjectID, std::shared_ptr<hittable>>> Scene1 = {
-        {0, make_shared<plane>(point3(0, -0.50, 0), vec3(0, 1, 0), xadrez)},
+        {0, make_shared<plane>(point3(0, -1.0, 0), vec3(0, 1, 0), mat(wood_texture))},
+        //{1, make_shared<cylinder>(point3(0, -0.5, -1), 1.2, vec3(0,1,0), 0.3, mat(red))},
         //{1, make_shared<sphere>(point3(0, 0, -2), 0.5, mat(white))},
         //{2, make_shared<cylinder>(point3(-1.0, -0.15, -2), point3(-1.0, 0.35, -2), 0.3, mat(blue))},
         //{3, make_shared<cone>(point3(1, -0.15, -2), point3(1, 0.5, -2.5), 0.3, mat(red), false)},
         //{4, make_shared<torus>(point3(-2, 0, -2), 0.3, 0.1, vec3(0, 0.5, 0.5), mat(cyan))}
     };
 
-    // Add all objects to the manager with their manually assigned IDs
+    //Add all objects to the manager with their manually assigned IDs
     for (const auto& [id, obj] : Scene1) {
         world.add(obj, id);
         //std::cout << "Added object with ID " << id << ".\n";
@@ -114,11 +116,20 @@ int main(int argc, char* argv[]) {
 
     auto sphere1 = std::make_shared<CSGPrimitive>(std::make_shared<sphere>(point3(0, 0, -1), 0.5, mat(blue)));
     auto sphere2 = std::make_shared<CSGPrimitive>(std::make_shared<sphere>(point3(0.3, 0, -1), 0.5, mat(blue)));
+    auto sphere3 = std::make_shared<CSGPrimitive>(std::make_shared<sphere>(point3(0, 0, -1), 0.6, mat(blue)));
+    auto box1 = std::make_shared<CSGPrimitive>(std::make_shared<box_csg>(point3(0, 0, -1), 0.9, mat(red)));
+    auto cylinder1 = std::make_shared<CSGPrimitive>(std::make_shared<cylinder>(point3(0, -1, -1), 2, vec3(0, 1, 0), 0.3, mat(cyan), false));
+    auto cylinder2 = std::make_shared<CSGPrimitive>(std::make_shared<cylinder>(point3(-1, 0, -1), 2, vec3(1, 0, 0), 0.3, mat(cyan), false));
+    auto cylinder3 = std::make_shared<CSGPrimitive>(std::make_shared<cylinder>(point3(0, 0, -1.5), 2, vec3(0, 0, 1), 0.3, mat(cyan), false));
 
     // Create a CSG union operation of the two spheres
-    auto csgUnion = std::make_shared<CSGNode<Difference>>(sphere1, sphere2);
+    auto csgInter = std::make_shared<CSGNode<Intersection>>(sphere3, box1);
+    auto csgDiff = std::make_shared<CSGNode<Difference>>(csgInter, cylinder1);
+    auto csgDiff2 = std::make_shared<CSGNode<Difference>>(csgDiff, cylinder2);
+    auto csgDiff3 = std::make_shared<CSGNode<Difference>>(csgDiff2, cylinder3);
+    auto csgUnion = std::make_shared<CSGNode<Union>>(sphere3, box1);
 
-    ObjectID csg_id = world.add(csgUnion);
+    ObjectID csg_id = world.add(csgDiff3);
 
     //Mesh Object
 
@@ -162,8 +173,8 @@ int main(int argc, char* argv[]) {
 
     //Light
     std::vector<Light> lights = {
-        Light(vec3(0.0, 1, -0), 1.2, color(1.0, 1.0, 1.0)),
-        //Light(vec3(-5, 4.5, 0), 1.5, color(1.0, 0.82, 0.20)),
+        Light(vec3(0.0, 1, 1.1), 1.2, color(1.0, 1.0, 1.0)),
+        //Light(vec3(3, 0.3, 1), 1.5, color(1.0, 0.82, 0.20)),
         //Light(vec3(2.5, 6, -1), 2.0, color(0.3, 0.3, 1.0))
     };
 

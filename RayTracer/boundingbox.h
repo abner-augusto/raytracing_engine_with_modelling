@@ -144,7 +144,7 @@ public:
         return BoundingBox(new_vmin, new_vmax);
     }
 
-    BoundingBox intersect(const BoundingBox& other) const {
+    BoundingBox from_intersect(const BoundingBox& other) const {
         point3 new_vmin(
             std::max(vmin.x(), other.vmin.x()),
             std::max(vmin.y(), other.vmin.y()),
@@ -160,7 +160,7 @@ public:
     }
 
     // Hit function to test ray intersection
-    bool hit(const ray& r, interval ray_t, hit_record& rec) const {
+    bool hit(const ray& r, interval ray_t) const {
         for (int i = 0; i < 3; i++) {
             double invD = 1.0 / r.direction()[i];
             double t0 = (vmin[i] - r.origin()[i]) * invD;
