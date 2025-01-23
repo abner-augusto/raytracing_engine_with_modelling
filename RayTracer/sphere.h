@@ -58,6 +58,54 @@ public:
         return true;
     }
 
+    bool hit_all(const ray& r, interval ray_t, std::vector<hit_record>& recs) const override {
+        vec3 oc = r.origin() - center;
+        auto a = r.direction().length_squared();
+        auto half_b = dot(oc, r.direction());
+        auto c = oc.length_squared() - radius * radius;
+        auto discriminant = half_b * half_b - a * c;
+
+        if (discriminant < 0) return false;
+
+        auto sqrtd = sqrt(discriminant);
+        auto root1 = (-half_b - sqrtd) / a;
+        auto root2 = (-half_b + sqrtd) / a;
+
+        // Check if either intersection point is within our interval
+        bool hit1 = ray_t.surrounds(root1);
+        bool hit2 = ray_t.surrounds(root2);
+
+        if (!hit1 && !hit2) return false;
+
+        // Entry point
+        if (hit1) {
+            hit_record rec;
+            rec.t = root1;
+            rec.p = r.at(rec.t);
+            vec3 outward_normal = (rec.p - center) / radius;
+            rec.set_face_normal(r, outward_normal);
+            rec.material = &material;
+            rec.is_entry = true;
+            calculate_uv((rec.p - center) / radius, rec.u, rec.v);
+            recs.push_back(rec);
+        }
+
+        // Exit point
+        if (hit2) {
+            hit_record rec;
+            rec.t = root2;
+            rec.p = r.at(rec.t);
+            vec3 outward_normal = (rec.p - center) / radius;
+            rec.set_face_normal(r, outward_normal);
+            rec.material = &material;
+            rec.is_entry = false;
+            calculate_uv((rec.p - center) / radius, rec.u, rec.v);
+            recs.push_back(rec);
+        }
+
+        return true;
+    }
+
     void calculate_uv(const vec3& normal, double& u, double& v) const {
         // Convert normal to spherical coordinates
         auto theta = std::acos(-normal.y())*0.5; // Latitude

@@ -145,7 +145,7 @@ public:
     virtual ~BVHNode() = default;
 
     bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
-        if (!box.hit(r, ray_t, rec)) {
+        if (!box.hit(r, ray_t)) {
             return false;
         }
 
@@ -170,6 +170,53 @@ public:
         bool hit_right = right && right->hit(r, right_t, rec);
 
         return hit_left || hit_right;
+    }
+
+    bool hit_all(const ray& r, interval ray_t, std::vector<hit_record>& recs) const override {
+        // Early exit if the ray doesn't intersect the bounding box
+        if (!box.hit(r, ray_t)) {
+            return false;
+        }
+
+        bool hit_anything = false;
+
+        if (is_leaf) {
+            // Leaf node: check all objects in the leaf
+            for (const auto& object : leaf_objects) {
+                std::vector<hit_record> temp_recs;
+                if (object->hit_all(r, ray_t, temp_recs)) {
+                    hit_anything = true;
+                    recs.insert(recs.end(), temp_recs.begin(), temp_recs.end());
+                }
+            }
+        }
+        else {
+            // Internal node: recurse into left and right children
+            if (left) {
+                std::vector<hit_record> left_recs;
+                if (left->hit_all(r, ray_t, left_recs)) {
+                    hit_anything = true;
+                    recs.insert(recs.end(), left_recs.begin(), left_recs.end());
+                }
+            }
+
+            if (right) {
+                std::vector<hit_record> right_recs;
+                if (right->hit_all(r, ray_t, right_recs)) {
+                    hit_anything = true;
+                    recs.insert(recs.end(), right_recs.begin(), right_recs.end());
+                }
+            }
+        }
+
+        // Sort all hits by t value
+        if (hit_anything) {
+            std::sort(recs.begin(), recs.end(), [](const hit_record& a, const hit_record& b) {
+                return a.t < b.t;
+                });
+        }
+
+        return hit_anything;
     }
 
     BoundingBox bounding_box() const override {

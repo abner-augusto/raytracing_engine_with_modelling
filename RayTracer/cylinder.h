@@ -28,6 +28,18 @@ public:
         update_constants();
     }
 
+    cylinder(const point3& base_center, double height, const vec3& direction, double radius, const mat& material, bool capped = true)
+        : base_center(base_center),
+        radius(std::fmax(0, radius)),
+        material(material),
+        capped(capped),
+        height(height)
+    {
+        vec3 normalized_direction = unit_vector(direction);
+        top_center = base_center + normalized_direction * height;
+        update_constants();
+    }
+
     void set_base_center(const point3& new_base_center) {
         base_center = new_base_center;
         top_center = base_center + vec3(0, height, 0);
@@ -151,6 +163,88 @@ public:
         rec.set_face_normal(r, surface_normal);
         rec.material = &material;
         return true;
+    }
+
+    bool hit_all(const ray& r, interval ray_t, std::vector<hit_record>& recs) const override {
+        vec3 ray_origin = r.origin();
+        vec3 ray_direction = r.direction();
+        vec3 origin_to_cylinder_start = ray_origin - base_center;
+        const double epsilon = 1e-6;
+
+        // Precompute dot products for the ray and cylinder axis
+        double axis_dot_direction = dot(unit_cylinder_axis, ray_direction);
+        double axis_dot_origin_to_start = dot(unit_cylinder_axis, origin_to_cylinder_start);
+
+        // Solve the quadratic equation for intersection with the infinite cylinder
+        double quadratic_a = 1.0 - axis_dot_direction * axis_dot_direction;
+        double quadratic_b = dot(origin_to_cylinder_start, ray_direction) - axis_dot_origin_to_start * axis_dot_direction;
+        double quadratic_c = dot(origin_to_cylinder_start, origin_to_cylinder_start) - axis_dot_origin_to_start * axis_dot_origin_to_start - radius_squared;
+
+        double discriminant = quadratic_b * quadratic_b - quadratic_a * quadratic_c;
+        if (discriminant < 0.0)
+            return false;
+
+        discriminant = std::sqrt(discriminant);
+        double t1 = (-quadratic_b - discriminant) / quadratic_a; // First intersection
+        double t2 = (-quadratic_b + discriminant) / quadratic_a; // Second intersection
+
+        // Check intersections with the cylindrical body
+        auto add_cylinder_hit = [&](double t) {
+            if (t > 0.0 && ray_t.contains(t)) {
+                double axis_projection = axis_dot_origin_to_start + t * axis_dot_direction;
+                if (axis_projection > 0.0 && axis_projection < height) {
+                    hit_record rec;
+                    rec.t = t;
+                    rec.p = r.at(t);
+                    vec3 point_to_cylinder_start = rec.p - base_center;
+                    double projection_scale = dot(point_to_cylinder_start, unit_cylinder_axis);
+                    point3 closest_point_on_axis = base_center + unit_cylinder_axis * projection_scale;
+                    rec.set_face_normal(r, unit_vector(rec.p - closest_point_on_axis));
+                    rec.material = &material;
+                    recs.push_back(rec);
+                }
+            }
+            };
+
+        add_cylinder_hit(t1);
+        add_cylinder_hit(t2);
+
+        // Check intersections with the caps (if capped)
+        if (capped) {
+            auto add_cap_hit = [&](double t, const point3& cap_center, const vec3& normal) {
+                if (t > 0.0 && ray_t.contains(t)) {
+                    point3 intersection_point = r.at(t);
+                    double distance_squared = (intersection_point - cap_center).length_squared();
+                    if (distance_squared <= radius_squared + epsilon) {
+                        hit_record rec;
+                        rec.t = t;
+                        rec.p = intersection_point;
+                        rec.set_face_normal(r, normal);
+                        rec.material = &material;
+                        recs.push_back(rec);
+                    }
+                }
+                };
+
+            // Lower cap (base)
+            if (axis_dot_direction != 0.0) {
+                double t_base = -axis_dot_origin_to_start / axis_dot_direction;
+                add_cap_hit(t_base, base_center, -unit_cylinder_axis);
+            }
+
+            // Upper cap (top)
+            if (axis_dot_direction != 0.0) {
+                double t_top = (height - axis_dot_origin_to_start) / axis_dot_direction;
+                add_cap_hit(t_top, top_center, unit_cylinder_axis);
+            }
+        }
+
+        // Sort hits by t value
+        std::sort(recs.begin(), recs.end(), [](const hit_record& a, const hit_record& b) {
+            return a.t < b.t;
+            });
+
+        return !recs.empty();
     }
 
     bool IsPointInside(const point3& p) const {
