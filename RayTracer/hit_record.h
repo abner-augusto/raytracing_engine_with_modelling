@@ -21,7 +21,8 @@ public:
     enum class CSGType { NONE, UNION, INTERSECTION, DIFFERENCE };
     CSGType csg_op = CSGType::NONE;  // Tracks which operation was used in the CSG tree
     int hit_object_id = -1;          // Track which object in CSG tree caused the hit
-    bool inside = false;             // Indicates if the hit point is inside a shape
+    bool inside = false;       
+    bool is_entry = true;
 
     hit_record() = default;
 

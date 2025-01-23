@@ -14,7 +14,19 @@ class BoundingBox;
 class hittable {
 public:
     virtual ~hittable() = default;
+
+    // Pure virtual function: must be implemented by derived classes
     virtual bool hit(const ray& r, interval ray_t, hit_record& rec) const = 0;
+
+    // Default implementation for hit_all()
+    virtual bool hit_all(const ray& r, interval ray_t, std::vector<hit_record>& recs) const {
+        hit_record rec;
+        if (hit(r, ray_t, rec)) {
+            recs.push_back(rec);
+            return true;
+        }
+        return false;
+    }
 
     // Transform the object using a 4x4 matrix
     virtual void transform(const Matrix4x4& transform) {
