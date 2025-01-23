@@ -13,6 +13,11 @@ public:
     vec3() : e{ 0, 0, 0 } {}
     vec3(double e0, double e1, double e2) : e{ e0, e1, e2 } {}
 
+    // Static function to create a vec3 with all components set to the same value
+    static vec3 fill(double value) {
+        return vec3(value, value, value);
+    }
+
     // Accessors
     double x() const { return e[0]; }
     double y() const { return e[1]; }
@@ -40,6 +45,20 @@ public:
         return *this *= 1 / t;
     }
 
+    vec3& operator*=(const vec3& v) {
+        e[0] *= v.e[0];
+        e[1] *= v.e[1];
+        e[2] *= v.e[2];
+        return *this;
+    }
+
+    vec3& operator/=(const vec3& v) {
+        e[0] /= v.e[0];
+        e[1] /= v.e[1];
+        e[2] /= v.e[2];
+        return *this;
+    }
+
     bool operator==(const vec3& other) const {
         const double epsilon = 1e-8;
         return std::fabs(e[0] - other.e[0]) < epsilon &&
@@ -59,6 +78,29 @@ public:
         return e[0] * e[0] + e[1] * e[1] + e[2] * e[2];
     }
 
+    vec3 abs() const {
+        return vec3(std::abs(e[0]), std::abs(e[1]), std::abs(e[2]));
+    }
+
+    vec3 cmax(const vec3& v) const {
+        return vec3(std::max(e[0], v.e[0]), std::max(e[1], v.e[1]), std::max(e[2], v.e[2]));
+    }
+
+    vec3 cmin(const vec3& v) const {
+        return vec3(std::min(e[0], v.e[0]), std::min(e[1], v.e[1]), std::min(e[2], v.e[2]));
+    }
+
+    double max() const {
+        return std::max(std::max(e[0], e[1]), e[2]);
+    }
+
+    double min() const {
+        return std::min(std::min(e[0], e[1]), e[2]);
+    }
+
+    vec3 inverse() const {
+        return vec3(1.0 / e[0], 1.0 / e[1], 1.0 / e[2]);
+    }
 };
 
 // Alias for geometric clarity
@@ -77,10 +119,12 @@ inline vec3 operator-(const vec3& u, const vec3& v) {
     return vec3(u.e[0] - v.e[0], u.e[1] - v.e[1], u.e[2] - v.e[2]);
 }
 
+// Component-wise multiplication
 inline vec3 operator*(const vec3& u, const vec3& v) {
     return vec3(u.e[0] * v.e[0], u.e[1] * v.e[1], u.e[2] * v.e[2]);
 }
 
+// Scalar multiplication
 inline vec3 operator*(double t, const vec3& v) {
     return vec3(t * v.e[0], t * v.e[1], t * v.e[2]);
 }
@@ -89,6 +133,12 @@ inline vec3 operator*(const vec3& v, double t) {
     return t * v;
 }
 
+// Component-wise division
+inline vec3 operator/(const vec3& u, const vec3& v) {
+    return vec3(u.e[0] / v.e[0], u.e[1] / v.e[1], u.e[2] / v.e[2]);
+}
+
+// Scalar division
 inline vec3 operator/(const vec3& v, double t) {
     return (1 / t) * v;
 }
