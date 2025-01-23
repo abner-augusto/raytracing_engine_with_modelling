@@ -305,11 +305,11 @@ private:
                     }
 
                     // Shadow check
-                    ray shadow_ray(rec.p + rec.normal * shadow_bias, light_dir);
-                    hit_record shadow_rec;
-                    if (world.hit(shadow_ray, interval(0.001, light_distance), shadow_rec)) {
-                        continue;
-                    }
+                    //ray shadow_ray(rec.p + rec.normal * shadow_bias, light_dir);
+                    //hit_record shadow_rec;
+                    //if (world.hit(shadow_ray, interval(0.001, light_distance), shadow_rec)) {
+                    //    continue;
+                    //}
 
                     // Diffuse and specular contributions
                     double attenuation = 1.0 / (1.0 + 0.1 * light_distance + 0.01 * light_distance * light_distance);
@@ -340,11 +340,11 @@ private:
                 }
 
                 // Shadow check
-                ray shadow_ray(rec.p + rec.normal * shadow_bias, light_dir);
-                hit_record shadow_rec;
-                if (world.hit(shadow_ray, interval(0.001, light_distance), shadow_rec)) {
-                    continue;
-                }
+                //ray shadow_ray(rec.p + rec.normal * shadow_bias, light_dir);
+                //hit_record shadow_rec;
+                //if (world.hit(shadow_ray, interval(0.001, light_distance), shadow_rec)) {
+                //    continue;
+                //}
 
                 // Diffuse and specular contributions
                 double attenuation = 1.0 / (1.0 + 0.1 * light_distance + 0.01 * light_distance * light_distance);
