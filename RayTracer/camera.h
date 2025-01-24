@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <cmath>
 #include <omp.h>
+#include <iostream>
+#include <string>
 
 #include "raytracer.h"
 #include "light.h"
@@ -239,6 +241,107 @@ public:
         calculate_axes();
         calculate_matrices();
     }
+
+    // Example helper function to convert CSGType to a string
+    static std::string csg_type_to_string(hit_record::CSGType op) {
+        switch (op) {
+        case hit_record::CSGType::UNION:         return "UNION";
+        case hit_record::CSGType::INTERSECTION:  return "INTERSECTION";
+        case hit_record::CSGType::DIFFERENCE:    return "DIFFERENCE";
+        default:                                 return "NONE";
+        }
+    }
+
+    void log_csg_hits(HittableManager& manager) const {
+        // Compute screen coordinates for the center of the image
+        int pixel_x = image_width / 2;
+        int pixel_y = image_height / 2;
+        double offset_x = 0.5;
+        double offset_y = 0.5;
+
+        // Precompute perspective parameters
+        double fov_radians = degrees_to_radians(fov);
+        double half_fov = 0.5 * fov_radians;
+        double tan_half_fov = std::tan(half_fov);
+
+        // Compute NDC coordinates
+        double ndc_x = (static_cast<double>(pixel_x) + offset_x) / image_width;
+        double ndc_y = (static_cast<double>(pixel_y) + offset_y) / image_height;
+
+        // Calculate screen coordinates
+        double screen_x = (2.0 * ndc_x - 1.0) * aspect_ratio * tan_half_fov;
+        double screen_y = (1.0 - 2.0 * ndc_y) * tan_half_fov;
+        double screen_z = -1.0; // Since camera_space is false
+
+        // Compute ray origin and direction in world space
+        vec4 dir_cam(screen_x, screen_y, screen_z, 0.0);
+        vec4 dir_world = camera_to_world_matrix * dir_cam;
+        vec3 direction = unit_vector(dir_world.to_vec3());
+
+        vec4 origin_cam(0.0, 0.0, 0.0, 1.0);
+        vec4 origin_world = camera_to_world_matrix * origin_cam;
+        vec3 origin = origin_world.to_vec3();
+
+        // Create the ray
+        ray r(origin, direction);
+
+        // Collect all hit records along the ray
+        std::vector<hit_record> hits;
+        interval ray_interval(0.001, infinity);
+
+        if (manager.hit_all(r, ray_interval, hits)) {
+            std::cout << "\n=== CSG Hits Along Central Ray ===\n";
+
+            for (size_t i = 0; i < hits.size(); i++) {
+                const auto& rec = hits[i];
+
+                // Print separator for each hit
+                std::cout << "\n---------------------------------\n";
+                std::cout << "Hit #" << (i + 1) << ":\n";
+
+                // Print whether it's a CSG event or not
+                if (rec.csg_op != hit_record::CSGType::NONE) {
+                    // Hit event (IN/OUT)
+                    std::cout << "  Event: "
+                        << (rec.is_entry ? "IN" : "OUT") << "\n";
+
+                    // CSG operation
+                    std::cout << "  CSG Operation: "
+                        << csg_type_to_string(rec.csg_op) << "\n";
+                }
+                else {
+                    std::cout << "  Event: Not a CSG hit\n";
+                }
+
+                // t value
+                std::cout << "  t Value: " << rec.t << "\n";
+
+                // Position
+                std::cout << "  Position: ("
+                    << rec.p.x() << ", "
+                    << rec.p.y() << ", "
+                    << rec.p.z() << ")\n";
+
+                // Object information
+                std::cout << "  Object Type: ";
+                if (rec.hit_object) {
+                    std::cout << rec.hit_object->get_type_name();
+                }
+                else {
+                    std::cout << "ERROR: hit_object is nullptr";
+                }
+
+                std::cout << "\n  Object Pointer: "
+                    << rec.hit_object << "\n";
+            }
+
+            std::cout << "---------------------------------\n\n";
+        }
+        else {
+            std::cout << "No hits along the central ray.\n";
+        }
+    }
+
 
     // Accessors
     point3 get_origin() const { return origin; }

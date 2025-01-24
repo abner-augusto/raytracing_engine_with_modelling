@@ -38,6 +38,11 @@ public:
         return hit;
     }
 
+    // Override get_type_name() to return the type name of the wrapped object
+    std::string get_type_name() const override {
+        return "CSGPrimitive(" + object->get_type_name() + ")";
+    }
+
     BoundingBox bounding_box() const override {
         return object->bounding_box();
     }
@@ -177,6 +182,7 @@ public:
                     r.normal = m.normal;
                 }
 
+                r.hit_object = m.obj;
                 recs.push_back(r);
             }
 
@@ -184,6 +190,11 @@ public:
         }
 
         return !recs.empty();
+    }
+
+    // Override get_type_name() to return the type name of the CSG operation
+    std::string get_type_name() const override {
+        return Operation::get_type_name();
     }
 
     BoundingBox bounding_box() const override {
@@ -259,6 +270,10 @@ struct Union {
     static BoundingBox bounding_box(const BoundingBox& leftBox, const BoundingBox& rightBox) {
         return leftBox.enclose(rightBox);
     }
+
+    static std::string get_type_name() {
+        return "CSGNode(Union)";
+    }
 };
 
 // Intersection operation
@@ -305,6 +320,10 @@ struct Intersection {
         }
         return leftBox.from_intersect(rightBox);
     }
+
+    static std::string get_type_name() {
+        return "CSGNode(Intersection)";
+    }
 };
 
 // Difference operation
@@ -347,6 +366,10 @@ struct Difference {
 
     static BoundingBox bounding_box(const BoundingBox& leftBox, const BoundingBox& rightBox) {
         return leftBox;
+    }
+
+    static std::string get_type_name() {
+        return "CSGNode(Difference)";
     }
 };
 

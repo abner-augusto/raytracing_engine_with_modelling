@@ -92,6 +92,7 @@ public:
         rec.p = r.at(t); // Calculate the hit point
         rec.normal = normal; // Set the surface normal
         rec.material = &material; // Set the material of the triangle
+        rec.hit_object = this;
 
         // Calculate texture coordinates using barycentric coordinates
         const double w = 1.0 - u_bary - v_bary;  // Third barycentric coordinate
@@ -130,6 +131,10 @@ public:
         );
 
         return BoundingBox(min_point, max_point);
+    }
+
+    std::string get_type_name() const override {
+        return "Triangle";
     }
 
 private:

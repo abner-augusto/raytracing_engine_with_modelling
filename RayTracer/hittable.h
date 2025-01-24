@@ -28,6 +28,11 @@ public:
         return false;
     }
 
+    // Default implementation for get_type_name()
+    virtual std::string get_type_name() const {
+        return "Unnamed";
+    }
+
     // Transform the object using a 4x4 matrix
     virtual void transform(const Matrix4x4& transform) {
         throw std::runtime_error("Transform not supported for this object.");

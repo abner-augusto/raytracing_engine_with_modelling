@@ -162,6 +162,7 @@ public:
         rec.p = intersection_point;
         rec.set_face_normal(r, surface_normal);
         rec.material = &material;
+        rec.hit_object = this;
         return true;
     }
 
@@ -332,6 +333,10 @@ public:
         );
 
         return BoundingBox(min_point, max_point);
+    }
+
+    std::string get_type_name() const override {
+        return "Cylinder";
     }
 
 private:

@@ -112,6 +112,7 @@ public:
         record.p = ray.at(t);
         record.set_face_normal(ray, surface_normal);
         record.material = &material;
+        record.hit_object = this;
         return true;
     }
 
@@ -150,6 +151,10 @@ public:
         );
 
         return BoundingBox(min_point, max_point);
+    }
+
+    std::string get_type_name() const override {
+        return "Cone";
     }
 
 private:

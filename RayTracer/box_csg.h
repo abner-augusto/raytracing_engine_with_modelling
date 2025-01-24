@@ -77,6 +77,10 @@ public:
         return false;
     }
 
+    std::string get_type_name() const override {
+        return "Box";
+    }
+
     bool test_point(const point3& p) const {
         return (p.x() >= min_corner.x() && p.x() <= max_corner.x()) &&
             (p.y() >= min_corner.y() && p.y() <= max_corner.y()) &&

@@ -156,6 +156,9 @@ public:
         return BoundingBox(min_point, max_point);
     }
 
+    std::string get_type_name() const override {
+        return "Sphere";
+    }
 
 private:
     point3 center;

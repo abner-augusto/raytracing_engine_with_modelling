@@ -201,6 +201,7 @@ public:
 
         rec.set_face_normal(r, normal_world);
         rec.material = &material;
+        rec.hit_object = this;
 
         return true;
     }

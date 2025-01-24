@@ -197,5 +197,8 @@
     <ClInclude Include="CSG.h">
       <Filter>Header Files\modelagem</Filter>
     </ClInclude>
+    <ClInclude Include="box_csg.h">
+      <Filter>Header Files\primitivas</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

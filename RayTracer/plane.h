@@ -38,6 +38,7 @@ public:
         rec.p = r.at(rec.t);
         rec.set_face_normal(r, normal);
         rec.material = &material;
+        rec.hit_object = this;
 
         // Calculate UV coordinates
         calculate_uv(rec.p, rec.u, rec.v);
@@ -67,6 +68,7 @@ public:
         rec.p = r.at(rec.t);
         rec.set_face_normal(r, normal);
         rec.material = &material;
+        rec.hit_object = this;
 
         // Calculate UV coordinates
         calculate_uv(rec.p, rec.u, rec.v);
@@ -117,6 +119,10 @@ public:
         point3 max_point(extent, point.y() + 0.01, extent);
 
         return BoundingBox(min_point, max_point);
+    }
+
+    std::string get_type_name() const override {
+        return "Plane";
     }
 
 private:

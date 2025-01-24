@@ -94,7 +94,7 @@ void update_camera(Camera& camera, float speed) {
     }
 }
 
-void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, double aspect_ratio, Camera& camera, RenderState& render_state ,float speed = 0.1f) {
+void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, double aspect_ratio, Camera& camera, RenderState& render_state , HittableManager& world, float speed = 0.1f) {
     if (event.type == SDL_QUIT) {
         running = false;
     }
@@ -220,6 +220,10 @@ void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, dou
         case SDLK_4: // Set render mode: Disabled
             render_state.set_mode(Disabled);
             break;
+
+        case SDLK_h:
+            camera.log_csg_hits(world);
+            break;
         }
     }
 
@@ -292,4 +296,17 @@ void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, dou
     }
 }
 
+void DrawCrosshair(SDL_Renderer* renderer, int window_width, int window_height) {
+    int center_x = window_width / 2;
+    int center_y = window_height / 2;
+    int crosshair_size = 10; // Size of the crosshair
 
+    // Set the draw color to white (or any color you prefer)
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+
+    // Draw horizontal line
+    SDL_RenderDrawLine(renderer, center_x - crosshair_size, center_y, center_x + crosshair_size, center_y);
+
+    // Draw vertical line
+    SDL_RenderDrawLine(renderer, center_x, center_y - crosshair_size, center_x, center_y + crosshair_size);
+}
