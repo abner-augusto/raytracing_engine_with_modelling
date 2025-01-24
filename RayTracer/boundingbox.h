@@ -114,12 +114,10 @@ public:
         return furthest;
     }
 
-    bool containsPoint(const point3& p) const {
-        point3 moved = p - vmin;
-        point3 size = getDimensions();
-        return (moved.x() >= 0 && moved.x() <= size.x() &&
-            moved.y() >= 0 && moved.y() <= size.y() &&
-            moved.z() >= 0 && moved.z() <= size.z());
+    bool contains(const point3& p) const {
+        return (p.x() >= vmin.x() && p.x() <= vmax.x() &&
+            p.y() >= vmin.y() && p.y() <= vmax.y() &&
+            p.z() >= vmin.z() && p.z() <= vmax.z());
     }
 
     bool intersects(const BoundingBox& other) const {
