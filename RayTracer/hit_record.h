@@ -6,6 +6,7 @@
 #include <memory>
 
 class mat; // Forward declaration for material
+class hittable; // Forward declaration to avoid compilation error
 
 class hit_record {
 public:
@@ -20,9 +21,9 @@ public:
     // Additional fields for CSG
     enum class CSGType { NONE, UNION, INTERSECTION, DIFFERENCE };
     CSGType csg_op = CSGType::NONE;  // Tracks which operation was used in the CSG tree
-    int hit_object_id = -1;          // Track which object in CSG tree caused the hit
     bool inside = false;       
     bool is_entry = true;
+    const hittable* hit_object = nullptr;  // Pointer to the hit object
 
     hit_record() = default;
 
@@ -35,8 +36,7 @@ public:
         u = 0.0;
         v = 0.0;
         csg_op = CSGType::NONE;
-        hit_object_id = -1;
-        inside = false;
+        hit_object = nullptr;
     }
 
     inline void set_face_normal(const ray& r, const vec3& outward_normal) {
