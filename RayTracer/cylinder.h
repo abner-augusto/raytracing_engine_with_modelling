@@ -202,6 +202,7 @@ public:
                     point3 closest_point_on_axis = base_center + unit_cylinder_axis * projection_scale;
                     rec.set_face_normal(r, unit_vector(rec.p - closest_point_on_axis));
                     rec.material = &material;
+                    rec.hit_object = this;
                     recs.push_back(rec);
                 }
             }
@@ -222,6 +223,7 @@ public:
                         rec.p = intersection_point;
                         rec.set_face_normal(r, normal);
                         rec.material = &material;
+                        rec.hit_object = this;
                         recs.push_back(rec);
                     }
                 }

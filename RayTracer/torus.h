@@ -232,6 +232,10 @@ public:
         return BoundingBox(min_point, max_point);
     }
 
+    std::string get_type_name() const override {
+        return "Torus";
+    }
+
 private:
     point3 center;
     double major_radius;

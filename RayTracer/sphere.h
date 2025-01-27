@@ -57,54 +57,66 @@ public:
 
         return true;
     }
-
     bool hit_all(const ray& r, interval ray_t, std::vector<hit_record>& recs) const override {
+        recs.clear();
+
         vec3 oc = r.origin() - center;
         auto a = r.direction().length_squared();
         auto half_b = dot(oc, r.direction());
         auto c = oc.length_squared() - radius * radius;
         auto discriminant = half_b * half_b - a * c;
 
-        if (discriminant < 0) return false;
+        if (discriminant < 0) return false;  // No intersections
 
-        auto sqrtd = sqrt(discriminant);
+        auto sqrtd = std::sqrt(discriminant);
         auto root1 = (-half_b - sqrtd) / a;
         auto root2 = (-half_b + sqrtd) / a;
 
-        // Check if either intersection point is within our interval
         bool hit1 = ray_t.surrounds(root1);
         bool hit2 = ray_t.surrounds(root2);
 
-        if (!hit1 && !hit2) return false;
+        if (!hit1 && !hit2) return false;  // No valid intersections within ray bounds
 
-        // Entry point
+        // Determine if the ray starts inside the sphere
+        bool ray_starts_inside = oc.length_squared() < radius * radius;
+
+        // Record entry intersection
         if (hit1) {
             hit_record rec;
             rec.t = root1;
             rec.p = r.at(rec.t);
-            vec3 outward_normal = (rec.p - center) / radius;
-            rec.set_face_normal(r, outward_normal);
+            rec.normal = (rec.p - center) / radius;
             rec.material = &material;
-            rec.is_entry = true;
-            calculate_uv((rec.p - center) / radius, rec.u, rec.v);
+
+            // Handle entry/exit based on ray start position
+            rec.front_face = !ray_starts_inside;
+            rec.set_face_normal(r, rec.normal);
+
+            calculate_uv(rec.normal, rec.u, rec.v);
+
             recs.push_back(rec);
         }
 
-        // Exit point
+        // Record exit intersection
         if (hit2) {
             hit_record rec;
             rec.t = root2;
             rec.p = r.at(rec.t);
-            vec3 outward_normal = (rec.p - center) / radius;
-            rec.set_face_normal(r, outward_normal);
+            rec.normal = (rec.p - center) / radius;
             rec.material = &material;
-            rec.is_entry = false;
-            calculate_uv((rec.p - center) / radius, rec.u, rec.v);
+
+            // Handle exit based on ray start position
+            rec.front_face = ray_starts_inside;
+            rec.set_face_normal(r, rec.normal);
+
+            calculate_uv(rec.normal, rec.u, rec.v);
+
             recs.push_back(rec);
         }
 
-        return true;
+        return !recs.empty();
     }
+
 
     void calculate_uv(const vec3& normal, double& u, double& v) const {
         // Convert normal to spherical coordinates
@@ -116,8 +128,7 @@ public:
         v = theta / M_PI;
     }
 
-    // Additional methods for Octree usage
-    bool test_point(const point3& p) const {
+    bool is_point_inside(const point3& p) const override {
         return distance(p, center) <= radius;
     }
 
@@ -127,12 +138,12 @@ public:
     // 'g' otherwise (partial)
     char test_bb(const BoundingBox& bb) const {
         point3 closest = bb.getClosestPoint(center);
-        if (!test_point(closest)) {
+        if (!is_point_inside(closest)) {
             return 'w';
         }
 
         point3 furthest = bb.getFurthestPoint(center);
-        if (test_point(furthest)) {
+        if (is_point_inside(furthest)) {
             return 'b';
         }
 

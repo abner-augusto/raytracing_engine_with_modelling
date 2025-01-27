@@ -186,30 +186,42 @@ public:
                 std::vector<hit_record> temp_recs;
                 if (object->hit_all(r, ray_t, temp_recs)) {
                     hit_anything = true;
-                    recs.insert(recs.end(), temp_recs.begin(), temp_recs.end());
+                    for (const auto& rec : temp_recs) {
+                        // Only add records within the ray interval range
+                        if (rec.t >= ray_t.min && rec.t <= ray_t.max) {
+                            recs.push_back(rec);
+                            ray_t.max = rec.t;  // Update the interval to limit further searches
+                        }
+                    }
                 }
             }
         }
         else {
-            // Internal node: recurse into left and right children
-            if (left) {
-                std::vector<hit_record> left_recs;
-                if (left->hit_all(r, ray_t, left_recs)) {
-                    hit_anything = true;
-                    recs.insert(recs.end(), left_recs.begin(), left_recs.end());
+            // Internal node: traverse left and right children with interval updates
+            std::vector<hit_record> left_recs, right_recs;
+
+            if (left && left->hit_all(r, ray_t, left_recs)) {
+                hit_anything = true;
+                for (const auto& rec : left_recs) {
+                    if (rec.t >= ray_t.min && rec.t <= ray_t.max) {
+                        recs.push_back(rec);
+                        ray_t.max = rec.t;  // Update the ray interval to prioritize closer hits
+                    }
                 }
             }
 
-            if (right) {
-                std::vector<hit_record> right_recs;
-                if (right->hit_all(r, ray_t, right_recs)) {
-                    hit_anything = true;
-                    recs.insert(recs.end(), right_recs.begin(), right_recs.end());
+            if (right && right->hit_all(r, ray_t, right_recs)) {
+                hit_anything = true;
+                for (const auto& rec : right_recs) {
+                    if (rec.t >= ray_t.min && rec.t <= ray_t.max) {
+                        recs.push_back(rec);
+                        ray_t.max = rec.t;  // Further limit the search interval
+                    }
                 }
             }
         }
 
-        // Sort all hits by t value
+        // Sort all hits by t value if there were any hits
         if (hit_anything) {
             std::sort(recs.begin(), recs.end(), [](const hit_record& a, const hit_record& b) {
                 return a.t < b.t;
@@ -222,6 +234,31 @@ public:
     BoundingBox bounding_box() const override {
         return box;
     }
+
+    bool is_point_inside(const point3& p) const override {
+        // Check if the point is inside the BVH node's bounding box first (early exit)
+        if (!box.contains(p)) {
+            return false;
+        }
+
+        if (is_leaf) {
+            // If this is a leaf node, check all objects in the leaf
+            for (const auto& object : leaf_objects) {
+                if (object->is_point_inside(p)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        else {
+            // If it's an internal node, recursively check left and right children
+            bool insideLeft = left && left->is_point_inside(p);
+            bool insideRight = right && right->is_point_inside(p);
+
+            return insideLeft || insideRight;
+        }
+    }
+
 };
 
 #endif // BVH_NODE_H

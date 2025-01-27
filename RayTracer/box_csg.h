@@ -70,18 +70,57 @@ public:
     }
 
     bool hit_all(const ray& r, interval ray_t, std::vector<hit_record>& recs) const override {
-        if (hit(r, ray_t, recs.emplace_back())) {
-            recs.back().is_entry = true;
-            return true;
+        recs.clear();
+        recs.reserve(2);  // Reserve space for 2 intersections (entry and exit)
+
+        vec3 invD = vec3::fill(1.0) / r.direction();
+        vec3 t0 = (min_corner - r.origin()) * invD;
+        vec3 t1 = (max_corner - r.origin()) * invD;
+
+        vec3 t_min = min(t0, t1);
+        vec3 t_max = max(t0, t1);
+
+        double tNear = std::max({ t_min.x(), t_min.y(), t_min.z() });
+        double tFar = std::min({ t_max.x(), t_max.y(), t_max.z() });
+
+        if (tNear > tFar || tFar < ray_t.min || tNear > ray_t.max) {
+            return false;
         }
-        return false;
+
+        // Entry hit processing
+        if (tNear >= ray_t.min && tNear <= ray_t.max) {
+            hit_record entry_rec;
+            entry_rec.t = tNear;
+            entry_rec.p = r.at(entry_rec.t);
+            entry_rec.normal = (tNear == t_min.x()) ? vec3(-1, 0, 0) :
+                (tNear == t_min.y()) ? vec3(0, -1, 0) : vec3(0, 0, -1);
+
+            entry_rec.set_face_normal(r, entry_rec.normal);
+            entry_rec.material = &material;
+            recs.push_back(entry_rec);
+        }
+
+        // Exit hit processing
+        if (tFar >= ray_t.min && tFar <= ray_t.max) {
+            hit_record exit_rec;
+            exit_rec.t = tFar;
+            exit_rec.p = r.at(exit_rec.t);
+            exit_rec.normal = (tFar == t_max.x()) ? vec3(1, 0, 0) :
+                (tFar == t_max.y()) ? vec3(0, 1, 0) : vec3(0, 0, 1);
+
+            exit_rec.set_face_normal(r, exit_rec.normal);
+            exit_rec.material = &material;
+            recs.push_back(exit_rec);
+        }
+
+        return !recs.empty();
     }
 
     std::string get_type_name() const override {
         return "Box";
     }
 
-    bool test_point(const point3& p) const {
+    bool is_point_inside(const point3& p) const override {
         return (p.x() >= min_corner.x() && p.x() <= max_corner.x()) &&
             (p.y() >= min_corner.y() && p.y() <= max_corner.y()) &&
             (p.z() >= min_corner.z() && p.z() <= max_corner.z());
