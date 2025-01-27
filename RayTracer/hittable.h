@@ -38,6 +38,10 @@ public:
         throw std::runtime_error("Transform not supported for this object.");
     }
 
+    virtual bool is_point_inside(const point3& p) const {
+        return false;  // Default implementation
+    }
+
     // Retrieve the bounding box of the object
     virtual BoundingBox bounding_box() const = 0;
 };
