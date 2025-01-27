@@ -40,6 +40,7 @@
     <ClInclude Include="cone.h" />
     <ClInclude Include="CSG.h" />
     <ClInclude Include="box_csg.h" />
+    <ClInclude Include="CSGTree.h" />
     <ClInclude Include="cylinder.h" />
     <ClInclude Include="hittable.h" />
     <ClInclude Include="hittable_manager.h" />

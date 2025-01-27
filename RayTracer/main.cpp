@@ -100,13 +100,31 @@ int main(int argc, char* argv[]) {
 
     // Create scenes
     std::vector<std::pair<ObjectID, std::shared_ptr<hittable>>> Scene1 = {
-        {0, make_shared<plane>(point3(0, -1.0, 0), vec3(0, 1, 0), mat(wood_texture))},
-        //{1, make_shared<cylinder>(point3(0, -0.5, -1), 1.2, vec3(0,1,0), 0.3, mat(red))},
-        //{1, make_shared<sphere>(point3(0, 0, -2), 0.5, mat(white))},
-        //{2, make_shared<cylinder>(point3(-1.0, -0.15, -2), point3(-1.0, 0.35, -2), 0.3, mat(blue))},
-        //{3, make_shared<cone>(point3(1, -0.15, -2), point3(1, 0.5, -2.5), 0.3, mat(red), false)},
-        //{4, make_shared<torus>(point3(-2, 0, -2), 0.3, 0.1, vec3(0, 0.5, 0.5), mat(cyan))}
+        {0, std::make_shared<plane>(point3(0, -1.0, 0), vec3(0, 1, 0), mat(wood_texture))},
+
+        //// Rod in the Y direction (thickness 0.3 in X and Z)
+        //{1, std::make_shared<box_csg>(
+        //    point3(-0.15, -1.5, -1.15),   // Min corner
+        //    point3(0.15,  1.5, -0.85),   // Max corner
+        //    mat(cyan)                     // Material
+        //)},
+
+        //// Rod in the X direction (thickness 0.3 in Y and Z)
+        //{2, std::make_shared<box_csg>(
+        //    point3(-1.5, -0.15, -1.15),   // Min corner
+        //    point3(1.5,  0.15, -0.85),   // Max corner
+        //    mat(cyan)                     // Material
+        //)},
+
+        //// Rod in the Z direction (thickness 0.3 in X and Y)
+        //{3, std::make_shared<box_csg>(
+        //    point3(-0.15, -0.15, -2.5),   // Min corner
+        //    point3(0.15,  0.15,  0.5),   // Max corner
+        //    mat(cyan)                     // Material
+        //)}
     };
+
+
 
     //Add all objects to the manager with their manually assigned IDs
     for (const auto& [id, obj] : Scene1) {
@@ -114,22 +132,91 @@ int main(int argc, char* argv[]) {
         //std::cout << "Added object with ID " << id << ".\n";
     }
 
-    auto sphere1 = std::make_shared<CSGPrimitive>(std::make_shared<sphere>(point3(0, 0, -1), 0.5, mat(blue)));
-    auto sphere2 = std::make_shared<CSGPrimitive>(std::make_shared<sphere>(point3(0.3, 0, -1), 0.5, mat(blue)));
-    auto sphere3 = std::make_shared<CSGPrimitive>(std::make_shared<sphere>(point3(0, 0, -1), 0.6, mat(blue)));
-    auto box1 = std::make_shared<CSGPrimitive>(std::make_shared<box_csg>(point3(0, 0, -1), 0.9, mat(red)));
-    auto cylinder1 = std::make_shared<CSGPrimitive>(std::make_shared<cylinder>(point3(0, -1, -1), 2, vec3(0, 1, 0), 0.3, mat(cyan), false));
-    auto cylinder2 = std::make_shared<CSGPrimitive>(std::make_shared<cylinder>(point3(-1, 0, -1), 2, vec3(1, 0, 0), 0.3, mat(cyan), false));
-    auto cylinder3 = std::make_shared<CSGPrimitive>(std::make_shared<cylinder>(point3(0, 0, -1.5), 2, vec3(0, 0, 1), 0.3, mat(cyan), false));
+    // 1) Intersection of sphere & cube
+    auto sphere3 = std::make_shared<CSGPrimitive>(
+        std::make_shared<sphere>(point3(0, 0, -1), 0.6, mat(blue))
+    );
+    auto sphere1 = std::make_shared<CSGPrimitive>(
+        std::make_shared<sphere>(point3(0.5, 0, -1), 0.6, mat(cyan))
+    );
+    auto box1 = std::make_shared<CSGPrimitive>(
+        std::make_shared<box_csg>(point3(0, 0, -1), 0.9, mat(red))
+    );
 
-    // Create a CSG union operation of the two spheres
+
+    auto rodY = std::make_shared<CSGPrimitive>(
+        std::make_shared<box_csg>(
+            point3(-0.15, -1.5, -1.15),   // Min corner
+            point3(0.15, 1.5, -0.85),   // Max corner
+            mat(cyan)                     // Material
+        )
+    );
+
+    auto rodX = std::make_shared<CSGPrimitive>(
+        std::make_shared<box_csg>(
+            point3(-1.5, -0.15, -1.15),   // Min corner
+            point3(1.5, 0.15, -0.85),   // Max corner
+            mat(cyan)                     // Material
+        )
+    );
+
+    auto rodZ = std::make_shared<CSGPrimitive>(
+        std::make_shared<box_csg>(
+            point3(-0.15, -0.15, -2.5),   // Min corner
+            point3(0.15, 0.15, 0.5),   // Max corner
+            mat(cyan)                     // Material
+        )
+    );
+
+    // Y-axis rod (vertical)
+    auto cylinder_Y = std::make_shared<CSGPrimitive>(
+        std::make_shared<cylinder>(
+            point3(0, -1.5, -1.0), // Base center (midpoint in X/Z)
+            3.0,                    // Height (matches box Y-length)
+            vec3(0, 1, 0),          // Direction: +Y axis
+            0.3,                   // Radius (matches box X/Z half-width)
+            mat(cyan),              // Material
+            true                    // Capped
+        )
+    );
+
+    // X-axis rod (horizontal)
+    auto cylinder_X = std::make_shared<CSGPrimitive>(
+        std::make_shared<cylinder>(
+            point3(-1.5, 0, -1.0), // Base center (midpoint in Y/Z)
+            3.0,                    // Height (matches box X-length)
+            vec3(1, 0, 0),          // Direction: +X axis
+            0.3,                   // Radius
+            mat(cyan),
+            true
+        )
+    );
+
+    // Z-axis rod (depth)
+    auto cylinder_Z = std::make_shared<CSGPrimitive>(
+        std::make_shared<cylinder>(
+            point3(0, 0, -2.5),     // Base center (matches box min-Z)
+            3.0,                    // Height (from Z=-2.5 to 0.5)
+            vec3(0, 0, 1),          // Direction: +Z axis
+            0.3,                   // Radius
+            mat(cyan),
+            true
+        )
+    );
+
+    // Intersection node
     auto csgInter = std::make_shared<CSGNode<Intersection>>(sphere3, box1);
-    auto csgDiff = std::make_shared<CSGNode<Difference>>(csgInter, cylinder1);
-    auto csgDiff2 = std::make_shared<CSGNode<Difference>>(csgDiff, cylinder2);
-    auto csgDiff3 = std::make_shared<CSGNode<Difference>>(csgDiff2, cylinder3);
-    auto csgUnion = std::make_shared<CSGNode<Union>>(sphere3, box1);
 
+    auto csgDiff = std::make_shared<CSGNode<Difference>>(csgInter, cylinder_Z);
+    auto csgDiff2 = std::make_shared<CSGNode<Difference>>(csgDiff, cylinder_X);
+    auto csgDiff3 = std::make_shared<CSGNode<Difference>>(csgDiff2, cylinder_Y);
+
+    //auto my_tree = std::make_shared<CSGTree>(csgDiff3);
+
+    // Finally, add to the world
     ObjectID csg_id = world.add(csgDiff3);
+
+    print_csg_tree(csgDiff3);
 
     //Mesh Object
 
@@ -185,7 +272,7 @@ int main(int argc, char* argv[]) {
     auto samples_per_pixel = 5; 
     //point3 origin(-4.1, 4.3, 6.9);
     //point3 look_at(-1.8 , 3.7, 3.0);
-    point3 origin(0, 0, 1);
+    point3 origin(0, 0.5, 2);
     point3 look_at(0 , 0, -3.0);
 
 
@@ -206,6 +293,8 @@ int main(int argc, char* argv[]) {
     //Build a BVH Tree
     world.buildBVH();
 
+    //camera.log_csg_hits(world);
+
     // FPS Counter
     float deltaTime = 0.0f;
     Uint64 currentTime = SDL_GetPerformanceCounter();
@@ -223,7 +312,7 @@ int main(int argc, char* argv[]) {
 
         while (SDL_PollEvent(&event)) {
             ImGui_ImplSDL2_ProcessEvent(&event);
-            handle_event(event, running, window, aspect_ratio, camera, render_state);
+            handle_event(event, running, window, aspect_ratio, camera, render_state, world);
         }
 
         // Start ImGui frame
@@ -354,7 +443,7 @@ int main(int argc, char* argv[]) {
         SDL_RenderClear(renderer);
         SDL_RenderCopy(renderer, texture, nullptr, &destination_rect);
 
-
+        DrawCrosshair(renderer, window_width, window_height);
         // Render ImGui
         ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
         // Present the final frame
