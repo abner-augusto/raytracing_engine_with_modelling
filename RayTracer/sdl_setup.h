@@ -222,7 +222,7 @@ void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, dou
             break;
 
         case SDLK_h:
-            camera.log_csg_hits(world);
+            log_csg_hits(world, camera.compute_central_ray());
             break;
         }
     }

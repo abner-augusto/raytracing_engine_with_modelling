@@ -11,7 +11,6 @@
 
 #include "raytracer.h"
 #include "light.h"
-#include "csg.h"
 
 class Camera {
 public:
@@ -253,7 +252,7 @@ public:
         }
     }
 
-    void log_csg_hits(HittableManager& manager) const {
+    ray compute_central_ray() const {
         // Compute screen coordinates for the center of the image
         int pixel_x = image_width / 2;
         int pixel_y = image_height / 2;
@@ -283,128 +282,9 @@ public:
         vec4 origin_world = camera_to_world_matrix * origin_cam;
         vec3 origin = origin_world.to_vec3();
 
-        // Create the ray
-        ray r(origin, direction);
-
-        // Collect all hit records along the ray
-        std::vector<hit_record> hits;
-        interval ray_interval(0.001, infinity);
-
-        if (manager.hit_all(r, ray_interval, hits)) {
-            std::cout << "\n=== CSG Hits Along Central Ray ===\n";
-
-            for (size_t i = 0; i < hits.size(); i++) {
-                const auto& rec = hits[i];
-
-                std::cout << "\n---------------------------------\n";
-                std::cout << "Hit #" << (i + 1) << ":\n";
-                std::cout << "  t Value: " << rec.t << "\n";
-                std::cout << "  Position: ("
-                    << rec.p.x() << ", "
-                    << rec.p.y() << ", "
-                    << rec.p.z() << ")\n";
-
-                std::cout << "  Normal: ("
-                    << rec.normal.x() << ", "
-                    << rec.normal.y() << ", "
-                    << rec.normal.z() << ")\n";
-
-                std::cout << "  Front Face: " << (rec.front_face ? "Yes" : "No") << "\n";
-
-                // Updated handling for the new CSGIntersection structure
-                if (!rec.csg_intersections.empty()) {
-                    std::cout << "  CSG Intersections Count: " << rec.csg_intersections.size() << "\n";
-                    for (size_t j = 0; j < rec.csg_intersections.size(); j++) {
-                        const auto& intersection = rec.csg_intersections[j];
-                        std::cout << "    Intersection " << (j + 1) << ":\n";
-                        std::cout << "      t Value: " << intersection.t << "\n";
-                        std::cout << "      Position: ("
-                            << intersection.p.x() << ", "
-                            << intersection.p.y() << ", "
-                            << intersection.p.z() << ")\n";
-
-                        std::cout << "      Normal: ("
-                            << intersection.normal.x() << ", "
-                            << intersection.normal.y() << ", "
-                            << intersection.normal.z() << ")\n";
-
-                        if (intersection.obj) {
-                            std::cout << "      Object Type: " << intersection.obj->get_type_name() << "\n";
-                        }
-                        else {
-                            std::cout << "      Object Type: ERROR (nullptr)\n";
-                        }
-                    }
-                }
-                else {
-                    std::cout << "  Event: Not a CSG hit\n";
-                }
-
-                // Object information
-                std::cout << "  Object Type: ";
-                if (rec.hit_object) {
-                    std::cout << rec.hit_object->get_type_name();
-                }
-                else {
-                    std::cout << "ERROR: hit_object is nullptr";
-                }
-
-                std::cout << "\n  Object Pointer: " << rec.hit_object << "\n";
-
-                // If the hit object is a CSG node, log its children
-                if (rec.hit_object) {
-                    if (dynamic_cast<const CSGNode<Union>*>(rec.hit_object) ||
-                        dynamic_cast<const CSGNode<Intersection>*>(rec.hit_object) ||
-                        dynamic_cast<const CSGNode<Difference>*>(rec.hit_object)) {
-                        std::cout << "  CSG Node Children:\n";
-                        log_csg_children(rec.hit_object, "    ");
-                    }
-                }
-            }
-
-            std::cout << "---------------------------------\n\n";
-        }
-        else {
-            std::cout << "No hits along the central ray.\n";
-        }
+        // Create and return the ray
+        return ray(origin, direction);
     }
-
-
-    void log_csg_children(const hittable* node, const std::string& prefix, bool is_left = false) const {
-        if (!node) {
-            std::cout << prefix << "nullptr\n";
-            return;
-        }
-
-        std::string child_prefix = prefix + "  "; // Indentation for child nodes
-
-        // Determine and print the appropriate node type
-        if (auto primitive = dynamic_cast<const CSGPrimitive*>(node)) {
-            std::cout << prefix << (is_left ? "Left:  " : "Right: ")
-                << "CSGPrimitive(" << primitive->get_type_name() << ")\n";
-        }
-        else if (auto csg_union = dynamic_cast<const CSGNode<Union>*>(node)) {
-            std::cout << prefix << (is_left ? "Left:  " : "Right: ") << "CSGNode(Union)\n";
-            log_csg_children(csg_union->left.get(), child_prefix, true);
-            log_csg_children(csg_union->right.get(), child_prefix, false);
-        }
-        else if (auto csg_intersection = dynamic_cast<const CSGNode<Intersection>*>(node)) {
-            std::cout << prefix << (is_left ? "Left:  " : "Right: ") << "CSGNode(Intersection)\n";
-            log_csg_children(csg_intersection->left.get(), child_prefix, true);
-            log_csg_children(csg_intersection->right.get(), child_prefix, false);
-        }
-        else if (auto csg_difference = dynamic_cast<const CSGNode<Difference>*>(node)) {
-            std::cout << prefix << (is_left ? "Left:  " : "Right: ") << "CSGNode(Difference)\n";
-            log_csg_children(csg_difference->left.get(), child_prefix, true);
-            log_csg_children(csg_difference->right.get(), child_prefix, false);
-        }
-        else {
-            std::cout << prefix << "Unknown CSG Node Type\n";
-        }
-    }
-
-
-
 
     // Accessors
     point3 get_origin() const { return origin; }
