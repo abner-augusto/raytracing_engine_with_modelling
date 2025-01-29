@@ -37,20 +37,16 @@ public:
     // For a single closest hit, we can rely on hit_all(...) and pick the first
     bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
         std::vector<hit_record> recs;
-        if (!hit_all(r, ray_t, recs) || recs.empty()) {
-            return false;
-        }
-        // Among all hits, pick the earliest valid
-        double closest_t = ray_t.max;
-        bool found_any = false;
-        for (auto& h : recs) {
-            if (h.t < closest_t && h.t >= ray_t.min) {
-                closest_t = h.t;
+        if (!hit_all(r, ray_t, recs) || recs.empty()) return false;
+
+        // Pick the first valid hit (sorted by t)
+        for (const auto& h : recs) {
+            if (h.t >= ray_t.min && h.t <= ray_t.max) {
                 rec = h;
-                found_any = true;
+                return true; // Early exit
             }
         }
-        return found_any;
+        return false;
     }
 
     // Return all intersections with the wrapped object
@@ -98,37 +94,36 @@ public:
     }
 
     bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
-        // Collect all boundary crossings, pick the earliest that enters the CSG shape
         std::vector<hit_record> recs;
-        if (!hit_all(r, ray_t, recs) || recs.empty()) {
-            return false;
-        }
-        // Among all boundary events, find the first one where we transition from OUT -> IN
-        double closest_t = ray_t.max;
-        bool found_hit = false;
-        for (auto& hr : recs) {
-            // If hr.front_face == true => we are entering the shape
-            if (hr.front_face && hr.t < closest_t && hr.t >= ray_t.min) {
-                closest_t = hr.t;
+        if (!hit_all(r, ray_t, recs) || recs.empty()) return false;
+
+        // Iterate sorted hits and exit early
+        for (const auto& hr : recs) {
+            if (hr.front_face && hr.t >= ray_t.min && hr.t <= ray_t.max) {
                 rec = hr;
-                found_hit = true;
+                return true; // Early exit
             }
         }
-        return found_hit;
+        return false;
     }
 
     bool hit_all(const ray& r, interval ray_t, std::vector<hit_record>& recs) const override {
         recs.clear();
 
-        // Quick bounding-box test
-        if (!bbox.hit(r, ray_t)) {
-            return false;
+        // Early exit if CSGNode's bounding box is missed
+        if (!bbox.hit(r, ray_t)) return false;
+
+        std::vector<hit_record> leftRecords, rightRecords;
+
+        // Check left child's bounding box first
+        if (left->bounding_box().hit(r, ray_t)) {
+            left->hit_all(r, ray_t, leftRecords);
         }
 
-        // 1) Collect ALL raw intersections from both children
-        std::vector<hit_record> leftRecords, rightRecords;
-        left->hit_all(r, ray_t, leftRecords);
-        right->hit_all(r, ray_t, rightRecords);
+        // Check right child's bounding box first
+        if (right->bounding_box().hit(r, ray_t)) {
+            right->hit_all(r, ray_t, rightRecords);
+        }
 
         // 2) Build a merged list of CSGIntersection
         std::vector<CSGIntersection> events;
