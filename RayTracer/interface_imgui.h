@@ -1,6 +1,5 @@
 #pragma once
 
-#include "raytracer.h"
 #include "camera.h"
 #include "render_state.h"
 #include <vector>

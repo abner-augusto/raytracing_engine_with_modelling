@@ -184,7 +184,7 @@ public:
                         ray r(origin, direction);
 
                         // Cast ray and accumulate color
-                        accumulated_color += cast_ray(r, manager, lights);
+                        accumulated_color += cast_ray(r, manager, lights, 5, renderShadows);
                     }
 
                     // Average color and write to pixel buffer
@@ -276,6 +276,11 @@ public:
         return ray(origin, direction);
     }
 
+    // Toggle shadows on or off
+    void toggle_shadows() {
+        renderShadows = !renderShadows;
+    }
+
     // Accessors
     point3 get_origin() const { return origin; }
     point3 get_look_at() const { return look_at; }
@@ -286,8 +291,11 @@ public:
     vec3 get_right() const { return right; }
     vec3 get_up() const { return up; }
     vec3 get_forward() const { return forward; }
+    bool shadowStatus() const { return renderShadows; }
 
 private:
+
+    bool renderShadows = false;
 
     color background_color(const ray& r) const {
         vec3 unit_direction = unit_vector(r.direction());
@@ -307,7 +315,7 @@ private:
     }
 
     color phong_shading(const hit_record& rec, const vec3& view_dir, const std::vector<Light>& lights,
-        const hittable& world, const color& diffuse_color) const {
+        const hittable& world, const color& diffuse_color, bool renderShadows) const {
         // Ambient light
         double ambient_light_intensity = 0.4;
         color ambient_light_color(1.0, 0.95, 0.8);  // Warm yellow
@@ -341,11 +349,13 @@ private:
                     }
 
                     // Shadow check
-                    //ray shadow_ray(rec.p + rec.normal * shadow_bias, light_dir);
-                    //hit_record shadow_rec;
-                    //if (world.hit(shadow_ray, interval(0.001, light_distance), shadow_rec)) {
-                    //    continue;
-                    //}
+                    if (renderShadows) {
+                        ray shadow_ray(rec.p + rec.normal * shadow_bias, light_dir);
+                        hit_record shadow_rec;
+                        if (world.hit(shadow_ray, interval(0.001, light_distance), shadow_rec)) {
+                            continue;
+                        }
+                    }
 
                     // Diffuse and specular contributions
                     double attenuation = 1.0 / (1.0 + 0.1 * light_distance + 0.01 * light_distance * light_distance);
@@ -376,11 +386,13 @@ private:
                 }
 
                 // Shadow check
-                //ray shadow_ray(rec.p + rec.normal * shadow_bias, light_dir);
-                //hit_record shadow_rec;
-                //if (world.hit(shadow_ray, interval(0.001, light_distance), shadow_rec)) {
-                //    continue;
-                //}
+                if (renderShadows) {
+                    ray shadow_ray(rec.p + rec.normal * shadow_bias, light_dir);
+                    hit_record shadow_rec;
+                    if (world.hit(shadow_ray, interval(0.001, light_distance), shadow_rec)) {
+                        continue;
+                    }
+                }
 
                 // Diffuse and specular contributions
                 double attenuation = 1.0 / (1.0 + 0.1 * light_distance + 0.01 * light_distance * light_distance);
@@ -397,7 +409,7 @@ private:
         return ambient + diffuse + specular;
     }
 
-    color cast_ray(const ray& r, const hittable& world, const std::vector<Light>& lights, int depth = 5) const {
+    color cast_ray(const ray& r, const hittable& world, const std::vector<Light>& lights, int depth = 5, bool renderShadows = true) const {
         if (depth <= 0) {
             return color(0, 0, 0);
         }
@@ -410,14 +422,14 @@ private:
             color diffuse_color = rec.material->get_color(rec.u, rec.v);
 
             // Obtain the Phong color for the hit object, now using the texture or solid color
-            color phong_color = phong_shading(rec, view_dir, lights, world, diffuse_color);
+            color phong_color = phong_shading(rec, view_dir, lights, world, diffuse_color, renderShadows);
 
             // Calculate reflection if the material supports it
             if (rec.material->reflection > 0.0) {
                 vec3 reflected_dir = reflect(unit_vector(r.direction()), rec.normal);
                 ray reflected_ray(rec.p + rec.normal * 1e-3, reflected_dir);
 
-                color reflected_color = cast_ray(reflected_ray, world, lights, depth - 1);
+                color reflected_color = cast_ray(reflected_ray, world, lights, depth - 1, renderShadows);
 
                 // Combine Phong color with reflection
                 return (1.0 - rec.material->reflection) * phong_color +

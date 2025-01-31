@@ -1,8 +1,11 @@
 #ifndef CSG_H
 #define CSG_H
 
+#include <iostream>
+#include <iomanip>
 #include <memory>
 #include <algorithm>
+#include <functional>
 #include <vector>
 #include <string>
 #include <cmath>
@@ -170,6 +173,7 @@ public:
         std::vector<CSGIntersection>& out_intersections) const override
     {
         out_intersections.clear();
+
 
         // Early exit if the bounding box is missed
         if (!bbox.hit(r, ray_t)) {
@@ -367,6 +371,37 @@ inline void print_csg_tree(const std::shared_ptr<hittable>& node, int depth = 0,
     }
 }
 
+// Helper function to recursively gather CSG intersections with visited tracking
+void gather_intersections_recursive(
+    const hittable* obj,
+    const ray& r,
+    const interval& interval,
+    std::vector<CSGIntersection>& intersections,
+    std::unordered_set<const hittable*>& visited
+) {
+    // Check if the node has already been processed
+    if (visited.find(obj) != visited.end()) {
+        return; // Already processed, skip to prevent duplicates
+    }
+
+    // Mark the current node as visited
+    visited.insert(obj);
+
+    std::vector<CSGIntersection> local_intersections;
+    if (obj->csg_intersect(r, interval, local_intersections)) {
+        for (const auto& intersect : local_intersections) {
+            intersections.push_back(intersect);
+            // Check if the intersected object is a CSG node
+            bool child_is_csg_node = dynamic_cast<const CSGNode<Union>*>(intersect.obj) ||
+                dynamic_cast<const CSGNode<Intersection>*>(intersect.obj) ||
+                dynamic_cast<const CSGNode<Difference>*>(intersect.obj);
+            if (child_is_csg_node) {
+                gather_intersections_recursive(intersect.obj, r, interval, intersections, visited);
+            }
+        }
+    }
+}
+
 void log_csg_hits(HittableManager& manager, const ray& central_ray) {
     interval ray_interval(0.001, infinity);
     hit_record closest_hit;
@@ -393,30 +428,71 @@ void log_csg_hits(HittableManager& manager, const ray& central_ray) {
             dynamic_cast<const CSGNode<Difference>*>(closest_hit.hit_object);
 
         if (is_csg_node) {
-            std::cout << "\n=== CSG Intersections for Closest CSG Node ===\n";
+            // Directly proceed to handle the CSG node without redundant logging
+            std::cout << "\n  CSG Node Tree:\n";
+            std::cout << "\n";
+            // Use a non-owning shared_ptr with a no-op deleter
+            std::shared_ptr<hittable> non_owning_ptr(
+                const_cast<hittable*>(closest_hit.hit_object),
+                [](hittable*) { /* No-op deleter */ }
+            );
+            print_csg_tree(non_owning_ptr);
 
-            // Perform csg_intersect on the closest CSG node
-            std::vector<CSGIntersection> csg_intersections;
-            if (closest_hit.hit_object->csg_intersect(central_ray, ray_interval, csg_intersections)) {
-                for (size_t i = 0; i < csg_intersections.size(); i++) {
-                    const auto& intersection = csg_intersections[i];
+            std::cout << "\n";
+
+            // Collect all CSG intersections, including recursive ones
+            std::vector<CSGIntersection> all_csg_intersections;
+            std::unordered_set<const hittable*> visited_nodes;
+
+            // Start gathering from the closest CSG node
+            gather_intersections_recursive(closest_hit.hit_object, central_ray, ray_interval, all_csg_intersections, visited_nodes);
+
+            if (!all_csg_intersections.empty()) {
+                // Sort the intersections by t to group duplicates
+                std::sort(all_csg_intersections.begin(), all_csg_intersections.end(),
+                    [](const CSGIntersection& a, const CSGIntersection& b) {
+                        return a.t < b.t;
+                    });
+
+                // Define an epsilon for floating-point comparison
+                const double epsilon = 1e-8;
+
+                // Use std::unique to remove consecutive duplicates based on t, obj, and is_entry
+                auto new_end = std::unique(all_csg_intersections.begin(), all_csg_intersections.end(),
+                    [epsilon](const CSGIntersection& a, const CSGIntersection& b) {
+                        return std::abs(a.t - b.t) < epsilon &&
+                            a.obj == b.obj &&
+                            a.is_entry == b.is_entry;
+                    });
+
+                // Erase the leftover elements
+                all_csg_intersections.erase(new_end, all_csg_intersections.end());
+
+                // Log each unique intersection
+                for (size_t i = 0; i < all_csg_intersections.size(); i++) {
+                    const auto& intersection = all_csg_intersections[i];
 
                     std::cout << "\n---------------------------------\n";
                     std::cout << "CSG Intersection #" << (i + 1) << ":\n";
                     std::cout << "  t Value: " << intersection.t << "\n";
-                    std::cout << "  Position: ("
-                        << intersection.p.x() << ", "
-                        << intersection.p.y() << ", "
-                        << intersection.p.z() << ")\n";
-                    std::cout << "  Normal: ("
-                        << intersection.normal.x() << ", "
-                        << intersection.normal.y() << ", "
-                        << intersection.normal.z() << ")\n";
+
+                    // Check if position and normal are valid before printing
+                    if (&intersection.p != nullptr) { // Replace with actual condition
+                        std::cout << "  Position: ("
+                            << intersection.p.x() << ", "
+                            << intersection.p.y() << ", "
+                            << intersection.p.z() << ")\n";
+                        std::cout << "  Normal: ("
+                            << intersection.normal.x() << ", "
+                            << intersection.normal.y() << ", "
+                            << intersection.normal.z() << ")\n";
+                    }
+
                     std::cout << "  Is Entry: " << (intersection.is_entry ? "Yes" : "No") << "\n";
                     std::cout << "  Object Type: " << intersection.obj->get_type_name() << "\n";
                     std::cout << "  Object Pointer: " << intersection.obj << "\n";
 
-                    // Log children if the intersection object is a CSG node
+                    // If the intersected object is a CSG node, print its tree
                     bool is_child_csg_node = dynamic_cast<const CSGNode<Union>*>(intersection.obj) ||
                         dynamic_cast<const CSGNode<Intersection>*>(intersection.obj) ||
                         dynamic_cast<const CSGNode<Difference>*>(intersection.obj);
@@ -424,51 +500,25 @@ void log_csg_hits(HittableManager& manager, const ray& central_ray) {
                     if (is_child_csg_node) {
                         std::cout << "  CSG Node Tree:\n";
                         std::cout << "\n";
-                        // Use a non-owning shared_ptr with a no-op deleter
-                        std::shared_ptr<hittable> non_owning_ptr(
+                        std::shared_ptr<hittable> child_non_owning_ptr(
                             const_cast<hittable*>(intersection.obj),
                             [](hittable*) { /* No-op deleter */ }
                         );
-                        print_csg_tree(non_owning_ptr);
-
+                        print_csg_tree(child_non_owning_ptr);
                         std::cout << "\n";
-
-                        // Recursively call csg_intersect on child nodes
-                        std::vector<CSGIntersection> child_intersections;
-                        if (intersection.obj->csg_intersect(central_ray, ray_interval, child_intersections)) {
-                            std::cout << "  === Recursive CSG Intersections for Child Node ===\n";
-                            for (size_t j = 0; j < child_intersections.size(); j++) {
-                                const auto& child_intersection = child_intersections[j];
-
-                                std::cout << "\n  ---------------------------------\n";
-                                std::cout << "  CSG Intersection #" << (j + 1) << ":\n";
-                                std::cout << "    t Value: " << child_intersection.t << "\n";
-                                std::cout << "    Is Entry: " << (child_intersection.is_entry ? "Yes" : "No") << "\n";
-                                std::cout << "    Object Type: " << child_intersection.obj->get_type_name() << "\n";
-                            }
-                        }
-                        else {
-                            std::cout << "  No recursive CSG intersections found for child node.\n";
-                        }
                     }
                 }
 
                 // SMC Log
-                std::cout << "\n=== SMC of Ray Traversal ===\n";
+                std::cout << "\n============ SMC of Ray Traversal ============\n";
                 std::cout << std::left << std::setw(10) << "t"
                     << std::left << std::setw(25) << "Object"
                     << "Status\n";
-                std::cout << "-----------------------------------------------\n";
-
-                // Sort all intersections by t
-                std::sort(csg_intersections.begin(), csg_intersections.end(),
-                    [](const CSGIntersection& a, const CSGIntersection& b) {
-                        return a.t < b.t;
-                    });
+                std::cout << "----------------------------------------------\n";
 
                 // Initialize state
                 bool inside = false;
-                for (const auto& intersect : csg_intersections) {
+                for (const auto& intersect : all_csg_intersections) {
                     // Get object type/name
                     std::string object_name = intersect.obj->get_type_name();
                     std::string status = intersect.is_entry ? "In" : "Out";
@@ -480,8 +530,7 @@ void log_csg_hits(HittableManager& manager, const ray& central_ray) {
                         << std::left << std::setw(5) << status << "\n";
                 }
 
-                std::cout << "-----------------------------------------------\n";
-
+                std::cout << "----------------------------------------------\n";
             }
             else {
                 std::cout << "No CSG intersections found for the closest CSG node.\n";

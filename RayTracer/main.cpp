@@ -30,6 +30,7 @@
 
 RenderState render_state;
 bool isCameraSpace = false;
+bool renderShadows = false;
 
 int main(int argc, char* argv[]) {
 
@@ -40,6 +41,7 @@ int main(int argc, char* argv[]) {
     int window_width = 1080;
     int window_height = int(window_width / aspect_ratio);
 
+    omp_set_nested(1);
 
     if (!InitializeSDL()) {
         return -1;
@@ -100,30 +102,9 @@ int main(int argc, char* argv[]) {
 
     // Create scenes
     std::vector<std::pair<ObjectID, std::shared_ptr<hittable>>> Scene1 = {
-        {0, std::make_shared<plane>(point3(0, -1.0, 0), vec3(0, 1, 0), mat(wood_texture))},
+        {0, std::make_shared<plane>(point3(0, -1.0, 0), vec3(0, 1, 0), mat(grass_texture))},
 
-        //// Rod in the Y direction (thickness 0.3 in X and Z)
-        //{1, std::make_shared<box_csg>(
-        //    point3(-0.15, -1.5, -1.15),   // Min corner
-        //    point3(0.15,  1.5, -0.85),   // Max corner
-        //    mat(cyan)                     // Material
-        //)},
-
-        //// Rod in the X direction (thickness 0.3 in Y and Z)
-        //{2, std::make_shared<box_csg>(
-        //    point3(-1.5, -0.15, -1.15),   // Min corner
-        //    point3(1.5,  0.15, -0.85),   // Max corner
-        //    mat(cyan)                     // Material
-        //)},
-
-        //// Rod in the Z direction (thickness 0.3 in X and Y)
-        //{3, std::make_shared<box_csg>(
-        //    point3(-0.15, -0.15, -2.5),   // Min corner
-        //    point3(0.15,  0.15,  0.5),   // Max corner
-        //    mat(cyan)                     // Material
-        //)}
     };
-
 
 
     //Add all objects to the manager with their manually assigned IDs
@@ -211,12 +192,15 @@ int main(int argc, char* argv[]) {
     auto csgDiff2 = std::make_shared<CSGNode<Difference>>(csgDiff, cylinder_X);
     auto csgDiff3 = std::make_shared<CSGNode<Difference>>(csgDiff2, cylinder_Y);
 
+    //auto csgDiff = std::make_shared<CSGNode<Difference>>(csgInter, rodZ);
+    //auto csgDiff2 = std::make_shared<CSGNode<Difference>>(csgDiff, rodX);
+    //auto csgDiff3 = std::make_shared<CSGNode<Difference>>(csgDiff2, rodY);
+
     //auto my_tree = std::make_shared<CSGTree>(csgDiff3);
 
     // Finally, add to the world
     ObjectID csg_id = world.add(csgDiff3);
 
-    print_csg_tree(csgDiff3);
 
     //Mesh Object
 
@@ -261,8 +245,8 @@ int main(int argc, char* argv[]) {
     //Light
     std::vector<Light> lights = {
         Light(vec3(0.0, 1, 1.1), 1.2, color(1.0, 1.0, 1.0)),
-        //Light(vec3(3, 0.3, 1), 1.5, color(1.0, 0.82, 0.20)),
-        //Light(vec3(2.5, 6, -1), 2.0, color(0.3, 0.3, 1.0))
+        //Light(vec3(3, 0.3, -2), 1.0, color(1.0, 0.82, 0.20)),
+        //Light(vec3(2.5, 6, -1), 1.0, color(0.3, 0.3, 1.0))
     };
 
     // Camera
@@ -291,9 +275,7 @@ int main(int argc, char* argv[]) {
     }
 
     //Build a BVH Tree
-    world.buildBVH();
-
-    //camera.log_csg_hits(world);
+    //world.buildBVH();
 
     // FPS Counter
     float deltaTime = 0.0f;

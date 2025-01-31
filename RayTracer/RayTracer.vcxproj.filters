@@ -200,9 +200,6 @@
     <ClInclude Include="box_csg.h">
       <Filter>Header Files\primitivas</Filter>
     </ClInclude>
-    <ClInclude Include="CSGTree.h">
-      <Filter>Header Files\modelagem</Filter>
-    </ClInclude>
     <ClInclude Include="csg_intesection.h">
       <Filter>Header Files\modelagem</Filter>
     </ClInclude>

@@ -12,10 +12,9 @@ void draw_menu(RenderState& render_state,
     Camera& camera, HittableManager world, std::vector<Light>& lights)
 {
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(250, 400), ImGuiCond_FirstUseEver);  // Slightly increased height
     ImGui::SetNextWindowCollapsed(true, ImGuiCond_FirstUseEver);
 
-    if (ImGui::Begin("Menu", nullptr, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoMove)) {
+    if (ImGui::Begin("Menu", nullptr, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize)) {
 
         static bool isCameraSpace = false;
 
@@ -31,7 +30,8 @@ void draw_menu(RenderState& render_state,
                 static_cast<float>(camera.get_origin().z())
             };
 
-            ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x);
+            // Fixed width for sliders
+            ImGui::PushItemWidth(200.0f); // Set a fixed width for the sliders
             if (ImGui::SliderFloat3("Origin", origin_array, -10.0f, 10.0f)) {
                 camera.set_origin(point3(origin_array[0], origin_array[1], origin_array[2]));
                 if (isCameraSpace) {
@@ -47,7 +47,7 @@ void draw_menu(RenderState& render_state,
                 static_cast<float>(camera.get_look_at().y()),
                 static_cast<float>(camera.get_look_at().z())
             };
-            ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x);
+            ImGui::PushItemWidth(200.0f); // Same fixed width for consistency
             if (ImGui::SliderFloat3("Look At", target_array, -10.0f, 10.0f)) {
                 camera.set_look_at(point3(target_array[0], target_array[1], target_array[2]));
                 if (isCameraSpace) {
@@ -58,7 +58,7 @@ void draw_menu(RenderState& render_state,
 
             float camera_fov_degrees = static_cast<float>(camera.get_fov_degrees());
             ImGui::Text("Camera FOV");
-            ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x);
+            ImGui::PushItemWidth(200.0f); // Same fixed width for consistency
             if (ImGui::SliderFloat("FOV", &camera_fov_degrees, 10.0f, 120.0f)) {
                 camera.set_fov(static_cast<double>(camera_fov_degrees));
             }
@@ -74,6 +74,8 @@ void draw_menu(RenderState& render_state,
                 }
             }
         }
+
+        bool renderShadows = camera.shadowStatus();
 
         // Render Header with keyboard shortcuts
         if (ImGui::CollapsingHeader("Render Options")) {
@@ -95,6 +97,10 @@ void draw_menu(RenderState& render_state,
             if (ImGui::Button("Disable Raytracing (4)")) {
                 render_state.set_mode(Disabled);
                 camera.clear_pixels();
+            }
+
+            if (ImGui::Checkbox("Toggle Shadows", &renderShadows)) {
+                camera.toggle_shadows();
             }
         }
     }
