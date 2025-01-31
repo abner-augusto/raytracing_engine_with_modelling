@@ -87,17 +87,6 @@ public:
         }
     }
 
-    bool hit_all(const ray& r, interval ray_t, std::vector<hit_record>& recs) const override {
-        if (root_bvh) {
-            // Use BVH for optimized hit detection
-            return root_bvh->hit_all(r, ray_t, recs);
-        }
-        else {
-            // Fallback to linear traversal if BVH is not built
-            return defaultHitAllTraversal(r, ray_t, recs);
-        }
-    }
-
     BoundingBox bounding_box() const override {
         if (root_bvh) {
             return root_bvh->bounding_box();
@@ -190,24 +179,6 @@ private:
         return hit_anything;
     }
 
-    bool defaultHitAllTraversal(const ray& r, interval ray_t, std::vector<hit_record>& recs) const {
-        bool hit_anything = false;
-
-        for (const auto& [id, object] : objects) {
-            std::vector<hit_record> temp_recs;
-            if (object->hit_all(r, ray_t, temp_recs)) {
-                hit_anything = true;
-                recs.insert(recs.end(), temp_recs.begin(), temp_recs.end());
-            }
-        }
-
-        // Sort hits by t value
-        std::sort(recs.begin(), recs.end(), [](const hit_record& a, const hit_record& b) {
-            return a.t < b.t;
-            });
-
-        return hit_anything;
-    }
 };
 
 #endif

@@ -242,16 +242,6 @@ public:
         calculate_matrices();
     }
 
-    // Example helper function to convert CSGType to a string
-    static std::string csg_type_to_string(hit_record::CSGType op) {
-        switch (op) {
-        case hit_record::CSGType::UNION:         return "UNION";
-        case hit_record::CSGType::INTERSECTION:  return "INTERSECTION";
-        case hit_record::CSGType::DIFFERENCE:    return "DIFFERENCE";
-        default:                                 return "NONE";
-        }
-    }
-
     ray compute_central_ray() const {
         // Compute screen coordinates for the center of the image
         int pixel_x = image_width / 2;

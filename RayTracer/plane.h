@@ -45,38 +45,6 @@ public:
         return true;
     }
 
-    bool hit_all(const ray& r, interval ray_t, std::vector<hit_record>& recs) const override {
-        // Compute the denominator of the intersection formula
-        auto denom = dot(normal, r.direction());
-
-        // If the denominator is close to zero, the ray is parallel to the plane
-        if (fabs(denom) < 1e-6) {
-            return false;
-        }
-
-        // Calculate the intersection point
-        auto t = dot(point - r.origin(), normal) / denom;
-
-        // Check if t is within the valid range
-        if (!ray_t.surrounds(t)) {
-            return false;
-        }
-
-        // Create a hit_record for the intersection
-        hit_record rec;
-        rec.t = t;
-        rec.p = r.at(rec.t);
-        rec.set_face_normal(r, normal);
-        rec.material = &material;
-        rec.hit_object = this;
-
-        // Calculate UV coordinates
-        calculate_uv(rec.p, rec.u, rec.v);
-
-        // Add the hit to the list of hits
-        recs.push_back(rec);
-        return true;
-    }
 
     void calculate_uv(const point3& hit_point, double& u, double& v) const {
         // Compute vector from reference point to hit point

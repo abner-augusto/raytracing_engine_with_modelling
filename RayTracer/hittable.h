@@ -7,6 +7,7 @@
 #include "interval.h"
 #include "matrix4x4.h"
 #include "hit_record.h"
+#include "csg_intesection.h"
 
 // Forward declaration to avoid circular dependency
 class BoundingBox;
@@ -18,11 +19,13 @@ public:
     // Pure virtual function: must be implemented by derived classes
     virtual bool hit(const ray& r, interval ray_t, hit_record& rec) const = 0;
 
-    // Default implementation for hit_all()
-    virtual bool hit_all(const ray& r, interval ray_t, std::vector<hit_record>& recs) const {
+    // Default function for non csg objects
+    virtual bool csg_intersect(const ray& r, interval ray_t,
+        std::vector<CSGIntersection>& out_intersections) const
+    {
         hit_record rec;
         if (hit(r, ray_t, rec)) {
-            recs.push_back(rec);
+            out_intersections.emplace_back(rec.t, true, this, rec.normal, rec.p);
             return true;
         }
         return false;

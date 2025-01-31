@@ -51,14 +51,16 @@ public:
         vec3 outward_normal = (rec.p - center) / radius;
         rec.set_face_normal(r, outward_normal);
         rec.material = &material;
+        rec.hit_object = this;
 
         // Calculate UV coordinates
         calculate_uv((rec.p - center) / radius, rec.u, rec.v);
 
         return true;
     }
-    bool hit_all(const ray& r, interval ray_t, std::vector<hit_record>& recs) const override {
-        recs.clear();
+    bool csg_intersect(const ray& r, interval ray_t,
+        std::vector<CSGIntersection>& out_intersections) const override {
+        out_intersections.clear();
 
         vec3 oc = r.origin() - center;
         auto a = r.direction().length_squared();
@@ -80,43 +82,20 @@ public:
         // Determine if the ray starts inside the sphere
         bool ray_starts_inside = oc.length_squared() < radius * radius;
 
-        // Record entry intersection
+        // Entry intersection (root1)
         if (hit1) {
-            hit_record rec;
-            rec.t = root1;
-            rec.p = r.at(rec.t);
-            rec.normal = (rec.p - center) / radius;
-            rec.material = &material;
-
-            // Handle entry/exit based on ray start position
-            rec.front_face = !ray_starts_inside;
-            rec.set_face_normal(r, rec.normal);
-
-            calculate_uv(rec.normal, rec.u, rec.v);
-
-            recs.push_back(rec);
+            vec3 normal = (r.at(root1) - center) / radius;
+            out_intersections.emplace_back(root1, !ray_starts_inside, this, normal, r.at(root1));
         }
 
-        // Record exit intersection
+        // Exit intersection (root2)
         if (hit2) {
-            hit_record rec;
-            rec.t = root2;
-            rec.p = r.at(rec.t);
-            rec.normal = (rec.p - center) / radius;
-            rec.material = &material;
-
-            // Handle exit based on ray start position
-            rec.front_face = ray_starts_inside;
-            rec.set_face_normal(r, rec.normal);
-
-            calculate_uv(rec.normal, rec.u, rec.v);
-
-            recs.push_back(rec);
+            vec3 normal = (r.at(root2) - center) / radius;
+            out_intersections.emplace_back(root2, ray_starts_inside, this, normal, r.at(root2));
         }
 
-        return !recs.empty();
+        return !out_intersections.empty();
     }
-
 
     void calculate_uv(const vec3& normal, double& u, double& v) const {
         // Convert normal to spherical coordinates

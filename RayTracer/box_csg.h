@@ -66,12 +66,13 @@ public:
         rec.normal *= -sign(r.direction());
         rec.set_face_normal(r, rec.normal);
         rec.material = &material;
+        rec.hit_object = this;
         return true;
     }
-
-    bool hit_all(const ray& r, interval ray_t, std::vector<hit_record>& recs) const override {
-        recs.clear();
-        recs.reserve(2);  // Reserve space for 2 intersections (entry and exit)
+    bool csg_intersect(const ray& r, interval ray_t,
+        std::vector<CSGIntersection>& out_intersections) const override
+    {
+        out_intersections.clear();
 
         vec3 invD = vec3::fill(1.0) / r.direction();
         vec3 t0 = (min_corner - r.origin()) * invD;
@@ -83,38 +84,65 @@ public:
         double tNear = std::max({ t_min.x(), t_min.y(), t_min.z() });
         double tFar = std::min({ t_max.x(), t_max.y(), t_max.z() });
 
+        // Basic rejection
         if (tNear > tFar || tFar < ray_t.min || tNear > ray_t.max) {
             return false;
         }
 
-        // Entry hit processing
+        // Are we starting inside the box?
+        bool ray_starts_inside = is_point_inside(r.origin());
+
+        // 1) Handle the "near" intersection if it's within [ray_t.min, ray_t.max]
         if (tNear >= ray_t.min && tNear <= ray_t.max) {
-            hit_record entry_rec;
-            entry_rec.t = tNear;
-            entry_rec.p = r.at(entry_rec.t);
-            entry_rec.normal = (tNear == t_min.x()) ? vec3(-1, 0, 0) :
-                (tNear == t_min.y()) ? vec3(0, -1, 0) : vec3(0, 0, -1);
+            point3 p = r.at(tNear);
 
-            entry_rec.set_face_normal(r, entry_rec.normal);
-            entry_rec.material = &material;
-            recs.push_back(entry_rec);
+            // Pick the raw normal for tNear
+            vec3 normal;
+            if (tNear == t_min.x()) normal = vec3(-1, 0, 0);
+            else if (tNear == t_min.y()) normal = vec3(0, -1, 0);
+            else                         normal = vec3(0, 0, -1);
+
+            // Match the flipping logic in Box::hit()
+            normal *= -sign(r.direction());
+
+            // (Optional) make sure it faces "opposite" the ray if you want a front-face style:
+            if (dot(r.direction(), normal) > 0) {
+                normal = -normal;
+            }
+
+            // If we start outside, crossing tNear is an entry event
+            bool is_entry = !ray_starts_inside;
+
+            // Add it
+            out_intersections.emplace_back(tNear, is_entry, this, normal, p);
         }
 
-        // Exit hit processing
+        // 2) Handle the "far" intersection if it's within [ray_t.min, ray_t.max]
         if (tFar >= ray_t.min && tFar <= ray_t.max) {
-            hit_record exit_rec;
-            exit_rec.t = tFar;
-            exit_rec.p = r.at(exit_rec.t);
-            exit_rec.normal = (tFar == t_max.x()) ? vec3(1, 0, 0) :
-                (tFar == t_max.y()) ? vec3(0, 1, 0) : vec3(0, 0, 1);
+            point3 p = r.at(tFar);
 
-            exit_rec.set_face_normal(r, exit_rec.normal);
-            exit_rec.material = &material;
-            recs.push_back(exit_rec);
+            // Pick the raw normal for tFar
+            vec3 normal;
+            if (tFar == t_max.x()) normal = vec3(1, 0, 0);
+            else if (tFar == t_max.y()) normal = vec3(0, 1, 0);
+            else                        normal = vec3(0, 0, 1);
+
+            // Match the flipping logic in Box::hit()
+            normal *= -sign(r.direction());
+
+            // (Optional) front-face test
+            if (dot(r.direction(), normal) > 0) {
+                normal = -normal;
+            }
+
+            bool is_entry = ray_starts_inside;
+
+            out_intersections.emplace_back(tFar, is_entry, this, normal, p);
         }
 
-        return !recs.empty();
+        return !out_intersections.empty();
     }
+
 
     std::string get_type_name() const override {
         return "Box";
