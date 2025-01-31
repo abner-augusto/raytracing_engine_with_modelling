@@ -20,10 +20,10 @@ void draw_menu(RenderState& render_state,
 
         // Camera Header
         if (ImGui::CollapsingHeader("Camera")) {
-            ImGui::Checkbox("Camera Space Transform", &isCameraSpace);
+            //ImGui::Checkbox("Camera Space Transform", &isCameraSpace);
 
             // Camera Origin with keyboard control info
-            ImGui::Text("Camera Origin (WASD Keys)");  // Modified text
+            ImGui::Text("Camera Origin (WASD Keys)");
             float origin_array[3] = {
                 static_cast<float>(camera.get_origin().x()),
                 static_cast<float>(camera.get_origin().y()),
@@ -31,7 +31,7 @@ void draw_menu(RenderState& render_state,
             };
 
             // Fixed width for sliders
-            ImGui::PushItemWidth(200.0f); // Set a fixed width for the sliders
+            ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x * 0.8f);
             if (ImGui::SliderFloat3("Origin", origin_array, -10.0f, 10.0f)) {
                 camera.set_origin(point3(origin_array[0], origin_array[1], origin_array[2]));
                 if (isCameraSpace) {
@@ -47,7 +47,7 @@ void draw_menu(RenderState& render_state,
                 static_cast<float>(camera.get_look_at().y()),
                 static_cast<float>(camera.get_look_at().z())
             };
-            ImGui::PushItemWidth(200.0f); // Same fixed width for consistency
+            ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x * 0.8f);
             if (ImGui::SliderFloat3("Look At", target_array, -10.0f, 10.0f)) {
                 camera.set_look_at(point3(target_array[0], target_array[1], target_array[2]));
                 if (isCameraSpace) {
@@ -58,7 +58,7 @@ void draw_menu(RenderState& render_state,
 
             float camera_fov_degrees = static_cast<float>(camera.get_fov_degrees());
             ImGui::Text("Camera FOV");
-            ImGui::PushItemWidth(200.0f); // Same fixed width for consistency
+            ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x * 0.8f);
             if (ImGui::SliderFloat("FOV", &camera_fov_degrees, 10.0f, 120.0f)) {
                 camera.set_fov(static_cast<double>(camera_fov_degrees));
             }
@@ -73,6 +73,8 @@ void draw_menu(RenderState& render_state,
                     camera.transform_scene_and_lights(world, lights);
                 }
             }
+            ImGui::Text("Hint: Camera is now controllable");
+            ImGui::Text("by the gamepad as well!");
         }
 
         bool renderShadows = camera.shadowStatus();
