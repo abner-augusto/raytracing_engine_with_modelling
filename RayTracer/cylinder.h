@@ -75,7 +75,7 @@ public:
         vec3 ray_origin = r.origin();
         vec3 ray_direction = r.direction();
         vec3 origin_to_cylinder_start = ray_origin - base_center;
-        const double epsilon = 1e-6;
+        const double epsilon = 1e-7;
 
         // Precompute dot products for the ray and cylinder axis
         double axis_dot_direction = dot(unit_cylinder_axis, ray_direction);
@@ -166,89 +166,135 @@ public:
         return true;
     }
 
-    bool hit_all(const ray& r, interval ray_t, std::vector<hit_record>& recs) const override {
-        vec3 ray_origin = r.origin();
-        vec3 ray_direction = r.direction();
-        vec3 origin_to_cylinder_start = ray_origin - base_center;
-        const double epsilon = 1e-6;
+    bool csg_intersect(const ray& r, interval ray_t,
+        std::vector<CSGIntersection>& out_intersections) const override {
+        out_intersections.clear();
 
-        // Precompute dot products for the ray and cylinder axis
-        double axis_dot_direction = dot(unit_cylinder_axis, ray_direction);
-        double axis_dot_origin_to_start = dot(unit_cylinder_axis, origin_to_cylinder_start);
+        // Vector to store potential hits (t, normal)
+        std::vector<std::pair<double, vec3>> hits;
 
-        // Solve the quadratic equation for intersection with the infinite cylinder
-        double quadratic_a = 1.0 - axis_dot_direction * axis_dot_direction;
-        double quadratic_b = dot(origin_to_cylinder_start, ray_direction) - axis_dot_origin_to_start * axis_dot_direction;
-        double quadratic_c = dot(origin_to_cylinder_start, origin_to_cylinder_start) - axis_dot_origin_to_start * axis_dot_origin_to_start - radius_squared;
+        const vec3 ray_origin = r.origin();
+        const vec3 ray_direction = r.direction();
+        const vec3 origin_to_base = ray_origin - base_center;
 
-        double discriminant = quadratic_b * quadratic_b - quadratic_a * quadratic_c;
-        if (discriminant < 0.0)
-            return false;
+        double axis_dot_dir = dot(unit_cylinder_axis, ray_direction);
+        double axis_dot_org = dot(unit_cylinder_axis, origin_to_base);
 
-        discriminant = std::sqrt(discriminant);
-        double t1 = (-quadratic_b - discriminant) / quadratic_a; // First intersection
-        double t2 = (-quadratic_b + discriminant) / quadratic_a; // Second intersection
+        // Quadratic coefficients for the infinite cylinder
+        double a = 1.0 - axis_dot_dir * axis_dot_dir;
+        double b = dot(origin_to_base, ray_direction) - axis_dot_org * axis_dot_dir;
+        double c = dot(origin_to_base, origin_to_base) - axis_dot_org * axis_dot_org - radius_squared;
 
-        // Check intersections with the cylindrical body
-        auto add_cylinder_hit = [&](double t) {
-            if (t > 0.0 && ray_t.contains(t)) {
-                double axis_projection = axis_dot_origin_to_start + t * axis_dot_direction;
-                if (axis_projection > 0.0 && axis_projection < height) {
-                    hit_record rec;
-                    rec.t = t;
-                    rec.p = r.at(t);
-                    vec3 point_to_cylinder_start = rec.p - base_center;
-                    double projection_scale = dot(point_to_cylinder_start, unit_cylinder_axis);
-                    point3 closest_point_on_axis = base_center + unit_cylinder_axis * projection_scale;
-                    rec.set_face_normal(r, unit_vector(rec.p - closest_point_on_axis));
-                    rec.material = &material;
-                    rec.hit_object = this;
-                    recs.push_back(rec);
-                }
-            }
-            };
+        const double EPS = 1e-7;
 
-        add_cylinder_hit(t1);
-        add_cylinder_hit(t2);
+        // Determine if the ray starts inside the cylinder
+        bool ray_starts_inside = is_point_inside(ray_origin);
 
-        // Check intersections with the caps (if capped)
-        if (capped) {
-            auto add_cap_hit = [&](double t, const point3& cap_center, const vec3& normal) {
-                if (t > 0.0 && ray_t.contains(t)) {
-                    point3 intersection_point = r.at(t);
-                    double distance_squared = (intersection_point - cap_center).length_squared();
-                    if (distance_squared <= radius_squared + epsilon) {
-                        hit_record rec;
-                        rec.t = t;
-                        rec.p = intersection_point;
-                        rec.set_face_normal(r, normal);
-                        rec.material = &material;
-                        rec.hit_object = this;
-                        recs.push_back(rec);
+        // Solve for side intersections
+        if (std::fabs(a) > EPS) {
+            double discriminant = b * b - a * c;
+            if (discriminant >= 0.0) {
+                double sqrt_disc = std::sqrt(discriminant);
+                double t1 = (-b - sqrt_disc) / a;
+                double t2 = (-b + sqrt_disc) / a;
+
+                // Check first intersection (t1)
+                if (t1 >= ray_t.min && t1 <= ray_t.max) {
+                    double proj = axis_dot_org + t1 * axis_dot_dir;
+                    if (proj >= 0.0 && proj <= height) {
+                        point3 p_hit = r.at(t1);
+                        vec3 outward_normal = unit_vector(p_hit - (base_center + unit_cylinder_axis * proj));
+                        hits.emplace_back(t1, outward_normal);
                     }
                 }
-                };
 
-            // Lower cap (base)
-            if (axis_dot_direction != 0.0) {
-                double t_base = -axis_dot_origin_to_start / axis_dot_direction;
-                add_cap_hit(t_base, base_center, -unit_cylinder_axis);
-            }
-
-            // Upper cap (top)
-            if (axis_dot_direction != 0.0) {
-                double t_top = (height - axis_dot_origin_to_start) / axis_dot_direction;
-                add_cap_hit(t_top, top_center, unit_cylinder_axis);
+                // Check second intersection (t2)
+                if (t2 >= ray_t.min && t2 <= ray_t.max) {
+                    double proj = axis_dot_org + t2 * axis_dot_dir;
+                    if (proj >= 0.0 && proj <= height) {
+                        point3 p_hit = r.at(t2);
+                        vec3 outward_normal = unit_vector(p_hit - (base_center + unit_cylinder_axis * proj));
+                        hits.emplace_back(t2, outward_normal);
+                    }
+                }
             }
         }
 
-        // Sort hits by t value
-        std::sort(recs.begin(), recs.end(), [](const hit_record& a, const hit_record& b) {
-            return a.t < b.t;
+        // Check for cap intersections if the cylinder is capped
+        if (capped) {
+            // Bottom cap
+            if (std::fabs(axis_dot_dir) > EPS) {
+                double t_bottom = -axis_dot_org / axis_dot_dir;
+                if (t_bottom >= ray_t.min && t_bottom <= ray_t.max) {
+                    point3 p_hit = r.at(t_bottom);
+                    double dist2 = (p_hit - base_center).length_squared();
+                    if (dist2 <= radius_squared + EPS) {
+                        vec3 outward_normal = -unit_cylinder_axis;
+                        hits.emplace_back(t_bottom, outward_normal);
+                    }
+                }
+
+                // Top cap
+                double t_top = (height - axis_dot_org) / axis_dot_dir;
+                if (t_top >= ray_t.min && t_top <= ray_t.max) {
+                    point3 p_hit = r.at(t_top);
+                    double dist2 = (p_hit - top_center).length_squared();
+                    if (dist2 <= radius_squared + EPS) {
+                        vec3 outward_normal = unit_cylinder_axis;
+                        hits.emplace_back(t_top, outward_normal);
+                    }
+                }
+            }
+        }
+
+        // Sort hits by ascending t
+        std::sort(hits.begin(), hits.end(),
+            [](const std::pair<double, vec3>& a, const std::pair<double, vec3>& b) {
+                return a.first < b.first;
             });
 
-        return !recs.empty();
+        // Process each hit to assign is_entry flags and store in out_intersections
+        for (const auto& [t_val, normal] : hits) {
+            if (t_val < ray_t.min || t_val > ray_t.max)
+                continue;
+
+            point3 p_hit = r.at(t_val);
+            bool is_entry;
+
+            if (!ray_starts_inside) {
+                // For rays starting outside, the first hit is an entry, the second is an exit
+                is_entry = out_intersections.empty();
+            }
+            else {
+                // For rays starting inside, the first hit is an exit, the second is an entry
+                is_entry = !out_intersections.empty();
+            }
+
+            // Invert the normal if it's an exit
+            vec3 adjusted_normal = normal;
+            if (!is_entry) {
+                adjusted_normal = -normal;
+            }
+
+            // Add the intersection with the possibly adjusted normal
+            out_intersections.emplace_back(
+                t_val,
+                is_entry,
+                this,             // 'obj' pointer = this cylinder
+                adjusted_normal,  // Adjusted normal
+                p_hit             // Intersection point
+            );
+        }
+
+        // Sort final results by t (just to be sure)
+        std::sort(out_intersections.begin(), out_intersections.end(),
+            [](const CSGIntersection& a, const CSGIntersection& b) {
+                return a.t < b.t;
+            });
+
+        return !out_intersections.empty();
     }
+
 
     bool IsPointInside(const point3& p) const {
         // 1) Project p onto the cylinder's axis
