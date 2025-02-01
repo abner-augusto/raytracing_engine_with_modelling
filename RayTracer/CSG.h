@@ -95,7 +95,7 @@ private:
 
 enum class CSGType { NONE, UNION, INTERSECTION, DIFFERENCE };
 
-std::string csg_type_to_string(CSGType type) {
+inline std::string csg_type_to_string(CSGType type) {
     switch (type) {
     case CSGType::UNION: return "Union";
     case CSGType::INTERSECTION: return "Intersection";
@@ -372,7 +372,7 @@ inline void print_csg_tree(const std::shared_ptr<hittable>& node, int depth = 0,
 }
 
 // Helper function to recursively gather CSG intersections with visited tracking
-void gather_intersections_recursive(
+inline  void gather_intersections_recursive(
     const hittable* obj,
     const ray& r,
     const interval& interval,
@@ -402,7 +402,7 @@ void gather_intersections_recursive(
     }
 }
 
-void log_csg_hits(HittableManager& manager, const ray& central_ray) {
+inline  void log_csg_hits(HittableManager& manager, const ray& central_ray) {
     interval ray_interval(0.001, infinity);
     hit_record closest_hit;
 
@@ -476,20 +476,23 @@ void log_csg_hits(HittableManager& manager, const ray& central_ray) {
                     std::cout << "CSG Intersection #" << (i + 1) << ":\n";
                     std::cout << "  t Value: " << intersection.t << "\n";
 
-                    // Check if position and normal are valid before printing
-                    if (&intersection.p != nullptr) { // Replace with actual condition
-                        std::cout << "  Position: ("
+                    std::cout << "  Position: ("
                             << intersection.p.x() << ", "
                             << intersection.p.y() << ", "
                             << intersection.p.z() << ")\n";
-                        std::cout << "  Normal: ("
+                    std::cout << "  Normal: ("
                             << intersection.normal.x() << ", "
                             << intersection.normal.y() << ", "
                             << intersection.normal.z() << ")\n";
-                    }
+                    
 
                     std::cout << "  Is Entry: " << (intersection.is_entry ? "Yes" : "No") << "\n";
-                    std::cout << "  Object Type: " << intersection.obj->get_type_name() << "\n";
+                    if (intersection.obj) {
+                        std::cout << "  Object Type: " << intersection.obj->get_type_name() << "\n";
+                    }
+                    else {
+                        std::cout << "  Object Type: NULL\n";
+                    }
                     std::cout << "  Object Pointer: " << intersection.obj << "\n";
 
                     // If the intersected object is a CSG node, print its tree
