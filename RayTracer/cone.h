@@ -9,8 +9,8 @@
 
 class cone : public hittable {
 public:
-    cone(const point3& base_center, const point3& top_vertex, double radius, const mat& material, bool capped = true)
-        : base_center(base_center), top_vertex(top_vertex), radius(std::fmax(0, radius)), material(material), capped(capped) {
+    cone(const point3& base_center, const point3& top_vertex, double radius, const mat& material)
+        : base_center(base_center), top_vertex(top_vertex), radius(std::fmax(0, radius)), material(material) {
         update_constants();
     }
 
@@ -33,14 +33,10 @@ public:
         material = new_material;
     }
 
-    void set_capped(bool is_capped) {
-        capped = is_capped;
-    }
-
     bool hit(const ray& ray, interval ray_t, hit_record& record) const override {
         vec3 ray_origin = ray.origin();
         vec3 ray_direction = ray.direction();
-        vec3 cone_to_origin = ray_origin - top_vertex; // Vector from cone apex to ray origin
+        vec3 cone_to_origin = ray_origin - top_vertex;
 
         // Precompute reusable dot products
         double axis_dot_direction = dot(ray_direction, axis_direction);
@@ -53,67 +49,144 @@ public:
         double b = 2.0 * (axis_dot_direction * axis_dot_cone_to_origin - direction_dot_cone_to_origin * cos_angle_sq);
         double c = axis_dot_cone_to_origin * axis_dot_cone_to_origin - cone_to_origin_dot_cone_to_origin * cos_angle_sq;
 
-        // Compute the discriminant
-        double discriminant = b * b - 4.0 * a * c;
-        if (discriminant < 0.0) return false; // No real solutions, no intersection
-
-        double sqrt_discriminant = std::sqrt(discriminant);
-        double t1 = (-b - sqrt_discriminant) / (2.0 * a);
-        double t2 = (-b + sqrt_discriminant) / (2.0 * a);
-
-        // Helper function to check if t value hits the cone
-        auto is_valid_cone_hit = [&](double t) {
-            if (t <= 0.0 || !ray_t.contains(t)) return false;
-            vec3 intersection_to_apex = (ray_origin + t * ray_direction) - top_vertex;
-            double height_at_t = dot(intersection_to_apex, axis_direction);
-            return height_at_t >= 0.0 && height_at_t <= height;
-            };
-
+        // Handle linear case if a is near zero
+        const double EPS = 1e-8;
         bool hit_detected = false;
         double t = 0.0;
         vec3 surface_normal;
 
-        // Check intersections with the cone surface
-        if (is_valid_cone_hit(t1)) {
-            hit_detected = true;
-            t = t1;
-            vec3 intersection_to_apex = (ray_origin + t * ray_direction) - top_vertex;
-            double height_at_intersection = dot(intersection_to_apex, axis_direction);
-            surface_normal = unit_vector(intersection_to_apex - axis_direction * height_at_intersection);
+        if (std::fabs(a) < EPS) {
+            // Linear equation: b*t + c = 0
+            if (std::fabs(b) < EPS) return false;
+            double t_linear = -c / b;
+            if (is_valid_cone_hit(t_linear, ray_origin, ray_direction, ray_t)) {
+                hit_detected = true;
+                t = t_linear;
+                update_surface_normal(t, ray_origin, ray_direction, surface_normal);
+            }
         }
-        if (is_valid_cone_hit(t2) && (!hit_detected || t2 < t)) {
-            hit_detected = true;
-            t = t2;
-            vec3 intersection_to_apex = (ray_origin + t * ray_direction) - top_vertex;
-            double height_at_intersection = dot(intersection_to_apex, axis_direction);
-            surface_normal = unit_vector(intersection_to_apex - axis_direction * height_at_intersection);
-        }
+        else {
+            // Quadratic equation
+            double discriminant = b * b - 4.0 * a * c;
+            if (discriminant < 0.0) return false;
 
-        // Check intersection with the base if necessary
-        if (capped && (!hit_detected || ray_t.contains(t))) {
-            double denominator = dot(ray_direction, axis_direction);
-            if (std::fabs(denominator) > 1e-8) {
-                double t_base = dot(base_center - ray_origin, axis_direction) / denominator;
-                if (ray_t.contains(t_base) && t_base > 0.0) {
-                    point3 base_intersection = ray.at(t_base);
-                    if ((base_intersection - base_center).length_squared() <= radius * radius) {
-                        t = t_base;
-                        surface_normal = -axis_direction;
-                        hit_detected = true;
-                    }
-                }
+            double sqrt_discriminant = std::sqrt(discriminant);
+            double t1 = (-b - sqrt_discriminant) / (2.0 * a);
+            double t2 = (-b + sqrt_discriminant) / (2.0 * a);
+
+            // Check intersections with the cone surface
+            if (is_valid_cone_hit(t1, ray_origin, ray_direction, ray_t)) {
+                hit_detected = true;
+                t = t1;
+                update_surface_normal(t, ray_origin, ray_direction, surface_normal);
+            }
+            if (is_valid_cone_hit(t2, ray_origin, ray_direction, ray_t) && (!hit_detected || t2 < t)) {
+                hit_detected = true;
+                t = t2;
+                update_surface_normal(t, ray_origin, ray_direction, surface_normal);
             }
         }
 
         if (!hit_detected) return false;
 
-        // Fill the hit record with intersection details
+        // Fill hit record
         record.t = t;
         record.p = ray.at(t);
         record.set_face_normal(ray, surface_normal);
         record.material = &material;
         record.hit_object = this;
         return true;
+    }
+
+    bool csg_intersect(const ray& r, interval ray_t,
+        std::vector<CSGIntersection>& out_intersections) const override {
+        out_intersections.clear();
+        const vec3 ray_origin = r.origin();
+        const vec3 ray_direction = r.direction();
+        const double EPS = 1e-7;
+
+        // Lateral surface intersection
+        vec3 v = ray_origin - top_vertex;
+        double axis_dot_direction = dot(ray_direction, axis_direction);
+        double axis_dot_v = dot(v, axis_direction);
+        double direction_dot_v = dot(ray_direction, v);
+        double v_dot_v = dot(v, v);
+
+        double a = axis_dot_direction * axis_dot_direction - cos_angle_sq;
+        double b = 2.0 * (axis_dot_direction * axis_dot_v - direction_dot_v * cos_angle_sq);
+        double c = axis_dot_v * axis_dot_v - v_dot_v * cos_angle_sq;
+
+        std::vector<std::pair<double, vec3>> hits;
+
+        if (std::fabs(a) > EPS) {
+            double discriminant = b * b - 4.0 * a * c;
+            if (discriminant >= 0.0) {
+                double sqrt_disc = std::sqrt(discriminant);
+                double t1 = (-b - sqrt_disc) / (2.0 * a);
+                double t2 = (-b + sqrt_disc) / (2.0 * a);
+
+                auto valid_cone_hit = [&](double t) -> bool {
+                    if (t < ray_t.min || t > ray_t.max) return false;
+                    vec3 p_hit = r.at(t);
+                    vec3 v_hit = p_hit - top_vertex;
+                    double proj = dot(v_hit, axis_direction);
+                    return (proj >= 0.0 && proj <= height);
+                    };
+
+                if (valid_cone_hit(t1)) {
+                    vec3 p_hit = r.at(t1);
+                    vec3 v_hit = p_hit - top_vertex;
+                    double proj = dot(v_hit, axis_direction);
+                    vec3 normal = unit_vector(v_hit * cos_angle_sq - axis_direction * proj);
+                    hits.emplace_back(t1, normal);
+                }
+                if (valid_cone_hit(t2)) {
+                    vec3 p_hit = r.at(t2);
+                    vec3 v_hit = p_hit - top_vertex;
+                    double proj = dot(v_hit, axis_direction);
+                    vec3 normal = unit_vector(v_hit * cos_angle_sq - axis_direction * proj);
+                    hits.emplace_back(t2, normal);
+                }
+            }
+        }
+
+        // Sort hits and determine entry/exit
+        std::sort(hits.begin(), hits.end(),
+            [](const auto& a, const auto& b) { return a.first < b.first; });
+
+        bool ray_starts_inside = IsPointInside(ray_origin);
+        for (const auto& [t_val, normal] : hits) {
+            if (t_val < ray_t.min || t_val > ray_t.max) continue;
+
+            bool is_entry = ray_starts_inside ? !out_intersections.empty() : out_intersections.empty();
+            vec3 adjusted_normal = is_entry ? normal : -normal;
+
+            out_intersections.emplace_back(
+                t_val, is_entry, this, adjusted_normal, r.at(t_val)
+            );
+        }
+
+        return !out_intersections.empty();
+    }
+
+    // Inside test for the cone.
+    // A point is considered inside if its projection along the axis (from the apex)
+    // is between 0 and height and if its radial distance is less than or equal to the
+    // interpolated radius at that height.
+    bool IsPointInside(const point3& p) const {
+        // Compute vector from the apex (top_vertex) to p.
+        vec3 v = p - top_vertex;
+        double proj = dot(v, axis_direction);
+        if (proj < 0.0 || proj > height)
+            return false;
+
+        // Find the point on the cone's axis corresponding to the projection.
+        point3 p_on_axis = top_vertex + proj * axis_direction;
+        double dist_sq = (p - p_on_axis).length_squared();
+
+        // The maximum allowed radius at this height (linearly from 0 at the apex to 'radius' at the base)
+        double max_radius = (proj / height) * radius;
+        return dist_sq <= max_radius * max_radius;
     }
 
     void transform(const Matrix4x4& matrix) override {
@@ -165,18 +238,29 @@ private:
     double radius;
     double cos_angle;
     double cos_angle_sq;
-
     mat material;
-    bool capped;
 
     void update_constants() {
-        vec3 axis = base_center - top_vertex; // Define o eixo como top_vertex - base_center
-        height = axis.length();               // Calcula a altura como a distância entre base e vértice
-        axis_direction = unit_vector(axis);   // Direção do eixo (unitário)
-        cos_angle = height / std::sqrt(height * height + radius * radius); // Calcula o ângulo
-        cos_angle_sq = cos_angle * cos_angle; // Pré-calcula o cosseno ao quadrado
+        vec3 axis = base_center - top_vertex;
+        height = axis.length();
+        axis_direction = unit_vector(axis);
+        cos_angle = height / std::sqrt(height * height + radius * radius);
+        cos_angle_sq = cos_angle * cos_angle;
     }
 
+    bool is_valid_cone_hit(double t, const vec3& ro, const vec3& rd, const interval& ray_t) const {
+        if (!ray_t.contains(t)) return false;
+        vec3 intersection_to_apex = ro + t * rd - top_vertex;
+        double h = dot(intersection_to_apex, axis_direction);
+        return h >= 0.0 && h <= height;
+    }
+
+    void update_surface_normal(double t, const vec3& ro, const vec3& rd, vec3& normal) const {
+        vec3 intersection_to_apex = ro + t * rd - top_vertex;
+        double h = dot(intersection_to_apex, axis_direction);
+        vec3 gradient = (intersection_to_apex * cos_angle_sq) - (axis_direction * h);
+        normal = unit_vector(gradient);
+    }
 };
 
 #endif
