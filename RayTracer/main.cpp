@@ -13,14 +13,16 @@
 #include "box_csg.h"
 #include "mesh.h"
 #include "torus.h"
+
+//modelling
 #include "csg.h"
 
 //scene setup
 #include "interface_imgui.h"
 #include "sdl_setup.h"
 #include "render_state.h"
-//#include "scene_builder.h"
 
+//external libs
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_sdlrenderer2.h>
@@ -70,8 +72,8 @@ int main(int argc, char* argv[]) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
     ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
     ImGui_ImplSDLRenderer2_Init(renderer);
     ImGui::StyleColorsDark();
@@ -196,10 +198,9 @@ int main(int argc, char* argv[]) {
     //auto csgDiff2 = std::make_shared<CSGNode<Difference>>(csgDiff, rodX);
     //auto csgDiff3 = std::make_shared<CSGNode<Difference>>(csgDiff2, rodY);
 
-    //auto my_tree = std::make_shared<CSGTree>(csgDiff3);
 
     // Finally, add to the world
-    ObjectID csg_id = world.add(csgDiff3);
+    //ObjectID csg_id = world.add(csgInter);
 
 
     //Mesh Object
@@ -308,6 +309,8 @@ int main(int argc, char* argv[]) {
             lights);
 
         DrawFpsCounter(fps);
+
+        ShowHittableManagerUI(world);
 
         // Render ImGui
         ImGui::Render();
