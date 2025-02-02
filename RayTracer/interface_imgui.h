@@ -1,13 +1,17 @@
 #pragma once
 
-#include "camera.h"
-#include "render_state.h"
 #include <vector>
 #include <imgui.h>
+#include <cmath>
 
-// ---------------------------------------------------------------------------
-// Main "menu" and global UI
-// ---------------------------------------------------------------------------
+#include "camera.h"
+#include "render_state.h"
+#include "csg.h"
+#include "hittable_manager.h"
+#include "sphere.h"
+#include "box_csg.h"
+#include "cylinder.h"
+#include "cone.h"
 
 void draw_menu(RenderState& render_state,
                Camera& camera, 
@@ -16,3 +20,7 @@ void draw_menu(RenderState& render_state,
               );
 
 void DrawFpsCounter(float fps);
+
+void ShowHittableManagerUI(HittableManager& world);
+
+void ShowInfoWindow(HittableManager& world);
