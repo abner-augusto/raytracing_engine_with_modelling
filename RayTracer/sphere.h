@@ -58,10 +58,12 @@ public:
 
         return true;
     }
+
     bool csg_intersect(const ray& r, interval ray_t,
         std::vector<CSGIntersection>& out_intersections) const override {
         out_intersections.clear();
 
+        // Calculate basic intersection parameters
         vec3 oc = r.origin() - center;
         auto a = r.direction().length_squared();
         auto half_b = dot(oc, r.direction());
@@ -74,25 +76,53 @@ public:
         auto root1 = (-half_b - sqrtd) / a;
         auto root2 = (-half_b + sqrtd) / a;
 
+        // Add a small epsilon for numerical stability
+        const double eps = 1e-12;
+
+        // Check if the roots are within our valid interval
         bool hit1 = ray_t.surrounds(root1);
         bool hit2 = ray_t.surrounds(root2);
 
-        if (!hit1 && !hit2) return false;  // No valid intersections within ray bounds
+        if (!hit1 && !hit2) return false;
 
         // Determine if the ray starts inside the sphere
-        bool ray_starts_inside = oc.length_squared() < radius * radius;
+        bool ray_starts_inside = oc.length_squared() < (radius * radius + eps);
 
-        // Entry intersection (root1)
-        if (hit1) {
-            vec3 normal = (r.at(root1) - center) / radius;
-            out_intersections.emplace_back(root1, !ray_starts_inside, this, normal, r.at(root1));
+        // Always add both intersections when they're valid, even if outside ray_t
+        // This helps with CSG operations that might need to know about all intersections
+        if (std::isfinite(root1)) {
+            vec3 hit_point = r.at(root1);
+            vec3 normal = (hit_point - center) / radius;
+            // Entry point: normal points inward if ray starts inside
+            if (ray_starts_inside) normal = -normal;
+            out_intersections.emplace_back(
+                root1,
+                !ray_starts_inside,  // is_entry is opposite of ray_starts_inside
+                this,
+                normal,
+                hit_point
+            );
         }
 
-        // Exit intersection (root2)
-        if (hit2) {
-            vec3 normal = (r.at(root2) - center) / radius;
-            out_intersections.emplace_back(root2, ray_starts_inside, this, normal, r.at(root2));
+        if (std::isfinite(root2)) {
+            vec3 hit_point = r.at(root2);
+            vec3 normal = (hit_point - center) / radius;
+            // Exit point: normal points outward if ray starts inside
+            if (!ray_starts_inside) normal = -normal;
+            out_intersections.emplace_back(
+                root2,
+                ray_starts_inside,  // is_entry same as ray_starts_inside
+                this,
+                normal,
+                hit_point
+            );
         }
+
+        // Sort intersections by t value (important for CSG operations)
+        std::sort(out_intersections.begin(), out_intersections.end(),
+            [](const CSGIntersection& a, const CSGIntersection& b) {
+                return a.t < b.t;
+            });
 
         return !out_intersections.empty();
     }
