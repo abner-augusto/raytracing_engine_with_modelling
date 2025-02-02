@@ -80,7 +80,7 @@ public:
     }
 
     std::string get_type_name() const override {
-        return object->get_type_name();
+        return "CSGPrimitive<" + object->get_type_name() + ">";
     }
 
 private:
@@ -174,86 +174,98 @@ public:
     {
         out_intersections.clear();
 
-
-        // Early exit if the bounding box is missed
+        // Early exit if the bounding box is missed.
         if (!bbox.hit(r, ray_t)) {
             return false;
         }
 
-        // Gather child's intersections
+        // Gather intersections from child nodes.
         std::vector<CSGIntersection> leftHits;
         std::vector<CSGIntersection> rightHits;
 
-        bool left_hit = false, right_hit = false;
-
-        // If bounding box is hit, then do csg_intersect on each child
         if (left->bounding_box().hit(r, ray_t)) {
-            left_hit = left->csg_intersect(r, ray_t, leftHits);
+            left->csg_intersect(r, ray_t, leftHits);
         }
         if (right->bounding_box().hit(r, ray_t)) {
-            right_hit = right->csg_intersect(r, ray_t, rightHits);
+            right->csg_intersect(r, ray_t, rightHits);
         }
 
-        // Merge them
+
+    // --- Early exit conditions ---
+    if (Operation::csg_type == CSGType::UNION) {
+        // For a union, if one side is empty, the result is just the other side.
+        if (leftHits.empty() && rightHits.empty()) {
+            return false;
+        }
+        if (leftHits.empty()) {
+            out_intersections = rightHits;
+            std::sort(out_intersections.begin(), out_intersections.end(),
+                [](const CSGIntersection& a, const CSGIntersection& b) {
+                    return a.t < b.t;
+                });
+            return true;
+        }
+        if (rightHits.empty()) {
+            out_intersections = leftHits;
+            std::sort(out_intersections.begin(), out_intersections.end(),
+                [](const CSGIntersection& a, const CSGIntersection& b) {
+                    return a.t < b.t;
+                });
+            return true;
+        }
+    }
+
+    // ------------------------------------------------------
+        // Merge the events from both children.
         std::vector<CSGIntersection> events;
         events.reserve(leftHits.size() + rightHits.size());
 
         for (auto& hit : leftHits) {
-            hit.obj = left.get();  // Ensure obj pointer is set correctly
+            hit.obj = left.get();  // Ensure the object pointer is set correctly.
             events.push_back(hit);
         }
         for (auto& hit : rightHits) {
-            hit.obj = right.get();  // Ensure obj pointer is set correctly
+            hit.obj = right.get();  // Ensure the object pointer is set correctly.
             events.push_back(hit);
         }
 
-        // Sort by ascending t
+        // Sort all events by ascending t.
         std::sort(events.begin(), events.end(),
             [](const CSGIntersection& a, const CSGIntersection& b) {
                 return a.t < b.t;
             });
 
         if (events.empty()) {
-            // std::cout << "No intersections found\n";
             return false;
         }
 
-        // Determine initial inside/outside for left & right
+        // Determine the initial inside/outside states.
         double eps = 1e-12;
         double start_t = std::max(ray_t.min, 0.0) + eps;
         point3 start_point = r.at(start_t);
-
         bool insideLeft = left->is_point_inside(start_point);
         bool insideRight = right->is_point_inside(start_point);
-
         bool was_in_csg = Operation::in_csg(insideLeft, insideRight);
 
-        // Traverse in ascending t, toggling states
+        // Traverse events, toggling states and recording transitions.
         for (auto& ev : events) {
             if (ev.t < ray_t.min || ev.t > ray_t.max) {
                 continue;
             }
-
-            // Toggle state based on whether this is an entry or exit
+            // Toggle state based on which child the event belongs to.
             if (ev.obj == left.get()) {
                 insideLeft = ev.is_entry;
             }
             else {
                 insideRight = ev.is_entry;
             }
-
             bool now_in_csg = Operation::in_csg(insideLeft, insideRight);
-
-
             if (now_in_csg != was_in_csg) {
                 auto& final_hit = ev;
                 final_hit.is_entry = now_in_csg;
                 final_hit.normal = ev.normal;
-
                 out_intersections.push_back(final_hit);
-
             }
-
             was_in_csg = now_in_csg;
         }
 
@@ -262,15 +274,24 @@ public:
                 return a.t < b.t;
             });
 
-        // std::cout << "Final output: " << out_intersections.size()
-        //     << " CSG intersections\n";
         return !out_intersections.empty();
     }
+
+
 
     bool is_point_inside(const point3& p) const override {
         bool inLeft = left->is_point_inside(p);
         bool inRight = right->is_point_inside(p);
         return Operation::in_csg(inLeft, inRight);
+    }
+
+    void transform(const Matrix4x4& matrix) override {
+        // Propagate the transformation to both child nodes.
+        left->transform(matrix);
+        right->transform(matrix);
+
+        // Recompute the bounding box after transformation.
+        bbox = Operation::bounding_box(left->bounding_box(), right->bounding_box());
     }
 
     BoundingBox bounding_box() const override {
