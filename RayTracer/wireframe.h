@@ -4,165 +4,82 @@
 #include <algorithm>
 #include <optional>
 #include "boundingbox.h"
-#include "vec3.h"
 #include "camera.h"
-#include "octreemanager.h"
+#include "hittable_manager.h"
 
-/*std::optional<std::pair<int, int>> project(const point3& p,
-    const Camera& camera,
-    const SDL_Rect& viewport) {
+// Project a 3D point (in world space) to 2D screen space.
+std::optional<std::pair<int, int>> project(const point3& p, const Camera& camera, const SDL_Rect& viewport) {
+    // Transform the point from world space to camera space.
+    // We use homogeneous coordinates: assume point3 can be extended to vec4 with w=1.
+    vec4 p_world(p, 1.0);
+    vec4 p_cam = camera.world_to_camera_matrix * p_world;
 
-    // Transform point to camera space
-    point3 camera_space = camera.get_world_to_camera_matrix().transform_point(p);
-
-    const double epsilon = 1e-6;
-
-    // Check if point is too close to image plane
-    if (std::abs(camera_space.z()) < epsilon) {
-        camera_space.e[2] = (camera_space.z() < 0 ? -epsilon : epsilon);
-    }
-
-    // Points in front of the camera have negative Z in camera space
-    if (camera_space.z() >= 0) {
+    // In camera space the camera looks along the negative Z axis.
+    // If z is non-negative, the point is behind the camera.
+    if (p_cam.z >= 0) {
         return std::nullopt;
     }
 
-    double focal_length = camera.get_focal_length();
+    // Compute perspective parameters.
+    double fov_radians = degrees_to_radians(camera.get_fov_degrees());
+    double tan_half_fov = std::tan(0.5 * fov_radians);
 
-    // Project to image plane (perspective division)
-    double x_proj = -focal_length * camera_space.x() / camera_space.z();
-    double y_proj = -focal_length * camera_space.y() / camera_space.z();
+    // The aspect ratio is defined as image_width / image_height.
+    double aspect = camera.get_image_width() / static_cast<double>(camera.get_image_height());
 
-    // Convert to NDC space (0 to 1)
-    double viewport_width = camera.get_viewport_width();
-    double viewport_height = camera.get_viewport_height();
+    // Perform the perspective division.
+    // Compute normalized device coordinates (NDC) in the range [-1, 1].
+    // Here we follow a pinhole camera model: 
+    double x_ndc = (p_cam.x / -p_cam.z) / (tan_half_fov * aspect);
+    double y_ndc = (p_cam.y / -p_cam.z) / tan_half_fov;
 
-    double norm_u = (x_proj + viewport_width / 2.0) / viewport_width;
-    double norm_v = (y_proj + viewport_height / 2.0) / viewport_height;
+    // Convert NDC to screen (pixel) coordinates.
+    // NDC (-1 to 1) is mapped to pixel space.
+    int screen_x = static_cast<int>((x_ndc + 1.0) * 0.5 * viewport.w);
+    int screen_y = static_cast<int>((1.0 - (y_ndc + 1.0) * 0.5) * viewport.h);
 
-    // Convert to screen space (with Y-flip) using SDL_Rect bounds
-    int pixel_x = static_cast<int>(viewport.x + norm_u * viewport.w);
-    int pixel_y = static_cast<int>(viewport.y + (1.0 - norm_v) * viewport.h);
-
-    // Check bounds
-    if (pixel_x >= viewport.x && pixel_x < (viewport.x + viewport.w) &&
-        pixel_y >= viewport.y && pixel_y < (viewport.y + viewport.h)) {
-        return std::make_pair(pixel_x, pixel_y);
-    }
-
-    return std::nullopt;
+    return std::make_pair(screen_x, screen_y);
 }
 
 // Function to draw octree voxels
 void DrawOctreeWireframe(SDL_Renderer* renderer,
-    const BoundingBox& root_bb,
-    const std::vector<BoundingBox>& boxes,
+    const HittableManager& manager,
     const Camera& camera,
     const SDL_Rect& viewport)
 {
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderDrawColor(renderer, 0, 255, 0, 128); // Green for bounding boxes
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_ADD);
 
     // Define edges of a cube (using indices 0-7 for corners)
     int edges[12][2] = {
-        {0, 1}, {1, 2}, {2, 3}, {3, 0}, // bottom face
-        {4, 5}, {5, 6}, {6, 7}, {7, 4}, // top face
-        {0, 4}, {1, 5}, {2, 6}, {3, 7}  // vertical edges
+        {0, 1}, {1, 3}, {3, 2}, {2, 0},  // bottom face
+        {4, 5}, {5, 7}, {7, 6}, {6, 4},  // top face
+        {0, 4}, {1, 5}, {2, 6}, {3, 7}   // vertical edges
     };
 
     auto draw_bounding_box = [&](const BoundingBox& bb) {
-        point3 vmin = bb.vmin;
-        point3 vmax = bb.vmax();
-
-        point3 corners[8] = {
-            point3(vmin.x(), vmin.y(), vmin.z()),
-            point3(vmax.x(), vmin.y(), vmin.z()),
-            point3(vmax.x(), vmax.y(), vmin.z()),
-            point3(vmin.x(), vmax.y(), vmin.z()),
-            point3(vmin.x(), vmin.y(), vmax.z()),
-            point3(vmax.x(), vmin.y(), vmax.z()),
-            point3(vmax.x(), vmax.y(), vmax.z()),
-            point3(vmin.x(), vmax.y(), vmax.z()),
-        };
-
-        for (auto& edge : edges) {
+        std::vector<point3> corners = bb.getVertices();
+        for (const auto& edge : edges) {
             auto p1 = project(corners[edge[0]], camera, viewport);
             auto p2 = project(corners[edge[1]], camera, viewport);
-
-            if (!p1 || !p2) {
-                continue;
-            }
-
+            if (!p1 || !p2) continue;
             SDL_RenderDrawLine(renderer, p1->first, p1->second, p2->first, p2->second);
         }
         };
 
-    // Draw the root bounding box and others
-    draw_bounding_box(root_bb);
-    for (const auto& bb : boxes) {
-        draw_bounding_box(bb);
+    // Get all objects from the manager
+    auto objects = manager.getObjects();
+
+    // Draw bounding boxes for all objects in the manager
+    SDL_SetRenderDrawColor(renderer, 0, 255, 0, 64);
+    for (const auto& object : objects) {
+        draw_bounding_box(object->bounding_box());
+    }
+
+    // Get all filled bounding boxes from octree
+    SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+    auto octree_boxes = manager.getAllOctreeFilledBoundingBoxes();
+    for (const auto& box : octree_boxes) {
+        draw_bounding_box(box);
     }
 }
 
-void DrawOctreeManagerWireframe(SDL_Renderer* renderer,
-    const OctreeManager& manager,
-    const Camera& camera,
-    const SDL_Rect& viewport)
-{
-    // Define edges of a cube (using indices 0-7 for corners)
-    int edges[12][2] = {
-        {0, 1}, {1, 2}, {2, 3}, {3, 0}, // bottom face
-        {4, 5}, {5, 6}, {6, 7}, {7, 4}, // top face
-        {0, 4}, {1, 5}, {2, 6}, {3, 7}  // vertical edges
-    };
-
-    // Function to draw a single bounding box with a specific color
-    auto draw_bounding_box = [&](const BoundingBox& bb, SDL_Color color) {
-        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-
-        point3 vmin = bb.vmin;
-        point3 vmax = bb.vmax();
-
-        // Define the 8 corners of the bounding box
-        point3 corners[8] = {
-            point3(vmin.x(), vmin.y(), vmin.z()),
-            point3(vmax.x(), vmin.y(), vmin.z()),
-            point3(vmax.x(), vmax.y(), vmin.z()),
-            point3(vmin.x(), vmax.y(), vmin.z()),
-            point3(vmin.x(), vmin.y(), vmax.z()),
-            point3(vmax.x(), vmin.y(), vmax.z()),
-            point3(vmax.x(), vmax.y(), vmax.z()),
-            point3(vmin.x(), vmax.y(), vmax.z()),
-        };
-
-        // Project and draw each edge
-        for (auto& edge : edges) {
-            auto p1 = project(corners[edge[0]], camera, viewport);
-            auto p2 = project(corners[edge[1]], camera, viewport);
-
-            // Skip edges where both points are behind the camera
-            if (!p1 || !p2) {
-                continue;
-            }
-
-            // Draw the line
-            SDL_RenderDrawLine(renderer, p1->first, p1->second, p2->first, p2->second);
-        }
-        };
-
-    // Iterate over each octree in the manager and render its bounding boxes
-    for (const auto& wrapper : manager.GetOctrees()) {
-        const Octree& octree = *wrapper.octree;
-
-        // Draw the root bounding box in green
-        draw_bounding_box(octree.bounding_box, { 0, 255, 0, 128 });
-
-        // Draw the filled bounding boxes in red
-        auto filled_boxes = octree.GetFilledBoundingBoxes();
-        for (const auto& bb : filled_boxes) {
-            draw_bounding_box(bb, { 255, 0, 0, 128 });
-        }
-    }
-}
-*/

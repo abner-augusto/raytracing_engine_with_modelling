@@ -13,7 +13,7 @@ public:
 
     // Default constructor - creates a unit box at origin
     BoundingBox()
-        : vmin(0, 0, 0), vmax(1, 1, 1) {
+        : vmin(0, 0, 0), vmax(0.1, 0.1, 0.1) {
     }
 
     // Main constructor for rectangular box
