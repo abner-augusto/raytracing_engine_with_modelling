@@ -64,6 +64,10 @@ public:
         return object->is_point_inside(p);
     }
 
+    char test_bb(const BoundingBox& bb) const override {
+        return object->test_bb(bb);
+    }
+
     BoundingBox bounding_box() const override {
         //std::lock_guard<std::mutex> lock(bb_mutex);
         if (!has_cached_bb) {
@@ -300,6 +304,86 @@ public:
 
     std::string get_type_name() const override {
         return "CSGNode<" + csg_type_to_string(Operation::csg_type) + ">";
+    }
+
+    char test_bb(const BoundingBox& bb) const override {
+        // First check if the test box intersects our overall bounding box
+        if (!bbox.intersects(bb)) {
+            return 'w';  // completely outside
+        }
+
+        const auto vertices = bb.getVertices();
+
+        // Count how many corners are inside the CSG result
+        unsigned int inside_count = 0;
+        for (const auto& v : vertices) {
+            if (is_point_inside(v)) {
+                inside_count++;
+            }
+        }
+
+        if (inside_count == 8) {
+            // For unions and intersections, we need to verify with both children
+            // For difference, we only need to verify with left child
+            if (Operation::csg_type == CSGType::DIFFERENCE) {
+                return left->test_bb(bb);
+            }
+            else {
+                // Get classification from both children
+                char left_result = left->test_bb(bb);
+                char right_result = right->test_bb(bb);
+
+                if (Operation::csg_type == CSGType::UNION) {
+                    // For union, if either child fully contains the box, the result fully contains it
+                    if (left_result == 'b' || right_result == 'b') return 'b';
+                    return 'g';  // Otherwise it must be partial
+                }
+                else if (Operation::csg_type == CSGType::INTERSECTION) {
+                    // For intersection, both children must fully contain the box
+                    if (left_result == 'b' && right_result == 'b') return 'b';
+                    return 'g';  // Otherwise it must be partial
+                }
+            }
+        }
+        else if (inside_count == 0) {
+            // Check the center and face centers for potential intersections
+            point3 c = bb.getCenter();
+            if (is_point_inside(c)) {
+                return 'g';
+            }
+
+            // Check face centers
+            point3 dims = bb.getDimensions();
+            vec3 half_dims = dims / 2.0;
+            point3 faceCenters[6] = {
+                bb.vmin + vec3(half_dims.x(), half_dims.y(), 0),                 // front
+                bb.vmin + vec3(half_dims.x(), half_dims.y(), dims.z()),          // back
+                bb.vmin + vec3(half_dims.x(), 0, half_dims.z()),                 // bottom
+                bb.vmin + vec3(half_dims.x(), dims.y(), half_dims.z()),          // top
+                bb.vmin + vec3(0, half_dims.y(), half_dims.z()),                 // left
+                bb.vmin + vec3(dims.x(), half_dims.y(), half_dims.z())           // right
+            };
+
+            for (const auto& fc : faceCenters) {
+                if (is_point_inside(fc)) {
+                    return 'g';
+                }
+            }
+
+            // No corners inside and no centers inside
+            // For union, check if either child intersects
+            if (Operation::csg_type == CSGType::UNION) {
+                char left_result = left->test_bb(bb);
+                char right_result = right->test_bb(bb);
+                if (left_result == 'w' && right_result == 'w') return 'w';
+                return 'g';
+            }
+
+            return 'w';
+        }
+
+        // Some corners in, some out => partial
+        return 'g';
     }
 
 };
