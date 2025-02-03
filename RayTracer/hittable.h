@@ -47,6 +47,11 @@ public:
 
     // Retrieve the bounding box of the object
     virtual BoundingBox bounding_box() const = 0;
+
+    //Test if primitive is inside the bounding box
+    virtual char test_bb(const BoundingBox& bb) const {
+            return 'w'; // Default implementation
+        }
 };
 
 #endif

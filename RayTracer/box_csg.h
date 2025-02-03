@@ -148,6 +148,27 @@ public:
         return "Box";
     }
 
+    char test_bb(const BoundingBox& bb) const override {
+        // Quick test - if the test box is completely outside our bounds in any dimension,
+        // then it must be completely outside
+        if (bb.vmax.x() < min_corner.x() || bb.vmin.x() > max_corner.x() ||
+            bb.vmax.y() < min_corner.y() || bb.vmin.y() > max_corner.y() ||
+            bb.vmax.z() < min_corner.z() || bb.vmin.z() > max_corner.z()) {
+            return 'w';
+        }
+
+        // If the test box is completely inside our bounds in all dimensions,
+        // then it must be completely inside
+        if (bb.vmin.x() >= min_corner.x() && bb.vmax.x() <= max_corner.x() &&
+            bb.vmin.y() >= min_corner.y() && bb.vmax.y() <= max_corner.y() &&
+            bb.vmin.z() >= min_corner.z() && bb.vmax.z() <= max_corner.z()) {
+            return 'b';
+        }
+
+        // If we get here, the box must be partially inside
+        return 'g';
+    }
+
     bool is_point_inside(const point3& p) const override {
         return (p.x() >= min_corner.x() && p.x() <= max_corner.x()) &&
             (p.y() >= min_corner.y() && p.y() <= max_corner.y()) &&

@@ -367,20 +367,21 @@ public:
     }
 
     BoundingBox bounding_box() const override {
-        // Calculate the min and max points in the axis-aligned directions
-        point3 min_point(
-            std::min(base_center.x() - radius, top_center.x() - radius),
-            std::min(base_center.y() - radius, top_center.y() - radius),
-            std::min(base_center.z() - radius, top_center.z() - radius)
-        );
+        // Compute the maximum lateral extension along each coordinate direction.
+        // We use std::max(0.0, …) to protect against any floating-point round-off issues.
+        double extend_x = radius * std::sqrt(std::max(0.0, 1.0 - unit_cylinder_axis.x() * unit_cylinder_axis.x()));
+        double extend_y = radius * std::sqrt(std::max(0.0, 1.0 - unit_cylinder_axis.y() * unit_cylinder_axis.y()));
+        double extend_z = radius * std::sqrt(std::max(0.0, 1.0 - unit_cylinder_axis.z() * unit_cylinder_axis.z()));
 
-        point3 max_point(
-            std::max(base_center.x() + radius, top_center.x() + radius),
-            std::max(base_center.y() + radius, top_center.y() + radius),
-            std::max(base_center.z() + radius, top_center.z() + radius)
-        );
+        // For each axis, get the minimum and maximum of the base and top centers, then extend by the calculated offsets.
+        double min_x = std::min(base_center.x(), top_center.x()) - extend_x;
+        double max_x = std::max(base_center.x(), top_center.x()) + extend_x;
+        double min_y = std::min(base_center.y(), top_center.y()) - extend_y;
+        double max_y = std::max(base_center.y(), top_center.y()) + extend_y;
+        double min_z = std::min(base_center.z(), top_center.z()) - extend_z;
+        double max_z = std::max(base_center.z(), top_center.z()) + extend_z;
 
-        return BoundingBox(min_point, max_point);
+        return BoundingBox(point3(min_x, min_y, min_z), point3(max_x, max_y, max_z));
     }
 
     std::string get_type_name() const override {

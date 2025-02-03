@@ -145,7 +145,7 @@ public:
     // 'w' if the bounding box doesn't intersect the sphere (empty)
     // 'b' if the bounding box is completely inside the sphere (full)
     // 'g' otherwise (partial)
-    char test_bb(const BoundingBox& bb) const {
+    char test_bb(const BoundingBox& bb) const override {
         point3 closest = bb.getClosestPoint(center);
         if (!is_point_inside(closest)) {
             return 'w';
