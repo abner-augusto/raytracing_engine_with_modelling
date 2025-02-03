@@ -1,5 +1,6 @@
 
 #include "raytracer.h"
+#include "wireframe.h"
 
 #include "camera.h"
 #include "light.h"
@@ -13,9 +14,11 @@
 #include "box_csg.h"
 #include "mesh.h"
 #include "torus.h"
+#include "squarepyramid.h"
 
 //modelling
 #include "csg.h"
+#include "octree.h"
 
 //scene setup
 #include "interface_imgui.h"
@@ -33,6 +36,7 @@
 RenderState render_state;
 bool isCameraSpace = false;
 bool renderShadows = false;
+bool renderWireframe = true;
 
 int main(int argc, char* argv[]) {
 
@@ -200,7 +204,7 @@ int main(int argc, char* argv[]) {
 
 
     // Finally, add to the world
-    //ObjectID csg_id = world.add(csgInter);
+    ObjectID csg_id = world.add(csgDiff3);
 
 
     //Mesh Object
@@ -230,22 +234,9 @@ int main(int argc, char* argv[]) {
     //    std::cerr << "Error: " << e.what() << "\n";
     //}
 
-    // Build Atividade 6 Scene
-    //SceneBuilder::buildAtividade6Scene(
-    //    world,
-    //    mat(grass_texture),
-    //    mat(orange),
-    //    mat(white),
-    //    mat(brown),
-    //    mat(green),
-    //    mat(red),
-    //    mat(brick_texture),
-    //    mat(wood_texture)
-    //);
-
     //Light
     std::vector<Light> lights = {
-        Light(vec3(0.0, 1, 1.1), 1.2, color(1.0, 1.0, 1.0)),
+        Light(vec3(-1, 1, 0.5), 1.2, color(1.0, 1.0, 1.0)),
         //Light(vec3(3, 0.3, -2), 1.0, color(1.0, 0.82, 0.20)),
         //Light(vec3(2.5, 6, -1), 1.0, color(0.3, 0.3, 1.0))
     };
@@ -255,10 +246,10 @@ int main(int argc, char* argv[]) {
     double viewport_height = 2.0;
     auto viewport_width = aspect_ratio * viewport_height;
     auto samples_per_pixel = 5; 
-    //point3 origin(-4.1, 4.3, 6.9);
-    //point3 look_at(-1.8 , 3.7, 3.0);
-    point3 origin(0, 0.5, 2);
-    point3 look_at(0 , 0, -3.0);
+    point3 origin(-2.2, 1.2, 2.7);
+    point3 look_at(0.5 , 0.0, -1.5);
+    //point3 origin(0, 0.5, 2);
+    //point3 look_at(0 , 0, -3.0);
 
 
     Camera camera(
@@ -429,6 +420,12 @@ int main(int argc, char* argv[]) {
         SDL_RenderCopy(renderer, texture, nullptr, &destination_rect);
 
         DrawCrosshair(renderer, window_width, window_height);
+
+        if (renderWireframe) {
+            DrawOctreeWireframe(renderer, world, camera, destination_rect);
+        }
+
+
         // Render ImGui
         ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
         // Present the final frame
