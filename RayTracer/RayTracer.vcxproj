@@ -60,6 +60,8 @@
     <ClInclude Include="material.h" />
     <ClInclude Include="matrix4x4.h" />
     <ClInclude Include="mesh.h" />
+    <ClInclude Include="node.h" />
+    <ClInclude Include="octree.h" />
     <ClInclude Include="plane.h" />
     <ClInclude Include="ray.h" />
     <ClInclude Include="raytracer.h" />
@@ -74,6 +76,7 @@
     <ClInclude Include="triangle.h" />
     <ClInclude Include="vec3.h" />
     <ClInclude Include="vec4.h" />
+    <ClInclude Include="wireframe.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

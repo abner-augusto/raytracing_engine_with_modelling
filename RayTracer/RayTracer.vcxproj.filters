@@ -203,5 +203,14 @@
     <ClInclude Include="csg_intesection.h">
       <Filter>Header Files\modelagem</Filter>
     </ClInclude>
+    <ClInclude Include="octree.h">
+      <Filter>Header Files\modelagem</Filter>
+    </ClInclude>
+    <ClInclude Include="node.h">
+      <Filter>Header Files\modelagem</Filter>
+    </ClInclude>
+    <ClInclude Include="wireframe.h">
+      <Filter>Header Files\raytracing</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
