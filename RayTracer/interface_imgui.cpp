@@ -1,9 +1,8 @@
-#define _CRT_SECURE_NO_WARNINGS
+﻿#define _CRT_SECURE_NO_WARNINGS
 #include "interface_imgui.h"
 
 
-extern point3 random_position();
-extern color random_color();
+extern bool renderWireframe;
 
 void draw_menu(RenderState& render_state,
     Camera& camera, HittableManager world, std::vector<Light>& lights)
@@ -100,6 +99,10 @@ void draw_menu(RenderState& render_state,
 
             if (ImGui::Checkbox("Toggle Shadows", &renderShadows)) {
                 camera.toggle_shadows();
+            }
+
+            if (ImGui::Checkbox("Toggle Wireframe", &renderWireframe)) {
+
             }
         }
     }
@@ -199,6 +202,58 @@ void ShowInfoWindow(HittableManager& world) {
                     ImGui::Text("Object ID: %zu", selectedObjectID.value());
                     ImGui::Text("Object Type: %s", obj->get_type_name().c_str());
 
+                    // Static variable to store octree depth
+                    static int octreeDepth = 3;
+                    ImGui::SliderInt("Octree Depth", &octreeDepth, 1, 6);
+
+                    // Button to generate an octree for the selected object
+                    if (ImGui::Button("Generate Octree")) {
+                        try {
+                            world.generateObjectOctree(selectedObjectID.value(), octreeDepth);
+                            std::cout << "[INFO] Octree generated for Object ID: " << selectedObjectID.value()
+                                << " with depth " << octreeDepth << std::endl;
+                        }
+                        catch (const std::exception& e) {
+                            std::cerr << "[ERROR] Failed to generate octree: " << e.what() << std::endl;
+                        }
+                    }
+
+                    // Check if an octree exists for the selected object
+                    if (world.hasOctree(selectedObjectID.value())) {
+                        ImGui::Text("Octree Generated!");
+
+                        // Static variables to store calculated values
+                        static double octreeVolume = 0.0;
+                        static double octreeSurfaceArea = 0.0;
+
+                        // Button to calculate and display octree volume
+                        if (ImGui::Button("Calculate Volume")) {
+                            try {
+                                octreeVolume = world.getOctree(selectedObjectID.value()).volume();
+                            }
+                            catch (const std::exception& e) {
+                                std::cerr << "[ERROR] Failed to calculate volume: " << e.what() << std::endl;
+                            }
+                        }
+                        ImGui::SameLine();
+                        ImGui::Text("Volume: %.3f", octreeVolume);
+
+                        // Button to calculate and display octree surface area
+                        if (ImGui::Button("Calculate Surface Area")) {
+                            try {
+                                octreeSurfaceArea = world.getOctree(selectedObjectID.value()).CalculateHullSurfaceArea();
+                            }
+                            catch (const std::exception& e) {
+                                std::cerr << "[ERROR] Failed to calculate surface area: " << e.what() << std::endl;
+                            }
+                        }
+                        ImGui::SameLine();
+                        ImGui::Text("Area: %.3f", octreeSurfaceArea);
+                    }
+                    else {
+                        ImGui::Text("No Octree Generated");
+                    }
+
                     // Check if the object is a CSGNode or CSGPrimitive
                     if (dynamic_cast<CSGPrimitive*>(obj.get()) ||
                         dynamic_cast<CSGNode<Union>*>(obj.get()) ||
@@ -219,6 +274,7 @@ void ShowInfoWindow(HittableManager& world) {
             }
             ImGui::EndTabItem();
         }
+
         // ----- Geometry Tab (Transformations) -----
         if (ImGui::BeginTabItem("Geometry")) {
             if (selectedObjectID.has_value()) {
@@ -240,7 +296,7 @@ void ShowInfoWindow(HittableManager& world) {
 
                     ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x * 0.8f);
 
-                    if (ImGui::SliderFloat3(" ", translation, -5.0f, 5.0f)) {
+                    if (ImGui::SliderFloat3(" ", translation, -2.0f, 2.0f)) {
                     }
 
                     // Reset the item width to default
@@ -445,7 +501,7 @@ void ShowInfoWindow(HittableManager& world) {
                 // Cone Tab
                 if (ImGui::BeginTabItem("Cone")) {
                     // Cone parameters
-                    static float baseCenter[3] = { 0.0f, 0.0f, -1.0f };
+                    static float baseCenter[3] = { 0.0f, -0.5f, -1.0f };
                     static float topVertex[3] = { 0.0f, 1.0f, -1.0f };
                     static float radius = 0.5f;
                     static bool capped = true;
@@ -475,11 +531,51 @@ void ShowInfoWindow(HittableManager& world) {
                     ImGui::SameLine();
                     if (ImGui::Button("Reset")) {
                         // Reset parameters to default values
-                        baseCenter[0] = baseCenter[1] = 0.0f; baseCenter[2] = -1.0f;
+                        baseCenter[0] = 0.0f; baseCenter[1] = -0.5f; baseCenter[2] = -1.0f;
                         topVertex[0] = 0.0f; topVertex[1] = 1.0f; topVertex[2] = -1.0f;
                         radius = 0.5f;
                         capped = true;
                         coneColor[0] = 1.0f; coneColor[1] = 0.5f; coneColor[2] = 0.0f;
+                    }
+
+                    ImGui::EndTabItem();
+                }
+
+                // Square Pyramid Tab
+                if (ImGui::BeginTabItem("Square Pyramid")) {
+                    // Pyramid parameters
+                    static float baseCenter[3] = { 0.0f, -0.5f, -1.0f }; // Base center (inferiorPoint)
+                    static float height = 1.0f;
+                    static float baseSize = 1.0f;
+                    static float pyramidColor[3] = { 0.8f, 0.3f, 0.0f };
+
+                    // Input controls
+                    ImGui::SliderFloat3("Base Center", baseCenter, -2.0f, 2.0f);
+                    ImGui::SliderFloat("Height", &height, 0.1f, 2.0f);
+                    ImGui::SliderFloat("Base Size", &baseSize, 0.1f, 2.0f);
+                    ImGui::ColorEdit3("Color", pyramidColor);
+
+                    if (ImGui::Button("Create Square Pyramid")) {
+                        auto pyramidPrim = std::make_shared<CSGPrimitive>(
+                            std::make_shared<SquarePyramid>(
+                                point3(baseCenter[0], baseCenter[1], baseCenter[2]),
+                                height,
+                                baseSize,
+                                mat(color(pyramidColor[0], pyramidColor[1], pyramidColor[2]))
+                            )
+                        );
+
+                        ObjectID newID = world.add(pyramidPrim);
+                        selectedObjectID = newID;
+                    }
+
+                    ImGui::SameLine();
+                    if (ImGui::Button("Reset")) {
+                        // Reset parameters to default values
+                        baseCenter[0] = 0.0f; baseCenter[1] = -0.5f; baseCenter[2] = -1.0f;
+                        height = 1.0f;
+                        baseSize = 1.0f;
+                        pyramidColor[0] = 0.8f; pyramidColor[1] = 0.3f; pyramidColor[2] = 0.0f;
                     }
 
                     ImGui::EndTabItem();

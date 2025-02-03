@@ -12,6 +12,7 @@
 #include "box_csg.h"
 #include "cylinder.h"
 #include "cone.h"
+#include "squarepyramid.h"
 
 void draw_menu(RenderState& render_state,
                Camera& camera, 
