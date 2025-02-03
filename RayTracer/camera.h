@@ -295,7 +295,7 @@ public:
 
 private:
 
-    bool renderShadows = false;
+    bool renderShadows = true;
 
     color background_color(const ray& r) const {
         vec3 unit_direction = unit_vector(r.direction());

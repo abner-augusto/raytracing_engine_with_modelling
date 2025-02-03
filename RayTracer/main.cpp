@@ -35,19 +35,18 @@
 
 RenderState render_state;
 bool isCameraSpace = false;
-bool renderShadows = false;
 bool renderWireframe = true;
 
 int main(int argc, char* argv[]) {
 
     // Image
     auto aspect_ratio = 16.0 / 9.0;
-    int image_width = 480;
+    int image_width = 720;
     int image_height = int(image_width / aspect_ratio);
     int window_width = 1080;
     int window_height = int(window_width / aspect_ratio);
 
-    omp_set_nested(1);
+    omp_set_max_active_levels(1);
 
     if (!InitializeSDL()) {
         return -1;
@@ -108,7 +107,7 @@ int main(int argc, char* argv[]) {
 
     // Create scenes
     std::vector<std::pair<ObjectID, std::shared_ptr<hittable>>> Scene1 = {
-        {0, std::make_shared<plane>(point3(0, -1.0, 0), vec3(0, 1, 0), mat(grass_texture))},
+        {0, std::make_shared<plane>(point3(0, -1.0, 0), vec3(0, 1, 0), mat(xadrez))},
 
     };
 
@@ -328,30 +327,6 @@ int main(int argc, char* argv[]) {
                     camera.get_image_height()
                 );
             }
-
-            //for (const auto& [id, object] : Scene1) {
-            //    if (id == 2) {
-            //        // Extract the bounding box
-            //        BoundingBox bb = object->bounding_box();
-
-            //        // Get the center of the bounding box
-            //        point3 bb_center = bb.getCenter();
-            //        vec3 axis(1, 0, 0);
-            //        vec3 vector = bb_center - camera.get_origin();
-            //        vec3 up_vector = camera.get_up();
-            //        vec3 cross_product = cross(vector, up_vector);
-
-            //        vec4 quaternion = quaternion.createQuaternion(cross_product, 5);
-            //        Matrix4x4 quatMatrix = quatMatrix.quaternion(quaternion);
-            //        Matrix4x4 moveOrigin = moveOrigin.translation(-bb_center);
-            //        Matrix4x4 moveBack = moveBack.translation(bb_center);
-            //        Matrix4x4 objTransform = moveBack * quatMatrix * moveOrigin;
-
-            //        world.transform_object(2, objTransform);
-
-            //        break;
-            //    }
-            //}
 
             camera.render(world, lights, samples_per_pixel, false, isCameraSpace);
         }

@@ -53,4 +53,4 @@
 
 **/imgui.ini
 
-RayTracer/x64/**/*.obj
+RayTracer/x64/*
