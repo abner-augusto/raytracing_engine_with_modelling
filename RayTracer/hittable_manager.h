@@ -5,6 +5,7 @@
 #include "hit_record.h"
 #include "matrix4x4.h"
 #include "boundingbox.h"
+#include "octree.h"
 #include "bvh_node.h"
 #include <unordered_map>
 #include <memory>
@@ -45,18 +46,44 @@ public:
         return id;
     }
 
+    // Generates an octree for the object with the given ObjectID using its bounding box.
+    void generateObjectOctree(ObjectID id, int octreeDepthLimit = 3) {
+        auto it = objects.find(id);
+        if (it != objects.end()) {
+            BoundingBox bb = it->second->bounding_box();
+            Octree tree = Octree::FromObject(bb, *it->second, octreeDepthLimit);
+            octrees[id] = tree;
+        }
+        else {
+            throw std::runtime_error("Invalid ObjectID: " + std::to_string(id));
+        }
+    }
+
     // Removes the object with the specified ID.
+    // Also removes any octree associated with the object.
     void remove(ObjectID id) {
         auto it = objects.find(id);
         if (it != objects.end()) {
-            objects.erase(it);        // Remove the object from the manager.
-            used_ids.erase(id);         // Mark the ID as no longer used.
-            // Invalidate BVH as the objects have changed.
-            root_bvh = nullptr;
+            objects.erase(it);          // Remove the object.
+            used_ids.erase(id);           // Mark the ID as no longer used.
+            // Remove the associated octree if it exists.
+            if (octrees.find(id) != octrees.end()) {
+                octrees.erase(id);
+            }
+            root_bvh = nullptr;         // Invalidate BVH.
         }
         else {
             std::cerr << "Warning: Attempted to remove non-existent ObjectID " << id << "\n";
         }
+    }
+
+    // Return all objects as a vector.
+    std::vector<std::shared_ptr<hittable>> getObjects() const {
+        std::vector<std::shared_ptr<hittable>> objs;
+        for (const auto& [id, object] : objects) {
+            objs.push_back(object);
+        }
+        return objs;
     }
 
     // Returns the object associated with the given ID.
@@ -76,26 +103,55 @@ public:
         return objects.find(id) != objects.end();
     }
 
-    // Clears all objects from the manager.
+    // Clears all objects and their octrees.
     void clear() {
         objects.clear();
         used_ids.clear();
+        octrees.clear();
         root_bvh = nullptr;
     }
 
     // Returns a list of (ObjectID, name) pairs for all objects in the scene.
-    // The name is obtained via hittable::get_type_name()
-    // and appended with the object's ID to ensure uniqueness.
     std::vector<std::pair<ObjectID, std::string>> list_object_names() const {
         std::vector<std::pair<ObjectID, std::string>> result;
         for (const auto& [id, object] : objects) {
-            // Get the name from the object. If multiple objects share the same base name,
-            // appending the ID helps disambiguate them.
             std::string name = object->get_type_name() + " (" + std::to_string(id) + ")";
             result.push_back({ id, name });
         }
         return result;
     }
+
+    // Retrieve the filled bounding boxes for a specific object's octree.
+    std::vector<BoundingBox> getOctreeFilledBoundingBoxes(ObjectID id) const {
+        auto it = octrees.find(id);
+        if (it != octrees.end()) {
+            return it->second.GetFilledBoundingBoxes();
+        }
+        return {};
+    }
+
+    // Retrieve the filled bounding boxes from all octrees, useful for wireframe rendering.
+    std::vector<BoundingBox> getAllOctreeFilledBoundingBoxes() const {
+        std::vector<BoundingBox> allBoxes;
+        for (const auto& [id, tree] : octrees) {
+            std::vector<BoundingBox> boxes = tree.GetFilledBoundingBoxes();
+            allBoxes.insert(allBoxes.end(), boxes.begin(), boxes.end());
+        }
+        return allBoxes;
+    }
+
+    bool hasOctree(ObjectID id) const {
+        return octrees.find(id) != octrees.end();
+    }
+
+    const Octree& getOctree(ObjectID id) const {
+        auto it = octrees.find(id);
+        if (it != octrees.end()) {
+            return it->second;
+        }
+        throw std::runtime_error("No Octree found for Object ID: " + std::to_string(id));
+    }
+
 
     // ----------------- hittable interface -----------------
     bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
@@ -145,26 +201,41 @@ public:
         }
     }
 
+    // Applies a transformation to all objects.
+    // If an object has an associated octree, that octree is updated.
     void transform(const Matrix4x4& transform) override {
-        std::cout << "Applying transformation to all individual objects in HittableManager:\n";
-        transform.print(); // Debug the transformation matrix.
+        std::cout << "Applying transformation to all objects in HittableManager:\n";
+        transform.print();
         for (auto& [id, object] : objects) {
             object->transform(transform);
+            if (octrees.find(id) != octrees.end()) {
+                BoundingBox bb = object->bounding_box();
+                Octree tree = Octree::FromObject(bb, *object, 3);
+                octrees[id] = tree;
+            }
         }
         // Invalidate BVH after transformation.
         root_bvh = nullptr;
     }
 
+    // Applies a transformation to a specific object.
+    // Updates its associated octree only if one exists.
     void transform_object(ObjectID id, const Matrix4x4& transform) {
         if (objects.find(id) != objects.end()) {
             objects[id]->transform(transform);
-            root_bvh = nullptr; // Invalidate BVH.
+            if (octrees.find(id) != octrees.end()) {
+                BoundingBox bb = objects[id]->bounding_box();
+                Octree tree = Octree::FromObject(bb, *objects[id], 3);
+                octrees[id] = tree;
+            }
+            root_bvh = nullptr;
         }
         else {
             throw std::runtime_error("Invalid ObjectID: " + std::to_string(id));
         }
     }
 
+    // Applies a transformation to a range of objects.
     void transform_range(ObjectID start_id, ObjectID end_id, const Matrix4x4& transform) {
         for (ObjectID id = start_id; id <= end_id; ++id) {
             try {
@@ -181,6 +252,7 @@ private:
     std::unordered_map<ObjectID, shared_ptr<hittable>> objects;
     std::unordered_set<ObjectID> used_ids; // Track all used IDs.
     shared_ptr<BVHNode> root_bvh = nullptr;  // Root of the BVH tree.
+    std::unordered_map<ObjectID, Octree> octrees; // Maps each object ID to its corresponding octree.
 
     bool defaultHitTraversal(const ray& r, interval ray_t, hit_record& rec) const {
         hit_record temp_rec;
