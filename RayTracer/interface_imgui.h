@@ -3,8 +3,10 @@
 #include <vector>
 #include <imgui.h>
 #include <cmath>
+#include <chrono>
 
 #include "camera.h"
+#include "matrix4x4.h"
 #include "render_state.h"
 #include "csg.h"
 #include "hittable_manager.h"
@@ -24,4 +26,17 @@ void DrawFpsCounter(float fps);
 
 void ShowHittableManagerUI(HittableManager& world);
 
+// Displays the main ImGui window for object properties.
 void ShowInfoWindow(HittableManager& world);
+
+// Displays the "Info" tab where object details and octree controls are shown.
+void ShowInfoTab(HittableManager& world);
+
+// Displays the "Geometry" tab for object transformations.
+void ShowGeometryTab(HittableManager& world);
+
+// Displays the "Primitives" tab with sub-tabs for creating different primitives.
+void ShowPrimitivesTab(HittableManager& world);
+
+// Displays the "Boolean" tab for applying CSG operations between objects.
+void ShowBooleanTab(HittableManager& world);
