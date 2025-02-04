@@ -2,6 +2,7 @@
 #define RAY_H
 
 #include "vec3.h"
+#include "matrix4x4.h"
 
 class ray {
 public:
@@ -16,9 +17,20 @@ public:
         return orig + t * dir;
     }
 
+    // Transform the ray using a transformation matrix
+    ray transform(const Matrix4x4& matrix) const {
+        // Transform the origin as a point (applies translation)
+        point3 new_origin = matrix.transform_point(orig);
+
+        // Transform the direction as a vector (ignores translation)
+        vec3 new_direction = matrix.transform_vector(dir);
+
+        return ray(new_origin, new_direction);
+    }
+
 private:
     point3 orig;
     vec3 dir;
 };
 
-#endif#pragma once
+#endif
