@@ -52,7 +52,7 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    SDL_Window* window = CreateWindow(window_width, window_height, "Raytracing CG1");
+    SDL_Window* window = CreateWindow(window_width, window_height, "Modelagem CSG - Abner Augusto");
     if (!window) {
         SDL_Quit();
         return -1;
@@ -211,7 +211,7 @@ int main(int argc, char* argv[]) {
     //MeshOBJ mesh;
     //try {
     //    // Load an OBJ mesh and add it to the manager
-    //    mesh = add_mesh_to_manager("models/suzanne.obj", world, orange);
+    //    mesh = add_mesh_to_manager("models/suzanne.obj", world, mat(orange));
 
     //    // Apply transformation to all triangles in the mesh
     //    if (!mesh.triangle_ids.empty()) {
