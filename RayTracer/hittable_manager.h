@@ -98,6 +98,16 @@ public:
         return next_id;
     }
 
+    // Returns the ObjectID for a given object if it exists in the scene.
+    std::optional<ObjectID> get_object_id(const std::shared_ptr<hittable>& object) const {
+        for (const auto& [id, obj] : objects) {
+            if (obj == object) {
+                return id;
+            }
+        }
+        return std::nullopt;
+    }
+
     // Checks if an object with the given ID exists.
     bool contains(ObjectID id) const {
         return objects.find(id) != objects.end();
