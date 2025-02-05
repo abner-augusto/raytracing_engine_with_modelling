@@ -341,6 +341,19 @@ void ShowInfoTab(HittableManager& world) {
                 }
                 ImGui::SameLine();
                 ImGui::Text("Area: %.3f", octreeSurfaceArea);
+
+                if (ImGui::Button("Print Octree")) {
+                    try {
+                        // Use the . operator to access members of the Octree reference
+                        world.getOctree(selectedObjectID.value()).root.ToHierarchicalString(
+                            std::cout,
+                            world.getOctree(selectedObjectID.value()).bounding_box
+                        );
+                    }
+                    catch (const std::exception& e) {
+                        std::cerr << "[ERROR] Failed to print octree: " << e.what() << std::endl;
+                    }
+                }
             }
             else {
                 ImGui::Text("No Octree Generated");
