@@ -82,13 +82,13 @@ void update_camera(Camera& camera, float speed) {
 
     Matrix4x4 translation;
 
-    // **Move forward/backward using Left Stick Y**
+    // Move forward/backward using Left Stick Y
     if (std::abs(leftStickY) > 0.01f) {
         translation = Matrix4x4::translation(forward * (leftStickY * speed));
         camera.transform(translation);
     }
 
-    // **Move left/right using Left Stick X**
+    // Move left/right using Left Stick X
     if (std::abs(leftStickX) > 0.01f) {
         translation = Matrix4x4::translation(right * (-leftStickX * speed)); // Negative for correct direction
         camera.transform(translation);
@@ -128,7 +128,7 @@ void update_camera(Camera& camera, float speed) {
         camera.set_look_at(newLookAt);
     }
 
-    // **Move up/down using Shoulder Buttons**
+    // Move up/down using Shoulder Buttons
     if (moveUp) {
         translation = Matrix4x4::translation(up * (0.3 * speed));
         camera.transform(translation);
@@ -382,9 +382,9 @@ void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, dou
                 const BoundingBox& box = object->bounding_box();
                 interval hit_range(0.0, closest_hit.t);
 
-                // **First pass: Check bounding box**
+                // First pass: Check bounding box
                 if (box.hit(clicked_ray, hit_range)) {
-                    // **Second pass: Check actual object intersection**
+                    // Second pass: Check actual object intersection
                     hit_record temp_record;
                     if (object->hit(clicked_ray, interval(0.0, closest_hit.t), temp_record)) {
                         if (temp_record.t < closest_hit.t) {
