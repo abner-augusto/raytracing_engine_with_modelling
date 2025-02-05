@@ -177,7 +177,9 @@ public:
     }
 
     // Hit function to test ray intersection
-    bool hit(const ray& r, interval ray_t) const {
+    bool hit(const ray& r, interval ray_t = interval(0.0, std::numeric_limits<double>::infinity())) const {
+        interval temp_t = ray_t;
+
         for (int i = 0; i < 3; i++) {
             double invD = 1.0 / r.direction()[i];
             double t0 = (vmin[i] - r.origin()[i]) * invD;
@@ -187,15 +189,16 @@ public:
                 std::swap(t0, t1);
             }
 
-            ray_t.min = std::max(t0, ray_t.min);
-            ray_t.max = std::min(t1, ray_t.max);
+            temp_t.min = std::max(t0, temp_t.min);
+            temp_t.max = std::min(t1, temp_t.max);
 
-            if (ray_t.max <= ray_t.min) {
+            if (temp_t.max <= temp_t.min) {
                 return false;
             }
         }
         return true;
     }
+
 
     BoundingBox bounding_box() const {
         return *this;
