@@ -276,6 +276,38 @@ public:
         return ray(origin, direction);
     }
 
+    ray compute_ray_at(int pixel_x, int pixel_y) const {
+        // Use sub-pixel offsets for the center of the pixel
+        double offset_x = 0.5;
+        double offset_y = 0.5;
+
+        // Precompute perspective parameters
+        double fov_radians = degrees_to_radians(fov);
+        double half_fov = 0.5 * fov_radians;
+        double tan_half_fov = std::tan(half_fov);
+
+        // Convert the pixel coordinate to normalized device coordinates (NDC)
+        double ndc_x = (static_cast<double>(pixel_x) + offset_x) / image_width;
+        double ndc_y = (static_cast<double>(pixel_y) + offset_y) / image_height;
+
+        // Map NDC to screen space
+        double screen_x = (2.0 * ndc_x - 1.0) * aspect_ratio * tan_half_fov;
+        double screen_y = (1.0 - 2.0 * ndc_y) * tan_half_fov;
+        double screen_z = -1.0;  // Assumes camera is looking along -Z
+
+        // Compute the ray direction in camera space and then transform to world space
+        vec4 ray_dir_camera(screen_x, screen_y, screen_z, 0.0);
+        vec4 ray_dir_world = camera_to_world_matrix * ray_dir_camera;
+        vec3 direction = unit_vector(ray_dir_world.to_vec3());
+
+        // The ray origin in world space is the camera's position
+        vec4 ray_origin_camera(0.0, 0.0, 0.0, 1.0);
+        vec4 ray_origin_world = camera_to_world_matrix * ray_origin_camera;
+        vec3 origin = ray_origin_world.to_vec3();
+
+        return ray(origin, direction);
+    }
+
     // Toggle shadows on or off
     void toggle_shadows() {
         renderShadows = !renderShadows;
