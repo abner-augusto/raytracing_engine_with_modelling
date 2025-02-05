@@ -36,6 +36,8 @@
 RenderState render_state;
 bool isCameraSpace = false;
 bool renderWireframe = true;
+bool renderWorldAxes = true;
+std::optional<BoundingBox> highlighted_box = std::nullopt;
 
 int main(int argc, char* argv[]) {
 
@@ -285,7 +287,7 @@ int main(int argc, char* argv[]) {
 
         while (SDL_PollEvent(&event)) {
             ImGui_ImplSDL2_ProcessEvent(&event);
-            handle_event(event, running, window, aspect_ratio, camera, render_state, world);
+            handle_event(event, running, window, aspect_ratio, camera, render_state, world, highlighted_box);
         }
 
         // Start ImGui frame
@@ -396,8 +398,12 @@ int main(int argc, char* argv[]) {
 
         DrawCrosshair(renderer, window_width, window_height);
 
+        if (renderWorldAxes) {
+            render_world_axes(renderer, camera, destination_rect);
+        }
+
         if (renderWireframe) {
-            DrawOctreeWireframe(renderer, world, camera, destination_rect);
+            DrawOctreeWireframe(renderer, world, camera, destination_rect, highlighted_box);
         }
 
 
