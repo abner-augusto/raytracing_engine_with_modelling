@@ -258,12 +258,12 @@ const std::array<float, 3> GUIConstants::defaultBoxColor = { 1.0f, 0.0f, 0.0f };
 const std::array<float, 3> GUIConstants::defaultSphereCenter = { 0.0f, 0.0f, -1.0f };
 const std::array<float, 3> GUIConstants::defaultSphereColor = { 0.0f, 0.0f, 1.0f };
 
-const std::array<float, 3> GUIConstants::defaultCylinderBaseCenter = { 0.0f, 0.0f, -1.0f };
-const std::array<float, 3> GUIConstants::defaultCylinderTopCenter = { 0.0f, 1.0f, -1.0f };
+const std::array<float, 3> GUIConstants::defaultCylinderBaseCenter = { 0.0f, -0.5f, -1.0f };
+const std::array<float, 3> GUIConstants::defaultCylinderTopCenter = { 0.0f, 0.5f, -1.0f };
 const std::array<float, 3> GUIConstants::defaultCylinderColor = { 0.0f, 0.5f, 1.0f };
 
 const std::array<float, 3> GUIConstants::defaultConeBaseCenter = { 0.0f, -0.5f, -1.0f };
-const std::array<float, 3> GUIConstants::defaultConeTopVertex = { 0.0f, 1.0f, -1.0f };
+const std::array<float, 3> GUIConstants::defaultConeTopVertex = { 0.0f, 0.5f, -1.0f };
 const std::array<float, 3> GUIConstants::defaultConeColor = { 1.0f, 0.5f, 0.0f };
 
 const std::array<float, 3> GUIConstants::defaultPyramidBaseCenter = { 0.0f, -0.5f, -1.0f };
