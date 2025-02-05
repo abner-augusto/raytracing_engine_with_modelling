@@ -76,25 +76,69 @@ bool moveDown = false;
 
 // Call this function in the game loop to apply continuous movement
 void update_camera(Camera& camera, float speed) {
+    vec3 forward = unit_vector(camera.get_look_at() - camera.get_origin()); // Camera forward direction
     vec3 up = camera.get_up();
+    vec3 right = unit_vector(cross(up, forward)); // Right direction (local X axis)
 
-    // Move camera based on left stick (movement)
-    camera.set_origin(camera.get_origin() + vec3(leftStickX * speed, 0, -leftStickY * speed));
-    camera.set_look_at(camera.get_look_at() + vec3(leftStickX * speed, 0, -leftStickY * speed));
+    Matrix4x4 translation;
 
-    // Adjust look_at with right stick (view direction)
-    camera.set_look_at(camera.get_look_at() + vec3(rightStickX * speed, -rightStickY * speed, 0));
+    // **Move forward/backward using Left Stick Y**
+    if (std::abs(leftStickY) > 0.01f) {
+        translation = Matrix4x4::translation(forward * (leftStickY * speed));
+        camera.transform(translation);
+    }
 
-    // Move camera up and down based on shoulder button states
+    // **Move left/right using Left Stick X**
+    if (std::abs(leftStickX) > 0.01f) {
+        translation = Matrix4x4::translation(right * (-leftStickX * speed)); // Negative for correct direction
+        camera.transform(translation);
+    }
+
+    // Right Stick: Quaternion-based Camera Rotation (Yaw & Pitch)
+    if (std::abs(rightStickX) > 0.01f || std::abs(rightStickY) > 0.01f) {
+        // Compute the input angles in degrees
+        double yawAngle = -rightStickX * speed * 5.0;   // Yaw (rotate left/right)
+        double pitchAngle = rightStickY * speed * 5.0;     // Pitch (look up/down)
+
+        // Compute the camera's forward vector (from origin to look_at)
+        vec3 forward = unit_vector(camera.get_look_at() - camera.get_origin());
+
+        // Compute the camera's right vector (using camera's up and forward)
+        vec3 right = unit_vector(cross(camera.get_up(), forward));
+
+        // Create quaternions from the axis–angle representation:
+        //   - Pitch: around the camera's right vector
+        //   - Yaw: around the global up axis (0,1,0)
+        vec4 qPitch = vec4().createQuaternion(right, pitchAngle);
+        vec4 qYaw = vec4().createQuaternion(vec3(0.0, 1.0, 0.0), yawAngle);
+
+        // Combine the quaternions.
+        // Note: Quaternion multiplication is not commutative. Here we want to apply pitch first, then yaw.
+        vec4 qCombined = qYaw * qPitch;
+
+        // Convert the combined quaternion into a rotation matrix.
+        Matrix4x4 rotationMatrix = Matrix4x4::quaternion(qCombined);
+
+        // Rotate the forward vector using the new rotation matrix.
+        vec3 newForward = unit_vector(rotationMatrix.transform_vector(forward));
+
+        // Recompute the look_at point so that the camera maintains its original distance.
+        double dist = (camera.get_look_at() - camera.get_origin()).length();
+        vec3 newLookAt = camera.get_origin() + newForward * dist;
+        camera.set_look_at(newLookAt);
+    }
+
+    // **Move up/down using Shoulder Buttons**
     if (moveUp) {
-        camera.set_origin(camera.get_origin() + up * (0.3 * speed));
-        camera.set_look_at(camera.get_look_at() + up * (0.3 * speed));
+        translation = Matrix4x4::translation(up * (0.3 * speed));
+        camera.transform(translation);
     }
     if (moveDown) {
-        camera.set_origin(camera.get_origin() - up * (0.3 * speed));
-        camera.set_look_at(camera.get_look_at() - up * (0.3 * speed));
+        translation = Matrix4x4::translation(-up * (0.3 * speed));
+        camera.transform(translation);
     }
 }
+
 
 void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, double aspect_ratio,
     Camera& camera, RenderState& render_state, HittableManager& world,
