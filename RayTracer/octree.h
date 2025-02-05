@@ -25,6 +25,7 @@ public:
 
     static Octree FromObject(const BoundingBox& bb, const hittable& obj, int depth_limit = 3) {
         OctreeNode root = OctreeNode::FromObject(bb, obj, depth_limit);
+        root.PostProcessMerge();
         return Octree(bb, root);
     }
 

@@ -33,57 +33,76 @@ public:
     static OctreeNode FromObject(const BoundingBox& bb, const hittable& obj, int depth_limit = 3) {
         OctreeNode root = EmptyNode();
         char test = obj.test_bb(bb);
+
         if (test == 'w') {
-            // completely outside, empty node
+            // Completely outside, empty node
             return root;
         }
         else if (test == 'b' || depth_limit == 0) {
-            // fully inside or no more subdivisions allowed
+            // Fully inside or no more subdivisions allowed
             return FullNode();
         }
         else {
-            // partial intersection, subdivide
+            // Partial intersection, subdivide
             root.subdivide();
             for (int i = 0; i < 8; i++) {
                 root.children[i] = FromObject(bb.subdivide(i), obj, depth_limit - 1);
             }
-            root.simplify();
             return root;
         }
     }
 
-    // Add this function to your OctreeNode class.
-    void simplify() {
-        // If there are no children, there's nothing to simplify.
+
+    // Helper function to subdivide the node into 8 children
+    void subdivide() {
         if (children.empty()) {
-            return;
+            children.resize(8, EmptyNode());
         }
+    }
 
-        // Recursively simplify all children.
-        for (auto& child : children) {
-            child.simplify();
-        }
-
-        // Check if all children are leaves (no further subdivisions)
-        // and have the same fill status.
-        bool canMerge = true;
-        bool commonStatus = children[0].is_filled;
-        for (const auto& child : children) {
-            // If a child has its own children or a different fill status,
-            // then we cannot merge.
-            if (!child.children.empty() || child.is_filled != commonStatus) {
-                canMerge = false;
-                break;
+    void PostProcessMerge()
+    {
+        // If this node has children, recursively process them first.
+        if (!children.empty())
+        {
+            // First, let each child merge its own sub-children.
+            for (auto& child : children)
+            {
+                child.PostProcessMerge();
             }
-        }
 
-        // If all children are mergeable, update this node.
-        if (canMerge) {
-            // This node now takes on the common status, and the children
-            // are removed. The parent's bounding box (passed externally)
-            // covers all merged children.
-            is_filled = commonStatus;
-            children.clear();
+            // Now check if all children are filled or all children are empty (and leaf).
+            bool allFilled = true;
+            bool allEmpty = true;
+            for (auto& child : children)
+            {
+                // "Fully filled" means child.is_filled == true and no further children.
+                if (!child.is_filled || !child.children.empty())
+                {
+                    allFilled = false;
+                }
+                // "Fully empty" means child.is_filled == false and no further children.
+                if (child.is_filled || !child.children.empty())
+                {
+                    allEmpty = false;
+                }
+            }
+
+            // If all children are completely filled, merge into a single filled node.
+            if (allFilled)
+            {
+                is_filled = true;
+                children.clear();
+                return;
+            }
+
+            // If all children are completely empty, merge into a single empty node.
+            if (allEmpty)
+            {
+                is_filled = false;
+                children.clear();
+                return;
+            }
         }
     }
 
@@ -94,11 +113,6 @@ public:
 
     bool IsPartial() const {
         return !children.empty();
-    }
-
-    void subdivide() {
-        assert(!is_filled && children.empty());
-        children.resize(8, EmptyNode());
     }
 
     std::vector<BoundingBox> GetFilledBoundingBoxes(const BoundingBox& root_bb) const {
@@ -175,9 +189,9 @@ public:
         os << prefix << status << " (Width: " << width << ")\n";
 
         if (!children.empty()) {
-            for (size_t i = 0; i < children.size(); ++i) {
-                std::string child_prefix = (i == children.size() - 1) ? last_branch : branch;
-                std::string next_level_prefix = (i == children.size() - 1) ? space : vertical;
+            for (int i = 0; i < 8; ++i) {
+                std::string child_prefix = (i == 7) ? last_branch : branch;
+                std::string next_level_prefix = (i == 7) ? space : vertical;
                 children[i].ToHierarchicalString(os, root_bb.subdivide(i), depth + 1, prefix + next_level_prefix + child_prefix);
             }
         }
