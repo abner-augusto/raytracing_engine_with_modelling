@@ -199,8 +199,8 @@ public:
         axis_direction = unit_vector(axis_direction); // Re-normalize the axis direction
 
         // Adjust the radius and height for scaling (assuming uniform scaling)
-        /*double scale_factor = matrix.get_uniform_scale();
-        radius *= scale_factor;*/
+        double scalingFactor = matrix.get_uniform_scale();
+        radius *= scalingFactor;
 
         // Recalculate height and other constants
         update_constants();

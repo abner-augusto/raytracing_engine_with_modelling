@@ -317,6 +317,9 @@ public:
     void transform(const Matrix4x4& matrix) override {
         // Apply transformation to the center of the sphere
         inferiorPoint = matrix.transform_point(inferiorPoint);
+        double scalingFactor = matrix.get_uniform_scale();
+        basis *= scalingFactor;
+        height *= scalingFactor;
     }
 
     std::string get_type_name() const override {

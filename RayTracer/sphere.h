@@ -164,8 +164,8 @@ public:
         center = matrix.transform_point(center);
 
         // Apply uniform scaling radius of the sphere
-        /*double scalingFactor = matrix.get_uniform_scale();
-        radius *= scalingFactor;*/
+        double scalingFactor = matrix.get_uniform_scale();
+        radius *= scalingFactor;
     }
 
     BoundingBox bounding_box() const override {

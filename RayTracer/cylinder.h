@@ -362,9 +362,14 @@ public:
         base_center = matrix.transform_point(base_center);
         top_center = matrix.transform_point(top_center);
 
-        // Recompute the cylinder axis
+        // Extract scaling factor from the matrix (assuming uniform scaling)
+        double scalingFactor = matrix.get_uniform_scale();
+        radius *= scalingFactor;
+
+        // Update cylinder properties, including height
         update_constants();
     }
+
 
     BoundingBox bounding_box() const override {
         // Compute the maximum lateral extension along each coordinate direction.
@@ -391,11 +396,13 @@ public:
 private:
     void update_constants() {
         cylinder_axis = top_center - base_center;
+        height = cylinder_axis.length();
         axis_length_squared = dot(cylinder_axis, cylinder_axis);
         unit_cylinder_axis = cylinder_axis / std::sqrt(axis_length_squared);
         reciprocal_axis_length_squared = 1.0 / axis_length_squared;
         radius_squared = radius * radius;
     }
+
 
     point3 base_center;
     point3 top_center;
