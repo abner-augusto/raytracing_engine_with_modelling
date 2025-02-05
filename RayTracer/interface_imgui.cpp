@@ -3,6 +3,7 @@
 
 
 extern bool renderWireframe;
+extern bool renderWorldAxes;
 
 void draw_menu(RenderState& render_state,
     Camera& camera, HittableManager world, std::vector<Light>& lights)
@@ -104,6 +105,10 @@ void draw_menu(RenderState& render_state,
             if (ImGui::Checkbox("Toggle Wireframe", &renderWireframe)) {
 
             }
+
+            if (ImGui::Checkbox("Toggle World Axes", &renderWorldAxes)) {
+
+            }
         }
     }
     ImGui::End();
@@ -136,7 +141,7 @@ void DrawFpsCounter(float fps) {
 }
 
 // Use an optional to track selection (no selection if std::nullopt).
-static std::optional<ObjectID> selectedObjectID = std::nullopt;
+std::optional<ObjectID> selectedObjectID = std::nullopt;
 
 void ShowHittableManagerUI(HittableManager& world) {
     // Set window position to upper right corner
@@ -165,8 +170,23 @@ void ShowHittableManagerUI(HittableManager& world) {
     // Remove selected object button
     if (selectedObjectID.has_value()) {
         if (ImGui::Button("Remove Selected Object")) {
-            world.remove(selectedObjectID.value());
-            selectedObjectID.reset();
+            if (selectedObjectID.value() == 0) {
+                ImGui::OpenPopup("Cannot Delete Plane");
+            }
+            else {
+                world.remove(selectedObjectID.value());
+                selectedObjectID.reset();
+                highlighted_box.reset();
+            }
+        }
+
+        // Popup message when trying to delete the infinite plane
+        if (ImGui::BeginPopupModal("Cannot Delete Plane", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::Text("Cannot delete the infinite plane (ID 0).");
+            if (ImGui::Button("OK")) {
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
         }
     }
 
@@ -379,6 +399,7 @@ void ShowGeometryTab(HittableManager& world) {
             if (ImGui::Button("Apply Translation")) {
                 Matrix4x4 transform = Matrix4x4::translation(vec3(translation[0], translation[1], translation[2]));
                 world.transform_object(selectedObjectID.value(), transform);
+                highlighted_box = world.get(selectedObjectID.value())->bounding_box();
                 translation[0] = translation[1] = translation[2] = 0.0f; // Reset
             }
 
@@ -388,6 +409,7 @@ void ShowGeometryTab(HittableManager& world) {
                 vec3 resetTranslation = targetPosition - center;
                 Matrix4x4 resetTransform = Matrix4x4::translation(resetTranslation);
                 world.transform_object(selectedObjectID.value(), resetTransform);
+                highlighted_box = world.get(selectedObjectID.value())->bounding_box();
             }
 
             ImGui::EndTabItem();
@@ -429,6 +451,7 @@ void ShowGeometryTab(HittableManager& world) {
 
                     Matrix4x4 rotationMatrix = rotationMatrix.rotateAroundPoint(rotationPoint, rotationAxis, rotationAngle);
                     world.transform_object(selectedObjectID.value(), rotationMatrix);
+                    highlighted_box = world.get(selectedObjectID.value())->bounding_box();
                 }
             }
 
@@ -464,6 +487,7 @@ void ShowGeometryTab(HittableManager& world) {
 
                     Matrix4x4 rotationMatrix = rotationMatrix.rotateAroundPoint(rotationPoint, rotationAxis, frameRotationAngle);
                     world.transform_object(selectedObjectID.value(), rotationMatrix);
+                    highlighted_box = world.get(selectedObjectID.value())->bounding_box();
                 }
             }
 
@@ -495,6 +519,9 @@ void ShowGeometryTab(HittableManager& world) {
                 // Apply scaling around the object's center
                 Matrix4x4 scaleMatrix = scaleMatrix.scaleAroundPoint(center, scaleValues[0], scaleValues[1], scaleValues[2]);
                 world.transform_object(selectedObjectID.value(), scaleMatrix);
+                highlighted_box = world.get(selectedObjectID.value())->bounding_box();
+                scaleValues[0] = scaleValues[1] = scaleValues[2] = 1.0f;
+                uniformScaleValue = 1.0f;
             }
 
             ImGui::SameLine();

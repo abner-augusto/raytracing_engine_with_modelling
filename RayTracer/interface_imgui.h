@@ -40,3 +40,7 @@ void ShowPrimitivesTab(HittableManager& world);
 
 // Displays the "Boolean" tab for applying CSG operations between objects.
 void ShowBooleanTab(HittableManager& world);
+
+extern std::optional<ObjectID> selectedObjectID;
+
+extern std::optional<BoundingBox> highlighted_box;
