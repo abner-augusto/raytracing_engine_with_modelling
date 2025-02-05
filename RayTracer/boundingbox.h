@@ -12,8 +12,8 @@ public:
     point3 vmax;
 
     // Default constructor - creates a unit box at origin
-    BoundingBox()
-        : vmin(0, 0, 0), vmax(0.1, 0.1, 0.1) {
+    BoundingBox() {
+        set_infinite_negative();
     }
 
     // Main constructor for rectangular box
@@ -42,6 +42,15 @@ public:
 
     point3 getDimensions() const {
         return vmax - vmin;
+    }
+
+    void set_infinite_negative() {
+        vmin = point3(std::numeric_limits<double>::infinity(),
+            std::numeric_limits<double>::infinity(),
+            std::numeric_limits<double>::infinity());
+        vmax = point3(-std::numeric_limits<double>::infinity(),
+            -std::numeric_limits<double>::infinity(),
+            -std::numeric_limits<double>::infinity());
     }
 
     void setCorner(const point3& new_corner) {
@@ -140,6 +149,16 @@ public:
         );
 
         return BoundingBox(new_vmin, new_vmax);
+    }
+
+    void include(const point3& p) {
+        vmin = point3(std::min(vmin.x(), p.x()),
+            std::min(vmin.y(), p.y()),
+            std::min(vmin.z(), p.z()));
+
+        vmax = point3(std::max(vmax.x(), p.x()),
+            std::max(vmax.y(), p.y()),
+            std::max(vmax.z(), p.z()));
     }
 
     BoundingBox from_intersect(const BoundingBox& other) const {
