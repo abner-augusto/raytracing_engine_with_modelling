@@ -45,8 +45,9 @@ std::optional<std::pair<int, int>> project(const point3& p, const Camera& camera
 void DrawOctreeWireframe(SDL_Renderer* renderer,
     const HittableManager& manager,
     const Camera& camera,
-    const SDL_Rect& viewport)
-{
+    const SDL_Rect& viewport,
+    const std::optional<BoundingBox>& highlighted_box) {
+
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_ADD);
 
     // Define edges of a cube (using indices 0-7 for corners)
@@ -56,7 +57,8 @@ void DrawOctreeWireframe(SDL_Renderer* renderer,
         {0, 4}, {1, 5}, {2, 6}, {3, 7}   // vertical edges
     };
 
-    auto draw_bounding_box = [&](const BoundingBox& bb) {
+    auto draw_bounding_box = [&](const BoundingBox& bb, SDL_Color color) {
+        SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
         std::vector<point3> corners = bb.getVertices();
         for (const auto& edge : edges) {
             auto p1 = project(corners[edge[0]], camera, viewport);
@@ -66,20 +68,93 @@ void DrawOctreeWireframe(SDL_Renderer* renderer,
         }
         };
 
-    // Get all objects from the manager
+    // Draw all objects' bounding boxes in green
     auto objects = manager.getObjects();
-
-    // Draw bounding boxes for all objects in the manager
-    SDL_SetRenderDrawColor(renderer, 0, 255, 0, 64);
     for (const auto& object : objects) {
-        draw_bounding_box(object->bounding_box());
+        draw_bounding_box(object->bounding_box(), { 0, 255, 0, 64 });
     }
 
-    // Get all filled bounding boxes from octree
-    SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+    // Draw octree bounding boxes in red
     auto octree_boxes = manager.getAllOctreeFilledBoundingBoxes();
     for (const auto& box : octree_boxes) {
-        draw_bounding_box(box);
+        draw_bounding_box(box, { 255, 0, 0, 255 });
+    }
+
+    // Draw highlighted bounding box in blue (if any)
+    if (highlighted_box) {
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+        draw_bounding_box(*highlighted_box, { 0, 0, 255, 255 });
     }
 }
 
+void render_world_axes(SDL_Renderer* renderer, const Camera& camera, const SDL_Rect& viewport) {
+    
+    double axis_length = 0.5;
+    double arrow_size = 0.1;
+
+    // Define axis endpoints in world space
+    point3 origin(0, 0, 0);
+    point3 x_end(axis_length, 0, 0);
+    point3 y_end(0, axis_length, 0);
+    point3 z_end(0, 0, axis_length);
+
+    // Compute arrowhead points in world space
+    point3 x_arrow1(axis_length - arrow_size, arrow_size / 2, 0);
+    point3 x_arrow2(axis_length - arrow_size, -arrow_size / 2, 0);
+
+    point3 y_arrow1(arrow_size / 2, axis_length - arrow_size, 0);
+    point3 y_arrow2(-arrow_size / 2, axis_length - arrow_size, 0);
+
+    point3 z_arrow1(0, arrow_size / 2, axis_length - arrow_size);
+    point3 z_arrow2(0, -arrow_size / 2, axis_length - arrow_size);
+
+    // Project the origin, axes, and arrow points to screen space
+    auto origin_proj = project(origin, camera, viewport);
+    auto x_proj = project(x_end, camera, viewport);
+    auto y_proj = project(y_end, camera, viewport);
+    auto z_proj = project(z_end, camera, viewport);
+
+    auto x_arrow1_proj = project(x_arrow1, camera, viewport);
+    auto x_arrow2_proj = project(x_arrow2, camera, viewport);
+
+    auto y_arrow1_proj = project(y_arrow1, camera, viewport);
+    auto y_arrow2_proj = project(y_arrow2, camera, viewport);
+
+    auto z_arrow1_proj = project(z_arrow1, camera, viewport);
+    auto z_arrow2_proj = project(z_arrow2, camera, viewport);
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+
+    // Draw the X-axis in red
+    if (origin_proj && x_proj) {
+        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+        SDL_RenderDrawLine(renderer, origin_proj->first, origin_proj->second, x_proj->first, x_proj->second);
+        if (x_arrow1_proj && x_arrow2_proj) {
+            SDL_RenderDrawLine(renderer, x_proj->first, x_proj->second, x_arrow1_proj->first, x_arrow1_proj->second);
+            SDL_RenderDrawLine(renderer, x_proj->first, x_proj->second, x_arrow2_proj->first, x_arrow2_proj->second);
+        }
+    }
+
+    // Draw the Y-axis in green
+    if (origin_proj && y_proj) {
+        SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+        SDL_RenderDrawLine(renderer, origin_proj->first, origin_proj->second, y_proj->first, y_proj->second);
+        if (y_arrow1_proj && y_arrow2_proj) {
+            SDL_RenderDrawLine(renderer, y_proj->first, y_proj->second, y_arrow1_proj->first, y_arrow1_proj->second);
+            SDL_RenderDrawLine(renderer, y_proj->first, y_proj->second, y_arrow2_proj->first, y_arrow2_proj->second);
+        }
+    }
+
+    // Draw the Z-axis in blue
+    if (origin_proj && z_proj) {
+        SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);
+        SDL_RenderDrawLine(renderer, origin_proj->first, origin_proj->second, z_proj->first, z_proj->second);
+        if (z_arrow1_proj && z_arrow2_proj) {
+            SDL_RenderDrawLine(renderer, z_proj->first, z_proj->second, z_arrow1_proj->first, z_arrow1_proj->second);
+            SDL_RenderDrawLine(renderer, z_proj->first, z_proj->second, z_arrow2_proj->first, z_arrow2_proj->second);
+        }
+    }
+
+    // Reset color
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+}
