@@ -364,7 +364,7 @@ void ShowGeometryTab(HittableManager& world) {
 
     ImGui::Separator();
 
-    // Create a tab bar for transformations (Translation & Rotation)
+    // Create a tab bar for transformations (Translation, Rotation, and Scaling)
     if (ImGui::BeginTabBar("TransformTabs")) {
 
         // Translation Tab
@@ -438,7 +438,6 @@ void ShowGeometryTab(HittableManager& world) {
                 rotationAngle = 0.0f;
             }
 
-            // Move the checkbox to the end of the tab
             ImGui::Checkbox("Enable Rotation Animation", &isRotating);  // Checkbox to toggle rotation animation
 
             if (isRotating) {
@@ -466,6 +465,42 @@ void ShowGeometryTab(HittableManager& world) {
                     Matrix4x4 rotationMatrix = rotationMatrix.rotateAroundPoint(rotationPoint, rotationAxis, frameRotationAngle);
                     world.transform_object(selectedObjectID.value(), rotationMatrix);
                 }
+            }
+
+            ImGui::EndTabItem();
+        }
+
+        // Scaling Tab
+        if (ImGui::BeginTabItem("Scale")) {
+            static float scaleValues[3] = { 1.0f, 1.0f, 1.0f }; // Default scale values
+            static bool uniformScale = false; // Checkbox for uniform scaling
+            static float uniformScaleValue = 1.0f; // Single slider value for uniform scaling
+
+            ImGui::Text("Scale Object");
+
+            // Checkbox to toggle uniform scaling
+            ImGui::Checkbox("Uniform Scaling", &uniformScale);
+
+            if (uniformScale) {
+                // Single slider for uniform scaling
+                ImGui::SliderFloat("Scale All Axes", &uniformScaleValue, 0.1f, 5.0f);
+                scaleValues[0] = scaleValues[1] = scaleValues[2] = uniformScaleValue;
+            }
+            else {
+                // Separate sliders for each axis
+                ImGui::SliderFloat3("Scale Axes", scaleValues, 0.1f, 5.0f);
+            }
+
+            if (ImGui::Button("Apply Scaling")) {
+                // Apply scaling around the object's center
+                Matrix4x4 scaleMatrix = scaleMatrix.scaleAroundPoint(center, scaleValues[0], scaleValues[1], scaleValues[2]);
+                world.transform_object(selectedObjectID.value(), scaleMatrix);
+            }
+
+            ImGui::SameLine();
+            if (ImGui::Button("Reset Scaling")) {
+                scaleValues[0] = scaleValues[1] = scaleValues[2] = 1.0f; // Reset to default scale
+                uniformScaleValue = 1.0f;
             }
 
             ImGui::EndTabItem();
