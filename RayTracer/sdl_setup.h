@@ -1,6 +1,8 @@
 #pragma once
 #include <iostream>
 #include <SDL2/SDL.h>
+#include "imgui.h"
+#include "interface_imgui.h"
 
 bool InitializeSDL();
 SDL_Window* CreateWindow(int width, int height, const std::string& title);
@@ -94,7 +96,10 @@ void update_camera(Camera& camera, float speed) {
     }
 }
 
-void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, double aspect_ratio, Camera& camera, RenderState& render_state , HittableManager& world, float speed = 0.1f) {
+void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, double aspect_ratio,
+    Camera& camera, RenderState& render_state, HittableManager& world,
+    std::optional<BoundingBox>& highlighted_box, float speed = 0.1f) {
+
     if (event.type == SDL_QUIT) {
         running = false;
     }
@@ -294,6 +299,70 @@ void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, dou
             moveDown = false;
         }
     }
+
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.WantCaptureMouse) {
+        return; // Don't process mouse events when ImGui is active
+    }
+
+    // Handle mouse click events
+    if (event.type == SDL_MOUSEBUTTONDOWN) {
+        if (event.button.button == SDL_BUTTON_LEFT) {
+            int mouse_x = event.button.x;
+            int mouse_y = event.button.y;
+
+            // Get the current window size
+            int window_width, window_height;
+            SDL_GetWindowSize(window, &window_width, &window_height);
+
+            // Convert the mouse coordinates to relative coordinates (0 to 1)
+            double relative_x = static_cast<double>(mouse_x) / window_width;
+            double relative_y = static_cast<double>(mouse_y) / window_height;
+
+            // Map these to the camera's resolution
+            int pixel_x = static_cast<int>(relative_x * camera.get_image_width());
+            int pixel_y = static_cast<int>(relative_y * camera.get_image_height());
+
+            // Compute the ray for the clicked position
+            ray clicked_ray = camera.compute_ray_at(pixel_x, pixel_y);
+
+            // Find the closest hit object
+            highlighted_box.reset();
+            hit_record closest_hit;
+            closest_hit.t = std::numeric_limits<double>::infinity();
+            std::shared_ptr<hittable> closest_object = nullptr;
+            ObjectID closest_id = -1; // Store the closest object's ID
+
+            auto objects = world.getObjects();
+            for (const auto& object : objects) {
+                const BoundingBox& box = object->bounding_box();
+                interval hit_range(0.0, closest_hit.t);
+
+                // **First pass: Check bounding box**
+                if (box.hit(clicked_ray, hit_range)) {
+                    // **Second pass: Check actual object intersection**
+                    hit_record temp_record;
+                    if (object->hit(clicked_ray, interval(0.0, closest_hit.t), temp_record)) {
+                        if (temp_record.t < closest_hit.t) {
+                            closest_hit = temp_record;
+                            closest_object = object;
+                        }
+                    }
+                }
+            }
+            // If a valid object is found, highlight its bounding box and auto-select in ImGui
+            if (closest_object) {
+                highlighted_box = closest_object->bounding_box();
+
+                // Get the ObjectID from the object
+                std::optional<ObjectID> object_id = world.get_object_id(closest_object);
+                if (object_id.has_value()) {
+                    selectedObjectID = object_id.value();
+                }
+            }
+        }
+    }
+
 }
 
 void DrawCrosshair(SDL_Renderer* renderer, int window_width, int window_height) {
