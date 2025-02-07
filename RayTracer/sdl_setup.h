@@ -271,7 +271,8 @@ void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, dou
             break;
 
         case SDLK_h:
-            log_csg_hits(world, camera.compute_central_ray());
+            log_csg_hits(world, camera.compute_ray_at(
+                camera.get_image_width()/2, camera.get_image_height()/2));
             break;
         }
     }

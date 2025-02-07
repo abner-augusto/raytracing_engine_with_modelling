@@ -14,6 +14,8 @@ void draw_menu(RenderState& render_state,
     if (ImGui::Begin("Menu", nullptr, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize)) {
 
         static bool isCameraSpace = false;
+        static point3 previous_origin = camera.get_origin();  // Store previous origin
+        static point3 previous_look_at = camera.get_look_at();  // Store previous look-at
 
         // Camera Header
         if (ImGui::CollapsingHeader("Camera")) {
@@ -70,6 +72,38 @@ void draw_menu(RenderState& render_state,
                     camera.transform_scene_and_lights(world, lights);
                 }
             }
+            ImGui::Separator();
+            ImGui::Text("Camera Projections:");
+
+            if (ImGui::Button("Perspective")) {
+                // Restore previous camera position before switching to perspective
+                camera.set_origin(previous_origin);
+                camera.set_look_at(previous_look_at);
+                camera.use_perspective_projection();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Orthographic")) {
+                previous_origin = camera.get_origin();
+                previous_look_at = camera.get_look_at();
+                camera.use_orthographic_projection();
+            }
+
+            if (ImGui::Button("Isometric")) {
+                // Store current camera position before switching to orthographic
+                previous_origin = camera.get_origin();
+                previous_look_at = camera.get_look_at();
+                camera.set_origin(point3(1, 1.5, 1));
+                camera.set_look_at(point3(0, 0, 0));
+                camera.use_orthographic_projection();
+                camera.rotate_to_isometric_view();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Iso rotation")) {
+                camera.rotate_to_isometric_view();
+            }
+
+            ImGui::Separator();
+
             ImGui::Text("Hint: Camera is now controllable");
             ImGui::Text("by the gamepad as well!");
         }
@@ -99,7 +133,7 @@ void draw_menu(RenderState& render_state,
             }
 
             if (ImGui::Checkbox("Toggle Shadows", &renderShadows)) {
-                camera.toggle_shadows();
+                camera.toggleShadows();
             }
 
             if (ImGui::Checkbox("Toggle Wireframe", &renderWireframe)) {

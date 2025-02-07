@@ -16,9 +16,10 @@ class Camera {
 public:
     Matrix4x4 world_to_camera_matrix;
     Matrix4x4 camera_to_world_matrix;
+    using ProjectionFunction = ray(Camera::*)(int, int, double, double) const;
 
     Camera(const point3& origin, const point3& at, int image_width, double aspect_ratio, double fov)
-        : origin(origin), look_at(at), world_up(0, 1, 0), image_width(image_width), aspect_ratio(aspect_ratio), fov(fov)
+        : origin(origin), look_at(at), world_up(0, 1, 0), image_width(image_width), aspect_ratio(aspect_ratio), fov(fov), current_projection(&Camera::compute_ray_at)
     {
         // Compute image height
         image_height = static_cast<int>(image_width / aspect_ratio);
@@ -123,8 +124,7 @@ public:
         HittableManager& manager,
         std::vector<Light>& lights,
         int samples_per_pixel = 1,
-        bool enable_antialias = false,
-        bool camera_space = false
+        bool enable_antialias = false
     ) const {
         int TILESIZE = std::min(32, image_width / 10);
 
@@ -136,7 +136,7 @@ public:
         double fov_radians = degrees_to_radians(fov);
         double half_fov = 0.5 * fov_radians;
         double tan_half_fov = std::tan(half_fov);
-        double image_plane_z = camera_space ? -1.0 : 0.0; // Camera space uses z = -1 for the image plane
+        double screen_z = -1.0;
 
 #pragma omp parallel for schedule(dynamic)
         for (int tile_index = 0; tile_index < num_x_tiles * num_y_tiles; ++tile_index) {
@@ -158,30 +158,8 @@ public:
                         double offset_x = enable_antialias ? random_double(0.0, 1.0) : 0.5;
                         double offset_y = enable_antialias ? random_double(0.0, 1.0) : 0.5;
 
-                        // NDC and screen coordinates
-                        double ndc_x = (static_cast<double>(pixel_x) + offset_x) / (image_width);
-                        double ndc_y = (static_cast<double>(pixel_y) + offset_y) / (image_height);
-                        double screen_x = (2.0 * ndc_x - 1.0) * aspect_ratio * tan_half_fov;
-                        double screen_y = (1.0 - 2.0 * ndc_y) * tan_half_fov;
-                        double screen_z = camera_space ? image_plane_z : -1.0;
-
-                        vec3 origin, direction;
-
-                        if (camera_space) {
-                            origin = vec3(0.0, 0.0, 0.0);
-                            direction = unit_vector(vec3(screen_x, screen_y, screen_z));
-                        }
-                        else {
-                            vec4 dir_cam(screen_x, screen_y, screen_z, 0.0);
-                            vec4 dir_world = camera_to_world_matrix * dir_cam;
-                            direction = unit_vector(dir_world.to_vec3());
-
-                            vec4 origin_cam(0.0, 0.0, 0.0, 1.0);
-                            vec4 origin_world = camera_to_world_matrix * origin_cam;
-                            origin = origin_world.to_vec3();
-                        }
-
-                        ray r(origin, direction);
+                        // Use the projection_function_ptr to compute the ray
+                        ray r = (this->*current_projection)(pixel_x, pixel_y, offset_x, offset_y);
 
                         // Cast ray and accumulate color
                         accumulated_color += cast_ray(r, manager, lights, 5, renderShadows);
@@ -195,6 +173,79 @@ public:
             }
         }
     }
+
+    // compute perspective ray
+    ray compute_ray_at(int pixel_x, int pixel_y, double offset_x = 0.5, double offset_y = 0.5) const {
+        // Precompute perspective parameters
+        double fov_radians = degrees_to_radians(fov);
+        double half_fov = 0.5 * fov_radians;
+        double tan_half_fov = std::tan(half_fov);
+
+        // Convert the pixel coordinate to normalized device coordinates (NDC)
+        double ndc_x = (static_cast<double>(pixel_x) + offset_x) / image_width;
+        double ndc_y = (static_cast<double>(pixel_y) + offset_y) / image_height;
+
+        // Map NDC to screen space
+        double screen_x = (2.0 * ndc_x - 1.0) * aspect_ratio * tan_half_fov;
+        double screen_y = (1.0 - 2.0 * ndc_y) * tan_half_fov;
+        double screen_z = -1.0;
+
+        vec3 ray_origin, ray_direction;
+
+        if (isCameraSpace) {
+            ray_origin = vec3(0.0, 0.0, 0.0);
+            ray_direction = unit_vector(vec3(screen_x, screen_y, screen_z));
+        }
+        else {
+            vec4 dir_cam(screen_x, screen_y, screen_z, 0.0);
+            vec4 dir_world = camera_to_world_matrix * dir_cam;
+            ray_direction = unit_vector(dir_world.to_vec3());
+
+            vec4 origin_cam(0.0, 0.0, 0.0, 1.0);
+            vec4 origin_world = camera_to_world_matrix * origin_cam;
+            ray_origin = origin_world.to_vec3();
+        }
+
+        return ray(ray_origin, ray_direction);
+    }
+
+    ray compute_orthographic_ray(int pixel_x, int pixel_y, double offset_x, double offset_y) const {
+        double ndc_x = (static_cast<double>(pixel_x) + offset_x) / image_width;
+        double ndc_y = (static_cast<double>(pixel_y) + offset_y) / image_height;
+
+        double screen_x = (2.0 * ndc_x - 1.0) * aspect_ratio;
+        double screen_y = (1.0 - 2.0 * ndc_y);
+
+        vec3 ray_origin = origin + (screen_x * right) + (screen_y * up);
+        vec3 ray_direction = -forward;
+
+        return ray(ray_origin, ray_direction);
+    }
+
+    void rotate_to_isometric_view() {
+        calculate_axes();
+        // Isometric angles in radians
+        double angle_y = degrees_to_radians(45.0);
+        double angle_x = degrees_to_radians(35.264);
+
+        // Create quaternions for Y and X rotations
+        vec4 qY = vec4().createQuaternion(vec3(0, 1, 0), angle_y);
+        vec4 qX = vec4().createQuaternion(vec3(1, 0, 0), angle_x);
+
+        // Combine rotations (Y first, then X)
+        vec4 qCombined = qX * qY;
+
+        // Convert to rotation matrix and apply
+        Matrix4x4 rotationMatrix = Matrix4x4::quaternion(qCombined);
+
+        // Apply rotation to camera vectors
+        forward = rotationMatrix.transform_vector(forward);
+        right = rotationMatrix.transform_vector(right);
+        up = rotationMatrix.transform_vector(up);
+
+        calculate_matrices();
+    }
+
     // Setters
     void set_origin(const point3& new_origin) {
         origin = new_origin;
@@ -242,75 +293,26 @@ public:
         calculate_matrices();
     }
 
-    ray compute_central_ray() const {
-        // Compute screen coordinates for the center of the image
-        int pixel_x = image_width / 2;
-        int pixel_y = image_height / 2;
-        double offset_x = 0.5;
-        double offset_y = 0.5;
-
-        // Precompute perspective parameters
-        double fov_radians = degrees_to_radians(fov);
-        double half_fov = 0.5 * fov_radians;
-        double tan_half_fov = std::tan(half_fov);
-
-        // Compute NDC coordinates
-        double ndc_x = (static_cast<double>(pixel_x) + offset_x) / image_width;
-        double ndc_y = (static_cast<double>(pixel_y) + offset_y) / image_height;
-
-        // Calculate screen coordinates
-        double screen_x = (2.0 * ndc_x - 1.0) * aspect_ratio * tan_half_fov;
-        double screen_y = (1.0 - 2.0 * ndc_y) * tan_half_fov;
-        double screen_z = -1.0;  // Assume camera is looking along -Z axis
-
-        // Compute ray origin and direction in world space
-        vec4 dir_cam(screen_x, screen_y, screen_z, 0.0);
-        vec4 dir_world = camera_to_world_matrix * dir_cam;
-        vec3 direction = unit_vector(dir_world.to_vec3());
-
-        vec4 origin_cam(0.0, 0.0, 0.0, 1.0);
-        vec4 origin_world = camera_to_world_matrix * origin_cam;
-        vec3 origin = origin_world.to_vec3();
-
-        // Create and return the ray
-        return ray(origin, direction);
-    }
-
-    ray compute_ray_at(int pixel_x, int pixel_y) const {
-        // Use sub-pixel offsets for the center of the pixel
-        double offset_x = 0.5;
-        double offset_y = 0.5;
-
-        // Precompute perspective parameters
-        double fov_radians = degrees_to_radians(fov);
-        double half_fov = 0.5 * fov_radians;
-        double tan_half_fov = std::tan(half_fov);
-
-        // Convert the pixel coordinate to normalized device coordinates (NDC)
-        double ndc_x = (static_cast<double>(pixel_x) + offset_x) / image_width;
-        double ndc_y = (static_cast<double>(pixel_y) + offset_y) / image_height;
-
-        // Map NDC to screen space
-        double screen_x = (2.0 * ndc_x - 1.0) * aspect_ratio * tan_half_fov;
-        double screen_y = (1.0 - 2.0 * ndc_y) * tan_half_fov;
-        double screen_z = -1.0;  // Assumes camera is looking along -Z
-
-        // Compute the ray direction in camera space and then transform to world space
-        vec4 ray_dir_camera(screen_x, screen_y, screen_z, 0.0);
-        vec4 ray_dir_world = camera_to_world_matrix * ray_dir_camera;
-        vec3 direction = unit_vector(ray_dir_world.to_vec3());
-
-        // The ray origin in world space is the camera's position
-        vec4 ray_origin_camera(0.0, 0.0, 0.0, 1.0);
-        vec4 ray_origin_world = camera_to_world_matrix * ray_origin_camera;
-        vec3 origin = ray_origin_world.to_vec3();
-
-        return ray(origin, direction);
-    }
-
     // Toggle shadows on or off
-    void toggle_shadows() {
+    void toggleShadows() {
         renderShadows = !renderShadows;
+    }
+
+    // Toggle Camera Space on or off
+    void toggleCameraSpace() {
+        isCameraSpace = !isCameraSpace;
+    }
+
+    void use_orthographic_projection() {
+        current_projection = &Camera::compute_orthographic_ray;
+        std::cout << "Using Orthographic Projection" << std::endl;
+    }
+
+    void use_perspective_projection() {
+        calculate_axes();
+        calculate_matrices();
+        current_projection = &Camera::compute_ray_at;
+        std::cout << "Using Perspective Projection" << std::endl;
     }
 
     // Accessors
@@ -324,10 +326,9 @@ public:
     vec3 get_up() const { return up; }
     vec3 get_forward() const { return forward; }
     bool shadowStatus() const { return renderShadows; }
+    bool CameraSpaceStatus() const { return isCameraSpace; }
 
 private:
-
-    bool renderShadows = true;
 
     color background_color(const ray& r) const {
         vec3 unit_direction = unit_vector(r.direction());
@@ -482,6 +483,10 @@ private:
     int image_width;
     int image_height;
     double aspect_ratio;
+    bool isCameraSpace = false;
+    bool renderShadows = true;
+
+    ProjectionFunction current_projection;
 
     // Camera Axis
     vec3 right;

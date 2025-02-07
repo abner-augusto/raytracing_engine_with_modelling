@@ -107,9 +107,6 @@
     <ClInclude Include="sdl_setup.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="camera.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="sphere.h">
       <Filter>Header Files\primitivas</Filter>
     </ClInclude>
@@ -210,6 +207,9 @@
       <Filter>Header Files\modelagem</Filter>
     </ClInclude>
     <ClInclude Include="wireframe.h">
+      <Filter>Header Files\raytracing</Filter>
+    </ClInclude>
+    <ClInclude Include="camera.h">
       <Filter>Header Files\raytracing</Filter>
     </ClInclude>
   </ItemGroup>
