@@ -7,6 +7,7 @@
 #include "boundingbox.h"
 #include "octree.h"
 #include "bvh_node.h"
+#include "light.h"
 #include <unordered_map>
 #include <memory>
 #include <optional>
@@ -22,6 +23,8 @@ using ObjectID = size_t;
 class HittableManager : public hittable {
 public:
     HittableManager() = default;
+    HittableManager(const HittableManager&) = delete;
+    HittableManager& operator=(const HittableManager&) = delete;
 
     // Adds an object to the scene. Optionally, you can specify a manual ID.
     ObjectID add(std::shared_ptr<hittable> object, std::optional<ObjectID> manual_id = std::nullopt) {
@@ -211,7 +214,7 @@ public:
         }
     }
 
-    // Applies a transformation to all objects.
+    // Applies a transformation to all objects and lights.
     // If an object has an associated octree, that octree is updated.
     void transform(const Matrix4x4& transform) override {
         std::cout << "Applying transformation to all objects in HittableManager:\n";
@@ -224,6 +227,7 @@ public:
                 octrees[id] = tree;
             }
         }
+        transform_lights(transform);
         // Invalidate BVH after transformation.
         root_bvh = nullptr;
     }
@@ -257,9 +261,34 @@ public:
         }
     }
 
+    // Convenience methods for adding specific light types
+    void add_point_light(const vec3& pos, double intensity, const color& col) {
+        lights.push_back(std::make_unique<PointLight>(pos, intensity, col));
+    }
+
+    void add_directional_light(const vec3& dir, double intensity, const color& col) {
+        lights.push_back(std::make_unique<DirectionalLight>(dir, intensity, col));
+    }
+
+    void add_spot_light(const vec3& pos, const vec3& dir, double intensity,
+        const color& col, double cutoff, double outer_cutoff) {
+        lights.push_back(std::make_unique<SpotLight>(pos, dir, intensity, col, cutoff, outer_cutoff));
+    }
+
+    void transform_lights(const Matrix4x4& matrix) {
+        for (auto& light : lights) {
+            light->transform(matrix);
+        }
+    }
+
+    const std::vector<std::unique_ptr<Light>>& get_lights() const {
+        return lights;
+    }
+
 private:
     ObjectID next_id = 0;
     std::unordered_map<ObjectID, shared_ptr<hittable>> objects;
+    std::vector<std::unique_ptr<Light>> lights;
     std::unordered_set<ObjectID> used_ids; // Track all used IDs.
     shared_ptr<BVHNode> root_bvh = nullptr;  // Root of the BVH tree.
     std::unordered_map<ObjectID, Octree> octrees; // Maps each object ID to its corresponding octree.
