@@ -34,7 +34,7 @@
 #include "stb_image.h"
 
 RenderState render_state;
-bool renderWireframe = true;
+bool renderWireframe = false;
 bool renderWorldAxes = true;
 std::optional<BoundingBox> highlighted_box = std::nullopt;
 
@@ -95,12 +95,12 @@ int main(int argc, char* argv[]) {
     image_texture* wood_texture = new image_texture("textures/wood_floor.jpg");
     image_texture* grass_texture = new image_texture("textures/grass.jpg");
     image_texture* brick_texture = new image_texture("textures/brick.jpg");
-    checker_texture checker(black, white, 2);
+    checker_texture checker(black, white, 15);
     mat xadrez(&checker, 0.8, 1.0, 100.0, 0.25);
     mat sphere_mat(red, 0.8, 1.0, 150.0);
     mat sphere_mat2(green);
     mat plane_material(brown, 0.3, 0.3, 2.0);
-    mat reflective_material(black, 0.8, 1.0, 150.0, 0.5);
+    mat reflective_material(black, 0.8, 1.0, 150.0, 0.1);
     mat voxel_material(color(1, 1, 1));
 
     // World Scene
@@ -108,8 +108,12 @@ int main(int argc, char* argv[]) {
 
     // Create scenes
     std::vector<std::pair<ObjectID, std::shared_ptr<hittable>>> Scene1 = {
-        {0, std::make_shared<plane>(point3(0, -1.0, 0), vec3(0, 1, 0), mat(xadrez))},
-
+        {0, std::make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), mat(grass_texture))},
+        {1, make_shared<sphere>(point3(0, 0, -1), 0.45, mat(xadrez))},
+        {2, make_shared<cylinder>(point3(-1.0, -0.25, -1), point3(-1.0, 0.35, -1), 0.3, mat(blue))},
+        {3, make_shared<cone>(point3(1, -0.15, -1), point3(1, 0.5, -1.5), 0.3, mat(red))},
+        {4, make_shared<torus>(point3(-2, 0, -1), 0.3, 0.1, vec3(0, 0.5, 0.5), mat(cyan))},
+        {5, make_shared<SquarePyramid>(point3(1.8, -0.3, -1), 0.8, 0.5, mat(green))}
     };
 
 
@@ -119,123 +123,49 @@ int main(int argc, char* argv[]) {
         //std::cout << "Added object with ID " << id << ".\n";
     }
 
-    // 1) Intersection of sphere & cube
-    auto sphere3 = std::make_shared<CSGPrimitive>(
-        std::make_shared<sphere>(point3(0, 0, -1), 0.6, mat(blue))
-    );
-    auto sphere1 = std::make_shared<CSGPrimitive>(
-        std::make_shared<sphere>(point3(0.5, 0, -1), 0.6, mat(cyan))
-    );
-    auto box1 = std::make_shared<CSGPrimitive>(
-        std::make_shared<box_csg>(point3(0, 0, -1), 0.9, mat(red))
-    );
-
-
-    auto rodY = std::make_shared<CSGPrimitive>(
-        std::make_shared<box_csg>(
-            point3(-0.15, -1.5, -1.15),   // Min corner
-            point3(0.15, 1.5, -0.85),   // Max corner
-            mat(cyan)                     // Material
-        )
-    );
-
-    auto rodX = std::make_shared<CSGPrimitive>(
-        std::make_shared<box_csg>(
-            point3(-1.5, -0.15, -1.15),   // Min corner
-            point3(1.5, 0.15, -0.85),   // Max corner
-            mat(cyan)                     // Material
-        )
-    );
-
-    auto rodZ = std::make_shared<CSGPrimitive>(
-        std::make_shared<box_csg>(
-            point3(-0.15, -0.15, -2.5),   // Min corner
-            point3(0.15, 0.15, 0.5),   // Max corner
-            mat(cyan)                     // Material
-        )
-    );
-
-    // Y-axis rod (vertical)
-    auto cylinder_Y = std::make_shared<CSGPrimitive>(
-        std::make_shared<cylinder>(
-            point3(0, -1.5, -1.0), // Base center (midpoint in X/Z)
-            3.0,                    // Height (matches box Y-length)
-            vec3(0, 1, 0),          // Direction: +Y axis
-            0.3,                   // Radius (matches box X/Z half-width)
-            mat(cyan),              // Material
-            true                    // Capped
-        )
-    );
-
-    // X-axis rod (horizontal)
-    auto cylinder_X = std::make_shared<CSGPrimitive>(
-        std::make_shared<cylinder>(
-            point3(-1.5, 0, -1.0), // Base center (midpoint in Y/Z)
-            3.0,                    // Height (matches box X-length)
-            vec3(1, 0, 0),          // Direction: +X axis
-            0.3,                   // Radius
-            mat(cyan),
-            true
-        )
-    );
-
-    // Z-axis rod (depth)
-    auto cylinder_Z = std::make_shared<CSGPrimitive>(
-        std::make_shared<cylinder>(
-            point3(0, 0, -2.5),     // Base center (matches box min-Z)
-            3.0,                    // Height (from Z=-2.5 to 0.5)
-            vec3(0, 0, 1),          // Direction: +Z axis
-            0.3,                   // Radius
-            mat(cyan),
-            true
-        )
-    );
-
-    // Intersection node
-    auto csgInter = std::make_shared<CSGNode<Intersection>>(sphere3, box1);
-
-    auto csgDiff = std::make_shared<CSGNode<Difference>>(csgInter, cylinder_Z);
-    auto csgDiff2 = std::make_shared<CSGNode<Difference>>(csgDiff, cylinder_X);
-    auto csgDiff3 = std::make_shared<CSGNode<Difference>>(csgDiff2, cylinder_Y);
-
-    //auto csgDiff = std::make_shared<CSGNode<Difference>>(csgInter, rodZ);
-    //auto csgDiff2 = std::make_shared<CSGNode<Difference>>(csgDiff, rodX);
-    //auto csgDiff3 = std::make_shared<CSGNode<Difference>>(csgDiff2, rodY);
-
-
-    // Finally, add to the world
-    ObjectID csg_id = world.add(csgDiff3);
-
-
     //Mesh Object
 
-    //MeshOBJ mesh;
-    //try {
-    //    // Load an OBJ mesh and add it to the manager
-    //    mesh = add_mesh_to_manager("models/suzanne.obj", world, mat(orange));
+    MeshOBJ mesh;
+    try {
+        // Load an OBJ mesh and add it to the manager
+        mesh = add_mesh_to_manager("models/suzanne.obj", world, mat(orange));
 
-    //    // Apply transformation to all triangles in the mesh
-    //    if (!mesh.triangle_ids.empty()) {
+        // Apply transformation to all triangles in the mesh
+        if (!mesh.triangle_ids.empty()) {
 
-    //        Matrix4x4 translate = Matrix4x4::translation(vec3(0.0, 1, -3.0));
-    //        Matrix4x4 scale = Matrix4x4::scaling(0.5, 0.5, 0.5);
-    //        Matrix4x4 translate_origin = Matrix4x4::translation(-mesh.first_vertex.value());
-    //        Matrix4x4 translate_back = Matrix4x4::translation(mesh.first_vertex.value());
-    //        //Matrix4x4 rotate_mesh = Matrix4x4::rotation(15, 'Y');
-    //        //Matrix4x4 shear = Matrix4x4::shearing(0.1, 0.3, 0);
-    //        Matrix4x4 mesh_transform = translate * translate_back *  scale * translate_origin;
+            Matrix4x4 translate = Matrix4x4::translation(vec3(0.0, 1, -3.0));
+            Matrix4x4 scale = Matrix4x4::scaling(0.5, 0.5, 0.5);
+            Matrix4x4 translate_origin = Matrix4x4::translation(-mesh.first_vertex.value());
+            Matrix4x4 translate_back = Matrix4x4::translation(mesh.first_vertex.value());
+            //Matrix4x4 rotate_mesh = Matrix4x4::rotation(15, 'Y');
+            //Matrix4x4 shear = Matrix4x4::shearing(0.1, 0.3, 0);
+            Matrix4x4 mesh_transform = translate * translate_back *  scale * translate_origin;
 
-    //        for (ObjectID id : mesh.triangle_ids) {
-    //            world.transform_object(id, translate);
-    //        }
-    //    }
-    //}
-    //catch (const std::exception& e) {
-    //    std::cerr << "Error: " << e.what() << "\n";
-    //}
+            for (ObjectID id : mesh.triangle_ids) {
+                world.transform_object(id, translate);
+            }
+        }
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << "\n";
+    }
+
+
+    // Build Atividade 6 Scene
+    //SceneBuilder::buildAtividade6Scene(
+    //    world,
+    //    mat(grass_texture),
+    //    mat(orange),
+    //    mat(white),
+    //    mat(brown),
+    //    mat(green),
+    //    mat(red),
+    //    mat(brick_texture),
+    //    mat(wood_texture)
+    //);
 
     //Light
-    world.add_directional_light(vec3(-1, -1, 0), 0.5, color(1, 0.95, 0.8));
+    //world.add_directional_light(vec3(-1, -1, 0), 0.5, color(1, 0.95, 0.8));
     world.add_point_light(vec3(0, 1, 0.5), 1.0, color(1, 1, 1));
 
 
@@ -265,7 +195,7 @@ int main(int argc, char* argv[]) {
     }
 
     //Build a BVH Tree
-    //world.buildBVH();
+    world.buildBVH();
 
     // FPS Counter
     float deltaTime = 0.0f;

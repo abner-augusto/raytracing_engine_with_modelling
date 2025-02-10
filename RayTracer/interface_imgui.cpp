@@ -970,14 +970,14 @@ void ShowInfoWindow(HittableManager& world) {
             ShowGeometryTab(world);
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem("Add Objects")) {
-            ShowPrimitivesTab(world);
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("Boolean")) {
-            ShowBooleanTab(world);
-            ImGui::EndTabItem();
-        }
+        //if (ImGui::BeginTabItem("Add Objects")) {
+        //    ShowPrimitivesTab(world);
+        //    ImGui::EndTabItem();
+        //}
+        //if (ImGui::BeginTabItem("Boolean")) {
+        //    ShowBooleanTab(world);
+        //    ImGui::EndTabItem();
+        //}
         ImGui::EndTabBar();
     }
     ImGui::End();
