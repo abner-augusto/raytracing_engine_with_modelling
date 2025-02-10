@@ -50,20 +50,9 @@ public:
         // Compute vector from reference point to hit point
         vec3 local_vec = hit_point - point;
 
-        // Project onto local axes
-        double u_raw = dot(local_vec, u_axis);
-        double v_raw = dot(local_vec, v_axis);
+        u = dot(local_vec, u_axis) * scale;
+        v = dot(local_vec, v_axis) * scale;
 
-        // Scale UV coordinates
-        u = fmod(u_raw * scale, 1.0);
-        v = fmod(v_raw * scale, 1.0);
-
-        // Ensure UV coordinates are positive
-        if (u < 0) u += 1.0;
-        if (v < 0) v += 1.0;
-
-        // Debug output for UV values
-        //std::cout << "UV: (" << u << ", " << v << ")\n";
     }
 
 
