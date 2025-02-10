@@ -142,7 +142,7 @@ private:
     double u0, v0_uv;          // UV coordinates for v0
     double u1, v1_uv;          // UV coordinates for v1
     double u2, v2_uv;          // UV coordinates for v2
-    const mat& material;
+    mat material;
 };
 
 #endif
