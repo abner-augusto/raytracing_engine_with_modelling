@@ -5,8 +5,8 @@
 extern bool renderWireframe;
 extern bool renderWorldAxes;
 
-void draw_menu(RenderState& render_state,
-    Camera& camera, HittableManager world, std::vector<Light>& lights)
+void draw_menu(RenderState& render_state, Camera& camera, HittableManager& world)
+
 {
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowCollapsed(true, ImGuiCond_FirstUseEver);
@@ -34,7 +34,7 @@ void draw_menu(RenderState& render_state,
             if (ImGui::SliderFloat3("Origin", origin_array, -10.0f, 10.0f)) {
                 camera.set_origin(point3(origin_array[0], origin_array[1], origin_array[2]));
                 if (isCameraSpace) {
-                    camera.transform_scene_and_lights(world, lights);
+                    world.transform(camera.world_to_camera_matrix);
                 }
             }
             ImGui::PopItemWidth();
@@ -50,7 +50,7 @@ void draw_menu(RenderState& render_state,
             if (ImGui::SliderFloat3("Look At", target_array, -10.0f, 10.0f)) {
                 camera.set_look_at(point3(target_array[0], target_array[1], target_array[2]));
                 if (isCameraSpace) {
-                    camera.transform_scene_and_lights(world, lights);
+                    world.transform(camera.world_to_camera_matrix);
                 }
             }
             ImGui::PopItemWidth();
@@ -67,9 +67,8 @@ void draw_menu(RenderState& render_state,
                 camera.set_origin(point3(0, 0, 0));
                 camera.set_look_at(point3(0, 0, -3));
                 camera.set_fov(60);
-                camera.set_image_width(480);
                 if (isCameraSpace) {
-                    camera.transform_scene_and_lights(world, lights);
+                    world.transform(camera.world_to_camera_matrix);
                 }
             }
             ImGui::Separator();

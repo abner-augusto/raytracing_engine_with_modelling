@@ -235,13 +235,11 @@ int main(int argc, char* argv[]) {
     //}
 
     //Light
-    std::vector<Light> lights = {
-        Light(vec3(-1, 1, 0.5), 1.2, color(1.0, 1.0, 1.0)),
-        //Light(vec3(3, 0.3, -2), 1.0, color(1.0, 0.82, 0.20)),
-        //Light(vec3(2.5, 6, -1), 1.0, color(0.3, 0.3, 1.0))
-    };
+    world.add_directional_light(vec3(-1, -1, 0), 0.5, color(1, 0.95, 0.8));
+    world.add_point_light(vec3(0, 1, 0.5), 1.0, color(1, 1, 1));
 
-    // Camera
+
+    // Cameran
     double camera_fov = 60;
     double viewport_height = 2.0;
     auto viewport_width = aspect_ratio * viewport_height;
@@ -263,7 +261,7 @@ int main(int argc, char* argv[]) {
     // World to Camera
     if (camera.CameraSpaceStatus()) {
         std::cout << "Calling World to Camera Transform" << ".\n";
-        camera.transform_scene_and_lights(world, lights);
+        world.transform(camera.world_to_camera_matrix);
     }
 
     //Build a BVH Tree
@@ -296,8 +294,7 @@ int main(int argc, char* argv[]) {
 
         draw_menu(render_state,
             camera,
-            world, 
-            lights);
+            world);
 
         DrawFpsCounter(fps);
 
@@ -329,7 +326,7 @@ int main(int argc, char* argv[]) {
                 );
             }
 
-            camera.render(world, lights, samples_per_pixel, false);
+            camera.render(world, samples_per_pixel, false);
         }
         else if (render_state.is_mode(HighResolution)) {
             Uint64 start_time = SDL_GetPerformanceCounter();
@@ -343,7 +340,7 @@ int main(int argc, char* argv[]) {
                 camera.get_image_height()
             );
 
-            camera.render(world, lights, samples_per_pixel, true);
+            camera.render(world,samples_per_pixel, true);
             Uint64 end_time = SDL_GetPerformanceCounter();
             double render_time = (end_time - start_time) / (double)SDL_GetPerformanceFrequency();
             std::cout << "render time: " << render_time << " seconds" << std::endl;
@@ -361,7 +358,7 @@ int main(int argc, char* argv[]) {
                 camera.get_image_height()
             );
 
-            camera.render(world, lights, samples_per_pixel * 2, true);
+            camera.render(world, samples_per_pixel * 2, true);
             Uint64 end_time = SDL_GetPerformanceCounter();
             double render_time = (end_time - start_time) / (double)SDL_GetPerformanceFrequency();
             std::cout << "render time: " << render_time << " seconds" << std::endl;

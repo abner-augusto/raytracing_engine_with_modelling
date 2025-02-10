@@ -107,22 +107,8 @@ public:
         calculate_matrices();
     }
 
-    void transform_scene_and_lights(
-        HittableManager& manager,
-        std::vector<Light>& lights
-    ) const {
-        // Transform all objects in the HittableManager
-        manager.transform(world_to_camera_matrix);
-
-        // Transform all lights into camera space
-        for (auto& light : lights) {
-            light.transform(world_to_camera_matrix);
-        }
-    }
-
     void render(
         HittableManager& manager,
-        std::vector<Light>& lights,
         int samples_per_pixel = 1,
         bool enable_antialias = false
     ) const {
@@ -161,8 +147,8 @@ public:
                         // Use the projection_function_ptr to compute the ray
                         ray r = (this->*current_projection)(pixel_x, pixel_y, offset_x, offset_y);
 
-                        // Cast ray and accumulate color
-                        accumulated_color += cast_ray(r, manager, lights, 5, renderShadows);
+                        // Cast ray and accumulate color.  Get lights from manager.
+                        accumulated_color += shade_ray_at_hit(r, manager, 5, renderShadows);
                     }
 
                     // Average color and write to pixel buffer
@@ -173,6 +159,7 @@ public:
             }
         }
     }
+
 
     // compute perspective ray
     ray compute_ray_at(int pixel_x, int pixel_y, double offset_x = 0.5, double offset_y = 0.5) const {
@@ -347,8 +334,9 @@ private:
         return k_specular * spec * light_color * light_intensity;
     }
 
-    color phong_shading(const hit_record& rec, const vec3& view_dir, const std::vector<Light>& lights,
-        const hittable& world, const color& diffuse_color, bool renderShadows) const {
+    color phong_shading(const hit_record& rec, const vec3& view_dir,
+        const hittable& world, const color& diffuse_color, bool renderShadows) const
+    {
         // Ambient light
         double ambient_light_intensity = 0.4;
         color ambient_light_color(1.0, 0.95, 0.8);  // Warm yellow
@@ -358,6 +346,16 @@ private:
         color diffuse(0, 0, 0);
         color specular(0, 0, 0);
         const double shadow_bias = 1e-3;
+
+        // Get lights directly from the world (HittableManager)
+        const HittableManager* manager_ptr = dynamic_cast<const HittableManager*>(&world);
+        if (!manager_ptr) {
+            // Handle the case where 'world' is not a HittableManager
+            // (e.g., return black, throw an error, or use a default light set)
+            return color(0, 0, 0); // Or some other appropriate error handling
+        }
+        const auto& lights = manager_ptr->get_lights();
+
 
         // Only parallelize if we have enough lights to justify the overhead
         if (lights.size() > 4) {
@@ -372,9 +370,8 @@ private:
 
 #pragma omp for nowait
                 for (int i = 0; i < static_cast<int>(lights.size()); ++i) {
-                    const auto& light = lights[i];
-                    vec3 light_dir = unit_vector(light.position - rec.p);
-                    double light_distance = (light.position - rec.p).length();
+                    const auto& light = lights[i]; // light is a unique_ptr<Light>
+                    vec3 light_dir = light->get_light_direction(rec.p);
 
                     // Skip lights that don't contribute (back-facing)
                     if (dot(rec.normal, light_dir) <= 0) {
@@ -385,19 +382,38 @@ private:
                     if (renderShadows) {
                         ray shadow_ray(rec.p + rec.normal * shadow_bias, light_dir);
                         hit_record shadow_rec;
-                        if (world.hit(shadow_ray, interval(0.001, light_distance), shadow_rec)) {
+
+                        // For directional lights, we need to check a large distance
+                        double max_distance = (dynamic_cast<DirectionalLight*>(light.get()) != nullptr) ?
+                            infinity : (light->position - rec.p).length();
+
+                        if (world.hit(shadow_ray, interval(0.001, max_distance), shadow_rec)) {
                             continue;
                         }
                     }
+                    // Get attenuation from the light
+                    double attenuation = light->get_attenuation(rec.p);
 
-                    // Diffuse and specular contributions
-                    double attenuation = 1.0 / (1.0 + 0.1 * light_distance + 0.01 * light_distance * light_distance);
-                    local_diffuse += calculate_diffuse(rec.normal, light_dir, diffuse_color,
-                        rec.material->k_diffuse, light.light_color,
-                        light.intensity) * attenuation;
-                    local_specular += calculate_specular(rec.normal, light_dir, view_dir,
-                        rec.material->shininess, rec.material->k_specular,
-                        light.light_color, light.intensity) * attenuation;
+                    // Diffuse contribution
+                    local_diffuse += calculate_diffuse(
+                        rec.normal,
+                        light_dir,
+                        diffuse_color,
+                        rec.material->k_diffuse,
+                        light->light_color,
+                        light->intensity
+                    ) * attenuation;
+
+                    // Specular contribution
+                    local_specular += calculate_specular(
+                        rec.normal,
+                        light_dir,
+                        view_dir,
+                        rec.material->shininess,
+                        rec.material->k_specular,
+                        light->light_color,
+                        light->intensity
+                    ) * attenuation;
                 }
 
 #pragma omp critical
@@ -409,9 +425,8 @@ private:
         }
         else {
             // Sequential processing for small number of lights
-            for (const auto& light : lights) {
-                vec3 light_dir = unit_vector(light.position - rec.p);
-                double light_distance = (light.position - rec.p).length();
+            for (const auto& light : lights) {  // light is a unique_ptr<Light>
+                vec3 light_dir = light->get_light_direction(rec.p);
 
                 // Skip lights that don't contribute (back-facing)
                 if (dot(rec.normal, light_dir) <= 0) {
@@ -422,19 +437,40 @@ private:
                 if (renderShadows) {
                     ray shadow_ray(rec.p + rec.normal * shadow_bias, light_dir);
                     hit_record shadow_rec;
-                    if (world.hit(shadow_ray, interval(0.001, light_distance), shadow_rec)) {
+
+                    // For directional lights, we need to check a large distance
+                    double max_distance = (dynamic_cast<DirectionalLight*>(light.get()) != nullptr) ?
+                        infinity : (light->position - rec.p).length();
+
+
+                    if (world.hit(shadow_ray, interval(0.001, max_distance), shadow_rec)) {
                         continue;
                     }
                 }
 
-                // Diffuse and specular contributions
-                double attenuation = 1.0 / (1.0 + 0.1 * light_distance + 0.01 * light_distance * light_distance);
-                diffuse += calculate_diffuse(rec.normal, light_dir, diffuse_color,
-                    rec.material->k_diffuse, light.light_color,
-                    light.intensity) * attenuation;
-                specular += calculate_specular(rec.normal, light_dir, view_dir,
-                    rec.material->shininess, rec.material->k_specular,
-                    light.light_color, light.intensity) * attenuation;
+                // Get attenuation from the light
+                double attenuation = light->get_attenuation(rec.p);
+
+                // Diffuse contribution (using -> to access members of the pointed-to object)
+                diffuse += calculate_diffuse(
+                    rec.normal,
+                    light_dir,
+                    diffuse_color,
+                    rec.material->k_diffuse,
+                    light->light_color,
+                    light->intensity
+                ) * attenuation;
+
+                // Specular contribution (using -> to access members of the pointed-to object)
+                specular += calculate_specular(
+                    rec.normal,
+                    light_dir,
+                    view_dir,
+                    rec.material->shininess,
+                    rec.material->k_specular,
+                    light->light_color,
+                    light->intensity
+                ) * attenuation;
             }
         }
 
@@ -442,7 +478,7 @@ private:
         return ambient + diffuse + specular;
     }
 
-    color cast_ray(const ray& r, const hittable& world, const std::vector<Light>& lights, int depth = 5, bool renderShadows = true) const {
+    color shade_ray_at_hit(const ray& r, const hittable& world, int depth = 5, bool renderShadows = true) const {
         if (depth <= 0) {
             return color(0, 0, 0);
         }
@@ -454,15 +490,15 @@ private:
             // Use the material's color, either from the texture or as a solid color
             color diffuse_color = rec.material->get_color(rec.u, rec.v);
 
-            // Obtain the Phong color for the hit object, now using the texture or solid color
-            color phong_color = phong_shading(rec, view_dir, lights, world, diffuse_color, renderShadows);
+            // Obtain the Phong color for the hit object, now using the texture or solid color. Remove lights from here.
+            color phong_color = phong_shading(rec, view_dir, world, diffuse_color, renderShadows);
 
             // Calculate reflection if the material supports it
             if (rec.material->reflection > 0.0) {
                 vec3 reflected_dir = reflect(unit_vector(r.direction()), rec.normal);
                 ray reflected_ray(rec.p + rec.normal * 1e-3, reflected_dir);
 
-                color reflected_color = cast_ray(reflected_ray, world, lights, depth - 1, renderShadows);
+                color reflected_color = shade_ray_at_hit(reflected_ray, world, depth - 1, renderShadows);
 
                 // Combine Phong color with reflection
                 return (1.0 - rec.material->reflection) * phong_color +
