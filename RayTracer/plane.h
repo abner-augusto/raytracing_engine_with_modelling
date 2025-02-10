@@ -38,30 +38,21 @@ public:
         rec.p = r.at(rec.t);
         rec.set_face_normal(r, normal);
         rec.material = &material;
+        rec.hit_object = this;
 
         // Calculate UV coordinates
         calculate_uv(rec.p, rec.u, rec.v);
         return true;
     }
 
+
     void calculate_uv(const point3& hit_point, double& u, double& v) const {
         // Compute vector from reference point to hit point
         vec3 local_vec = hit_point - point;
 
-        // Project onto local axes
-        double u_raw = dot(local_vec, u_axis);
-        double v_raw = dot(local_vec, v_axis);
+        u = dot(local_vec, u_axis) * scale;
+        v = dot(local_vec, v_axis) * scale;
 
-        // Scale UV coordinates
-        u = fmod(u_raw * scale, 1.0);
-        v = fmod(v_raw * scale, 1.0);
-
-        // Ensure UV coordinates are positive
-        if (u < 0) u += 1.0;
-        if (v < 0) v += 1.0;
-
-        // Debug output for UV values
-        //std::cout << "UV: (" << u << ", " << v << ")\n";
     }
 
 
@@ -85,6 +76,10 @@ public:
         point3 max_point(extent, point.y() + 0.01, extent);
 
         return BoundingBox(min_point, max_point);
+    }
+
+    std::string get_type_name() const override {
+        return "Plane";
     }
 
 private:

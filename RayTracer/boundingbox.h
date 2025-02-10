@@ -12,8 +12,8 @@ public:
     point3 vmax;
 
     // Default constructor - creates a unit box at origin
-    BoundingBox()
-        : vmin(0, 0, 0), vmax(1, 1, 1) {
+    BoundingBox() {
+        set_infinite_negative();
     }
 
     // Main constructor for rectangular box
@@ -42,6 +42,15 @@ public:
 
     point3 getDimensions() const {
         return vmax - vmin;
+    }
+
+    void set_infinite_negative() {
+        vmin = point3(std::numeric_limits<double>::infinity(),
+            std::numeric_limits<double>::infinity(),
+            std::numeric_limits<double>::infinity());
+        vmax = point3(-std::numeric_limits<double>::infinity(),
+            -std::numeric_limits<double>::infinity(),
+            -std::numeric_limits<double>::infinity());
     }
 
     void setCorner(const point3& new_corner) {
@@ -114,12 +123,10 @@ public:
         return furthest;
     }
 
-    bool containsPoint(const point3& p) const {
-        point3 moved = p - vmin;
-        point3 size = getDimensions();
-        return (moved.x() >= 0 && moved.x() <= size.x() &&
-            moved.y() >= 0 && moved.y() <= size.y() &&
-            moved.z() >= 0 && moved.z() <= size.z());
+    bool contains(const point3& p) const {
+        return (p.x() >= vmin.x() && p.x() <= vmax.x() &&
+            p.y() >= vmin.y() && p.y() <= vmax.y() &&
+            p.z() >= vmin.z() && p.z() <= vmax.z());
     }
 
     bool intersects(const BoundingBox& other) const {
@@ -144,8 +151,35 @@ public:
         return BoundingBox(new_vmin, new_vmax);
     }
 
+    void include(const point3& p) {
+        vmin = point3(std::min(vmin.x(), p.x()),
+            std::min(vmin.y(), p.y()),
+            std::min(vmin.z(), p.z()));
+
+        vmax = point3(std::max(vmax.x(), p.x()),
+            std::max(vmax.y(), p.y()),
+            std::max(vmax.z(), p.z()));
+    }
+
+    BoundingBox from_intersect(const BoundingBox& other) const {
+        point3 new_vmin(
+            std::max(vmin.x(), other.vmin.x()),
+            std::max(vmin.y(), other.vmin.y()),
+            std::max(vmin.z(), other.vmin.z())
+        );
+
+        point3 new_vmax(
+            std::min(vmax.x(), other.vmax.x()),
+            std::min(vmax.y(), other.vmax.y()),
+            std::min(vmax.z(), other.vmax.z())
+        );
+        return BoundingBox(new_vmin, new_vmax);
+    }
+
     // Hit function to test ray intersection
-    bool hit(const ray& r, interval ray_t, hit_record& rec) const {
+    bool hit(const ray& r, interval ray_t = interval(0.0, std::numeric_limits<double>::infinity())) const {
+        interval temp_t = ray_t;
+
         for (int i = 0; i < 3; i++) {
             double invD = 1.0 / r.direction()[i];
             double t0 = (vmin[i] - r.origin()[i]) * invD;
@@ -155,15 +189,16 @@ public:
                 std::swap(t0, t1);
             }
 
-            ray_t.min = std::max(t0, ray_t.min);
-            ray_t.max = std::min(t1, ray_t.max);
+            temp_t.min = std::max(t0, temp_t.min);
+            temp_t.max = std::min(t1, temp_t.max);
 
-            if (ray_t.max <= ray_t.min) {
+            if (temp_t.max <= temp_t.min) {
                 return false;
             }
         }
         return true;
     }
+
 
     BoundingBox bounding_box() const {
         return *this;

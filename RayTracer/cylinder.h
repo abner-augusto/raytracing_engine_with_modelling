@@ -28,6 +28,18 @@ public:
         update_constants();
     }
 
+    cylinder(const point3& base_center, double height, const vec3& direction, double radius, const mat& material, bool capped = true)
+        : base_center(base_center),
+        radius(std::fmax(0, radius)),
+        material(material),
+        capped(capped),
+        height(height)
+    {
+        vec3 normalized_direction = unit_vector(direction);
+        top_center = base_center + normalized_direction * height;
+        update_constants();
+    }
+
     void set_base_center(const point3& new_base_center) {
         base_center = new_base_center;
         top_center = base_center + vec3(0, height, 0);
@@ -63,7 +75,7 @@ public:
         vec3 ray_origin = r.origin();
         vec3 ray_direction = r.direction();
         vec3 origin_to_cylinder_start = ray_origin - base_center;
-        const double epsilon = 1e-6;
+        const double epsilon = 1e-7;
 
         // Precompute dot products for the ray and cylinder axis
         double axis_dot_direction = dot(unit_cylinder_axis, ray_direction);
@@ -150,8 +162,139 @@ public:
         rec.p = intersection_point;
         rec.set_face_normal(r, surface_normal);
         rec.material = &material;
+        rec.hit_object = this;
         return true;
     }
+
+    bool csg_intersect(const ray& r, interval ray_t,
+        std::vector<CSGIntersection>& out_intersections) const override {
+        out_intersections.clear();
+
+        // Vector to store potential hits (t, normal)
+        std::vector<std::pair<double, vec3>> hits;
+
+        const vec3 ray_origin = r.origin();
+        const vec3 ray_direction = r.direction();
+        const vec3 origin_to_base = ray_origin - base_center;
+
+        double axis_dot_dir = dot(unit_cylinder_axis, ray_direction);
+        double axis_dot_org = dot(unit_cylinder_axis, origin_to_base);
+
+        // Quadratic coefficients for the infinite cylinder
+        double a = 1.0 - axis_dot_dir * axis_dot_dir;
+        double b = dot(origin_to_base, ray_direction) - axis_dot_org * axis_dot_dir;
+        double c = dot(origin_to_base, origin_to_base) - axis_dot_org * axis_dot_org - radius_squared;
+
+        const double EPS = 1e-7;
+
+        // Determine if the ray starts inside the cylinder
+        bool ray_starts_inside = is_point_inside(ray_origin);
+
+        // Solve for side intersections
+        if (std::fabs(a) > EPS) {
+            double discriminant = b * b - a * c;
+            if (discriminant >= 0.0) {
+                double sqrt_disc = std::sqrt(discriminant);
+                double t1 = (-b - sqrt_disc) / a;
+                double t2 = (-b + sqrt_disc) / a;
+
+                // Check first intersection (t1)
+                if (t1 >= ray_t.min && t1 <= ray_t.max) {
+                    double proj = axis_dot_org + t1 * axis_dot_dir;
+                    if (proj >= 0.0 && proj <= height) {
+                        point3 p_hit = r.at(t1);
+                        vec3 outward_normal = unit_vector(p_hit - (base_center + unit_cylinder_axis * proj));
+                        hits.emplace_back(t1, outward_normal);
+                    }
+                }
+
+                // Check second intersection (t2)
+                if (t2 >= ray_t.min && t2 <= ray_t.max) {
+                    double proj = axis_dot_org + t2 * axis_dot_dir;
+                    if (proj >= 0.0 && proj <= height) {
+                        point3 p_hit = r.at(t2);
+                        vec3 outward_normal = unit_vector(p_hit - (base_center + unit_cylinder_axis * proj));
+                        hits.emplace_back(t2, outward_normal);
+                    }
+                }
+            }
+        }
+
+        // Check for cap intersections if the cylinder is capped
+        if (capped) {
+            // Bottom cap
+            if (std::fabs(axis_dot_dir) > EPS) {
+                double t_bottom = -axis_dot_org / axis_dot_dir;
+                if (t_bottom >= ray_t.min && t_bottom <= ray_t.max) {
+                    point3 p_hit = r.at(t_bottom);
+                    double dist2 = (p_hit - base_center).length_squared();
+                    if (dist2 <= radius_squared + EPS) {
+                        vec3 outward_normal = -unit_cylinder_axis;
+                        hits.emplace_back(t_bottom, outward_normal);
+                    }
+                }
+
+                // Top cap
+                double t_top = (height - axis_dot_org) / axis_dot_dir;
+                if (t_top >= ray_t.min && t_top <= ray_t.max) {
+                    point3 p_hit = r.at(t_top);
+                    double dist2 = (p_hit - top_center).length_squared();
+                    if (dist2 <= radius_squared + EPS) {
+                        vec3 outward_normal = unit_cylinder_axis;
+                        hits.emplace_back(t_top, outward_normal);
+                    }
+                }
+            }
+        }
+
+        // Sort hits by ascending t
+        std::sort(hits.begin(), hits.end(),
+            [](const std::pair<double, vec3>& a, const std::pair<double, vec3>& b) {
+                return a.first < b.first;
+            });
+
+        // Process each hit to assign is_entry flags and store in out_intersections
+        for (const auto& [t_val, normal] : hits) {
+            if (t_val < ray_t.min || t_val > ray_t.max)
+                continue;
+
+            point3 p_hit = r.at(t_val);
+            bool is_entry;
+
+            if (!ray_starts_inside) {
+                // For rays starting outside, the first hit is an entry, the second is an exit
+                is_entry = out_intersections.empty();
+            }
+            else {
+                // For rays starting inside, the first hit is an exit, the second is an entry
+                is_entry = !out_intersections.empty();
+            }
+
+            // Invert the normal if it's an exit
+            vec3 adjusted_normal = normal;
+            if (!is_entry) {
+                adjusted_normal = -normal;
+            }
+
+            // Add the intersection with the possibly adjusted normal
+            out_intersections.emplace_back(
+                t_val,
+                is_entry,
+                this,             // 'obj' pointer = this cylinder
+                adjusted_normal,  // Adjusted normal
+                p_hit             // Intersection point
+            );
+        }
+
+        // Sort final results by t (just to be sure)
+        std::sort(out_intersections.begin(), out_intersections.end(),
+            [](const CSGIntersection& a, const CSGIntersection& b) {
+                return a.t < b.t;
+            });
+
+        return !out_intersections.empty();
+    }
+
 
     bool IsPointInside(const point3& p) const {
         // 1) Project p onto the cylinder's axis
@@ -219,35 +362,47 @@ public:
         base_center = matrix.transform_point(base_center);
         top_center = matrix.transform_point(top_center);
 
-        // Recompute the cylinder axis
+        // Extract scaling factor from the matrix (assuming uniform scaling)
+        double scalingFactor = matrix.get_uniform_scale();
+        radius *= scalingFactor;
+
+        // Update cylinder properties, including height
         update_constants();
     }
 
+
     BoundingBox bounding_box() const override {
-        // Calculate the min and max points in the axis-aligned directions
-        point3 min_point(
-            std::min(base_center.x() - radius, top_center.x() - radius),
-            std::min(base_center.y() - radius, top_center.y() - radius),
-            std::min(base_center.z() - radius, top_center.z() - radius)
-        );
+        // Compute the maximum lateral extension along each coordinate direction.
+        // We use std::max(0.0, …) to protect against any floating-point round-off issues.
+        double extend_x = radius * std::sqrt(std::max(0.0, 1.0 - unit_cylinder_axis.x() * unit_cylinder_axis.x()));
+        double extend_y = radius * std::sqrt(std::max(0.0, 1.0 - unit_cylinder_axis.y() * unit_cylinder_axis.y()));
+        double extend_z = radius * std::sqrt(std::max(0.0, 1.0 - unit_cylinder_axis.z() * unit_cylinder_axis.z()));
 
-        point3 max_point(
-            std::max(base_center.x() + radius, top_center.x() + radius),
-            std::max(base_center.y() + radius, top_center.y() + radius),
-            std::max(base_center.z() + radius, top_center.z() + radius)
-        );
+        // For each axis, get the minimum and maximum of the base and top centers, then extend by the calculated offsets.
+        double min_x = std::min(base_center.x(), top_center.x()) - extend_x;
+        double max_x = std::max(base_center.x(), top_center.x()) + extend_x;
+        double min_y = std::min(base_center.y(), top_center.y()) - extend_y;
+        double max_y = std::max(base_center.y(), top_center.y()) + extend_y;
+        double min_z = std::min(base_center.z(), top_center.z()) - extend_z;
+        double max_z = std::max(base_center.z(), top_center.z()) + extend_z;
 
-        return BoundingBox(min_point, max_point);
+        return BoundingBox(point3(min_x, min_y, min_z), point3(max_x, max_y, max_z));
+    }
+
+    std::string get_type_name() const override {
+        return "Cylinder";
     }
 
 private:
     void update_constants() {
         cylinder_axis = top_center - base_center;
+        height = cylinder_axis.length();
         axis_length_squared = dot(cylinder_axis, cylinder_axis);
         unit_cylinder_axis = cylinder_axis / std::sqrt(axis_length_squared);
         reciprocal_axis_length_squared = 1.0 / axis_length_squared;
         radius_squared = radius * radius;
     }
+
 
     point3 base_center;
     point3 top_center;

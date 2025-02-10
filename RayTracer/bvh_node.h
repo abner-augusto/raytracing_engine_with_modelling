@@ -145,7 +145,7 @@ public:
     virtual ~BVHNode() = default;
 
     bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
-        if (!box.hit(r, ray_t, rec)) {
+        if (!box.hit(r, ray_t)) {
             return false;
         }
 
@@ -175,6 +175,31 @@ public:
     BoundingBox bounding_box() const override {
         return box;
     }
+
+    bool is_point_inside(const point3& p) const override {
+        // Check if the point is inside the BVH node's bounding box first (early exit)
+        if (!box.contains(p)) {
+            return false;
+        }
+
+        if (is_leaf) {
+            // If this is a leaf node, check all objects in the leaf
+            for (const auto& object : leaf_objects) {
+                if (object->is_point_inside(p)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        else {
+            // If it's an internal node, recursively check left and right children
+            bool insideLeft = left && left->is_point_inside(p);
+            bool insideRight = right && right->is_point_inside(p);
+
+            return insideLeft || insideRight;
+        }
+    }
+
 };
 
 #endif // BVH_NODE_H

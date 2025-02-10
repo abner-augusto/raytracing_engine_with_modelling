@@ -6,12 +6,12 @@
 #include "hittable_manager.h"
 #include "material.h"
 
-#include "sphere.h"
-#include "plane.h"
-#include "cylinder.h"
-#include "cone.h"
-#include "box.h"
-#include "torus.h"
+//#include "sphere.h"
+//#include "plane.h"
+//#include "cylinder.h"
+//#include "cone.h"
+//#include "box.h"
+//#include "torus.h"
 
 class SceneBuilder {
 public:

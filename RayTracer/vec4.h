@@ -30,6 +30,16 @@ public:
         return vec4(x * scalar, y * scalar, z * scalar, w * scalar);
     }
 
+    // Quaternion multiplication (q1 * q2)
+    vec4 operator*(const vec4& other) const {
+        return vec4(
+            w * other.x + x * other.w + y * other.z - z * other.y, // x
+            w * other.y - x * other.z + y * other.w + z * other.x, // y
+            w * other.z + x * other.y - y * other.x + z * other.w, // z
+            w * other.w - x * other.x - y * other.y - z * other.z  // w
+        );
+    }
+
     vec4& operator*=(double scalar) {
         x *= scalar; y *= scalar; z *= scalar; w *= scalar;
         return *this;

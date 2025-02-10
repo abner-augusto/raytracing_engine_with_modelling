@@ -201,6 +201,7 @@ public:
 
         rec.set_face_normal(r, normal_world);
         rec.material = &material;
+        rec.hit_object = this;
 
         return true;
     }
@@ -229,6 +230,10 @@ public:
         point3 max_point = center + vec3(max_extent, max_extent, max_extent);
 
         return BoundingBox(min_point, max_point);
+    }
+
+    std::string get_type_name() const override {
+        return "Torus";
     }
 
 private:

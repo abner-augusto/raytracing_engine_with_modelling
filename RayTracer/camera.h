@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <cmath>
 #include <omp.h>
+#include <iostream>
+#include <string>
 
 #include "raytracer.h"
 #include "light.h"
@@ -14,9 +16,10 @@ class Camera {
 public:
     Matrix4x4 world_to_camera_matrix;
     Matrix4x4 camera_to_world_matrix;
+    using ProjectionFunction = ray(Camera::*)(int, int, double, double) const;
 
     Camera(const point3& origin, const point3& at, int image_width, double aspect_ratio, double fov)
-        : origin(origin), look_at(at), world_up(0, 1, 0), image_width(image_width), aspect_ratio(aspect_ratio), fov(fov)
+        : origin(origin), look_at(at), world_up(0, 1, 0), image_width(image_width), aspect_ratio(aspect_ratio), fov(fov), current_projection(&Camera::compute_ray_at)
     {
         // Compute image height
         image_height = static_cast<int>(image_width / aspect_ratio);
@@ -104,25 +107,10 @@ public:
         calculate_matrices();
     }
 
-    void transform_scene_and_lights(
-        HittableManager& manager,
-        std::vector<Light>& lights
-    ) const {
-        // Transform all objects in the HittableManager
-        manager.transform(world_to_camera_matrix);
-
-        // Transform all lights into camera space
-        for (auto& light : lights) {
-            light.transform(world_to_camera_matrix);
-        }
-    }
-
     void render(
         HittableManager& manager,
-        std::vector<Light>& lights,
         int samples_per_pixel = 1,
-        bool enable_antialias = false,
-        bool camera_space = false
+        bool enable_antialias = false
     ) const {
         int TILESIZE = std::min(32, image_width / 10);
 
@@ -134,7 +122,7 @@ public:
         double fov_radians = degrees_to_radians(fov);
         double half_fov = 0.5 * fov_radians;
         double tan_half_fov = std::tan(half_fov);
-        double image_plane_z = camera_space ? -1.0 : 0.0; // Camera space uses z = -1 for the image plane
+        double screen_z = -1.0;
 
 #pragma omp parallel for schedule(dynamic)
         for (int tile_index = 0; tile_index < num_x_tiles * num_y_tiles; ++tile_index) {
@@ -156,33 +144,11 @@ public:
                         double offset_x = enable_antialias ? random_double(0.0, 1.0) : 0.5;
                         double offset_y = enable_antialias ? random_double(0.0, 1.0) : 0.5;
 
-                        // NDC and screen coordinates
-                        double ndc_x = (static_cast<double>(pixel_x) + offset_x) / (image_width);
-                        double ndc_y = (static_cast<double>(pixel_y) + offset_y) / (image_height);
-                        double screen_x = (2.0 * ndc_x - 1.0) * aspect_ratio * tan_half_fov;
-                        double screen_y = (1.0 - 2.0 * ndc_y) * tan_half_fov;
-                        double screen_z = camera_space ? image_plane_z : -1.0;
+                        // Use the projection_function_ptr to compute the ray
+                        ray r = (this->*current_projection)(pixel_x, pixel_y, offset_x, offset_y);
 
-                        vec3 origin, direction;
-
-                        if (camera_space) {
-                            origin = vec3(0.0, 0.0, 0.0);
-                            direction = unit_vector(vec3(screen_x, screen_y, screen_z));
-                        }
-                        else {
-                            vec4 dir_cam(screen_x, screen_y, screen_z, 0.0);
-                            vec4 dir_world = camera_to_world_matrix * dir_cam;
-                            direction = unit_vector(dir_world.to_vec3());
-
-                            vec4 origin_cam(0.0, 0.0, 0.0, 1.0);
-                            vec4 origin_world = camera_to_world_matrix * origin_cam;
-                            origin = origin_world.to_vec3();
-                        }
-
-                        ray r(origin, direction);
-
-                        // Cast ray and accumulate color
-                        accumulated_color += cast_ray(r, manager, lights);
+                        // Cast ray and accumulate color.  Get lights from manager.
+                        accumulated_color += shade_ray_at_hit(r, manager, 5, renderShadows);
                     }
 
                     // Average color and write to pixel buffer
@@ -193,6 +159,80 @@ public:
             }
         }
     }
+
+
+    // compute perspective ray
+    ray compute_ray_at(int pixel_x, int pixel_y, double offset_x = 0.5, double offset_y = 0.5) const {
+        // Precompute perspective parameters
+        double fov_radians = degrees_to_radians(fov);
+        double half_fov = 0.5 * fov_radians;
+        double tan_half_fov = std::tan(half_fov);
+
+        // Convert the pixel coordinate to normalized device coordinates (NDC)
+        double ndc_x = (static_cast<double>(pixel_x) + offset_x) / image_width;
+        double ndc_y = (static_cast<double>(pixel_y) + offset_y) / image_height;
+
+        // Map NDC to screen space
+        double screen_x = (2.0 * ndc_x - 1.0) * aspect_ratio * tan_half_fov;
+        double screen_y = (1.0 - 2.0 * ndc_y) * tan_half_fov;
+        double screen_z = -1.0;
+
+        vec3 ray_origin, ray_direction;
+
+        if (isCameraSpace) {
+            ray_origin = vec3(0.0, 0.0, 0.0);
+            ray_direction = unit_vector(vec3(screen_x, screen_y, screen_z));
+        }
+        else {
+            vec4 dir_cam(screen_x, screen_y, screen_z, 0.0);
+            vec4 dir_world = camera_to_world_matrix * dir_cam;
+            ray_direction = unit_vector(dir_world.to_vec3());
+
+            vec4 origin_cam(0.0, 0.0, 0.0, 1.0);
+            vec4 origin_world = camera_to_world_matrix * origin_cam;
+            ray_origin = origin_world.to_vec3();
+        }
+
+        return ray(ray_origin, ray_direction);
+    }
+
+    ray compute_orthographic_ray(int pixel_x, int pixel_y, double offset_x, double offset_y) const {
+        double ndc_x = (static_cast<double>(pixel_x) + offset_x) / image_width;
+        double ndc_y = (static_cast<double>(pixel_y) + offset_y) / image_height;
+
+        double screen_x = (2.0 * ndc_x - 1.0) * aspect_ratio;
+        double screen_y = (1.0 - 2.0 * ndc_y);
+
+        vec3 ray_origin = origin + (screen_x * right) + (screen_y * up);
+        vec3 ray_direction = -forward;
+
+        return ray(ray_origin, ray_direction);
+    }
+
+    void rotate_to_isometric_view() {
+        calculate_axes();
+        // Isometric angles in radians
+        double angle_y = degrees_to_radians(45.0);
+        double angle_x = degrees_to_radians(35.264);
+
+        // Create quaternions for Y and X rotations
+        vec4 qY = vec4().createQuaternion(vec3(0, 1, 0), angle_y);
+        vec4 qX = vec4().createQuaternion(vec3(1, 0, 0), angle_x);
+
+        // Combine rotations (Y first, then X)
+        vec4 qCombined = qX * qY;
+
+        // Convert to rotation matrix and apply
+        Matrix4x4 rotationMatrix = Matrix4x4::quaternion(qCombined);
+
+        // Apply rotation to camera vectors
+        forward = rotationMatrix.transform_vector(forward);
+        right = rotationMatrix.transform_vector(right);
+        up = rotationMatrix.transform_vector(up);
+
+        calculate_matrices();
+    }
+
     // Setters
     void set_origin(const point3& new_origin) {
         origin = new_origin;
@@ -240,6 +280,28 @@ public:
         calculate_matrices();
     }
 
+    // Toggle shadows on or off
+    void toggleShadows() {
+        renderShadows = !renderShadows;
+    }
+
+    // Toggle Camera Space on or off
+    void toggleCameraSpace() {
+        isCameraSpace = !isCameraSpace;
+    }
+
+    void use_orthographic_projection() {
+        current_projection = &Camera::compute_orthographic_ray;
+        std::cout << "Using Orthographic Projection" << std::endl;
+    }
+
+    void use_perspective_projection() {
+        calculate_axes();
+        calculate_matrices();
+        current_projection = &Camera::compute_ray_at;
+        std::cout << "Using Perspective Projection" << std::endl;
+    }
+
     // Accessors
     point3 get_origin() const { return origin; }
     point3 get_look_at() const { return look_at; }
@@ -250,6 +312,8 @@ public:
     vec3 get_right() const { return right; }
     vec3 get_up() const { return up; }
     vec3 get_forward() const { return forward; }
+    bool shadowStatus() const { return renderShadows; }
+    bool CameraSpaceStatus() const { return isCameraSpace; }
 
 private:
 
@@ -270,8 +334,9 @@ private:
         return k_specular * spec * light_color * light_intensity;
     }
 
-    color phong_shading(const hit_record& rec, const vec3& view_dir, const std::vector<Light>& lights,
-        const hittable& world, const color& diffuse_color) const {
+    color phong_shading(const hit_record& rec, const vec3& view_dir,
+        const hittable& world, const color& diffuse_color, bool renderShadows) const
+    {
         // Ambient light
         double ambient_light_intensity = 0.4;
         color ambient_light_color(1.0, 0.95, 0.8);  // Warm yellow
@@ -281,6 +346,16 @@ private:
         color diffuse(0, 0, 0);
         color specular(0, 0, 0);
         const double shadow_bias = 1e-3;
+
+        // Get lights directly from the world (HittableManager)
+        const HittableManager* manager_ptr = dynamic_cast<const HittableManager*>(&world);
+        if (!manager_ptr) {
+            // Handle the case where 'world' is not a HittableManager
+            // (e.g., return black, throw an error, or use a default light set)
+            return color(0, 0, 0); // Or some other appropriate error handling
+        }
+        const auto& lights = manager_ptr->get_lights();
+
 
         // Only parallelize if we have enough lights to justify the overhead
         if (lights.size() > 4) {
@@ -295,9 +370,8 @@ private:
 
 #pragma omp for nowait
                 for (int i = 0; i < static_cast<int>(lights.size()); ++i) {
-                    const auto& light = lights[i];
-                    vec3 light_dir = unit_vector(light.position - rec.p);
-                    double light_distance = (light.position - rec.p).length();
+                    const auto& light = lights[i]; // light is a unique_ptr<Light>
+                    vec3 light_dir = light->get_light_direction(rec.p);
 
                     // Skip lights that don't contribute (back-facing)
                     if (dot(rec.normal, light_dir) <= 0) {
@@ -305,20 +379,41 @@ private:
                     }
 
                     // Shadow check
-                    ray shadow_ray(rec.p + rec.normal * shadow_bias, light_dir);
-                    hit_record shadow_rec;
-                    if (world.hit(shadow_ray, interval(0.001, light_distance), shadow_rec)) {
-                        continue;
-                    }
+                    if (renderShadows) {
+                        ray shadow_ray(rec.p + rec.normal * shadow_bias, light_dir);
+                        hit_record shadow_rec;
 
-                    // Diffuse and specular contributions
-                    double attenuation = 1.0 / (1.0 + 0.1 * light_distance + 0.01 * light_distance * light_distance);
-                    local_diffuse += calculate_diffuse(rec.normal, light_dir, diffuse_color,
-                        rec.material->k_diffuse, light.light_color,
-                        light.intensity) * attenuation;
-                    local_specular += calculate_specular(rec.normal, light_dir, view_dir,
-                        rec.material->shininess, rec.material->k_specular,
-                        light.light_color, light.intensity) * attenuation;
+                        // For directional lights, we need to check a large distance
+                        double max_distance = (dynamic_cast<DirectionalLight*>(light.get()) != nullptr) ?
+                            infinity : (light->position - rec.p).length();
+
+                        if (world.hit(shadow_ray, interval(0.001, max_distance), shadow_rec)) {
+                            continue;
+                        }
+                    }
+                    // Get attenuation from the light
+                    double attenuation = light->get_attenuation(rec.p);
+
+                    // Diffuse contribution
+                    local_diffuse += calculate_diffuse(
+                        rec.normal,
+                        light_dir,
+                        diffuse_color,
+                        rec.material->k_diffuse,
+                        light->light_color,
+                        light->intensity
+                    ) * attenuation;
+
+                    // Specular contribution
+                    local_specular += calculate_specular(
+                        rec.normal,
+                        light_dir,
+                        view_dir,
+                        rec.material->shininess,
+                        rec.material->k_specular,
+                        light->light_color,
+                        light->intensity
+                    ) * attenuation;
                 }
 
 #pragma omp critical
@@ -330,9 +425,8 @@ private:
         }
         else {
             // Sequential processing for small number of lights
-            for (const auto& light : lights) {
-                vec3 light_dir = unit_vector(light.position - rec.p);
-                double light_distance = (light.position - rec.p).length();
+            for (const auto& light : lights) {  // light is a unique_ptr<Light>
+                vec3 light_dir = light->get_light_direction(rec.p);
 
                 // Skip lights that don't contribute (back-facing)
                 if (dot(rec.normal, light_dir) <= 0) {
@@ -340,20 +434,43 @@ private:
                 }
 
                 // Shadow check
-                ray shadow_ray(rec.p + rec.normal * shadow_bias, light_dir);
-                hit_record shadow_rec;
-                if (world.hit(shadow_ray, interval(0.001, light_distance), shadow_rec)) {
-                    continue;
+                if (renderShadows) {
+                    ray shadow_ray(rec.p + rec.normal * shadow_bias, light_dir);
+                    hit_record shadow_rec;
+
+                    // For directional lights, we need to check a large distance
+                    double max_distance = (dynamic_cast<DirectionalLight*>(light.get()) != nullptr) ?
+                        infinity : (light->position - rec.p).length();
+
+
+                    if (world.hit(shadow_ray, interval(0.001, max_distance), shadow_rec)) {
+                        continue;
+                    }
                 }
 
-                // Diffuse and specular contributions
-                double attenuation = 1.0 / (1.0 + 0.1 * light_distance + 0.01 * light_distance * light_distance);
-                diffuse += calculate_diffuse(rec.normal, light_dir, diffuse_color,
-                    rec.material->k_diffuse, light.light_color,
-                    light.intensity) * attenuation;
-                specular += calculate_specular(rec.normal, light_dir, view_dir,
-                    rec.material->shininess, rec.material->k_specular,
-                    light.light_color, light.intensity) * attenuation;
+                // Get attenuation from the light
+                double attenuation = light->get_attenuation(rec.p);
+
+                // Diffuse contribution (using -> to access members of the pointed-to object)
+                diffuse += calculate_diffuse(
+                    rec.normal,
+                    light_dir,
+                    diffuse_color,
+                    rec.material->k_diffuse,
+                    light->light_color,
+                    light->intensity
+                ) * attenuation;
+
+                // Specular contribution (using -> to access members of the pointed-to object)
+                specular += calculate_specular(
+                    rec.normal,
+                    light_dir,
+                    view_dir,
+                    rec.material->shininess,
+                    rec.material->k_specular,
+                    light->light_color,
+                    light->intensity
+                ) * attenuation;
             }
         }
 
@@ -361,7 +478,7 @@ private:
         return ambient + diffuse + specular;
     }
 
-    color cast_ray(const ray& r, const hittable& world, const std::vector<Light>& lights, int depth = 5) const {
+    color shade_ray_at_hit(const ray& r, const hittable& world, int depth = 5, bool renderShadows = true) const {
         if (depth <= 0) {
             return color(0, 0, 0);
         }
@@ -373,15 +490,15 @@ private:
             // Use the material's color, either from the texture or as a solid color
             color diffuse_color = rec.material->get_color(rec.u, rec.v);
 
-            // Obtain the Phong color for the hit object, now using the texture or solid color
-            color phong_color = phong_shading(rec, view_dir, lights, world, diffuse_color);
+            // Obtain the Phong color for the hit object, now using the texture or solid color. Remove lights from here.
+            color phong_color = phong_shading(rec, view_dir, world, diffuse_color, renderShadows);
 
             // Calculate reflection if the material supports it
             if (rec.material->reflection > 0.0) {
                 vec3 reflected_dir = reflect(unit_vector(r.direction()), rec.normal);
                 ray reflected_ray(rec.p + rec.normal * 1e-3, reflected_dir);
 
-                color reflected_color = cast_ray(reflected_ray, world, lights, depth - 1);
+                color reflected_color = shade_ray_at_hit(reflected_ray, world, depth - 1, renderShadows);
 
                 // Combine Phong color with reflection
                 return (1.0 - rec.material->reflection) * phong_color +
@@ -402,6 +519,10 @@ private:
     int image_width;
     int image_height;
     double aspect_ratio;
+    bool isCameraSpace = false;
+    bool renderShadows = true;
+
+    ProjectionFunction current_projection;
 
     // Camera Axis
     vec3 right;

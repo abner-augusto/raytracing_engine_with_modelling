@@ -107,9 +107,6 @@
     <ClInclude Include="sdl_setup.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="camera.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="sphere.h">
       <Filter>Header Files\primitivas</Filter>
     </ClInclude>
@@ -193,6 +190,27 @@
     </ClInclude>
     <ClInclude Include="scene_builder.h">
       <Filter>Header Files\scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="CSG.h">
+      <Filter>Header Files\modelagem</Filter>
+    </ClInclude>
+    <ClInclude Include="box_csg.h">
+      <Filter>Header Files\primitivas</Filter>
+    </ClInclude>
+    <ClInclude Include="csg_intesection.h">
+      <Filter>Header Files\modelagem</Filter>
+    </ClInclude>
+    <ClInclude Include="octree.h">
+      <Filter>Header Files\modelagem</Filter>
+    </ClInclude>
+    <ClInclude Include="node.h">
+      <Filter>Header Files\modelagem</Filter>
+    </ClInclude>
+    <ClInclude Include="wireframe.h">
+      <Filter>Header Files\raytracing</Filter>
+    </ClInclude>
+    <ClInclude Include="camera.h">
+      <Filter>Header Files\raytracing</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

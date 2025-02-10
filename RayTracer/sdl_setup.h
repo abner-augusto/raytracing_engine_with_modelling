@@ -1,6 +1,8 @@
 #pragma once
 #include <iostream>
 #include <SDL2/SDL.h>
+#include "imgui.h"
+#include "interface_imgui.h"
 
 bool InitializeSDL();
 SDL_Window* CreateWindow(int width, int height, const std::string& title);
@@ -74,27 +76,74 @@ bool moveDown = false;
 
 // Call this function in the game loop to apply continuous movement
 void update_camera(Camera& camera, float speed) {
+    vec3 forward = unit_vector(camera.get_look_at() - camera.get_origin()); // Camera forward direction
     vec3 up = camera.get_up();
+    vec3 right = unit_vector(cross(up, forward)); // Right direction (local X axis)
 
-    // Move camera based on left stick (movement)
-    camera.set_origin(camera.get_origin() + vec3(leftStickX * speed, 0, -leftStickY * speed));
-    camera.set_look_at(camera.get_look_at() + vec3(leftStickX * speed, 0, -leftStickY * speed));
+    Matrix4x4 translation;
 
-    // Adjust look_at with right stick (view direction)
-    camera.set_look_at(camera.get_look_at() + vec3(rightStickX * speed, -rightStickY * speed, 0));
+    // Move forward/backward using Left Stick Y
+    if (std::abs(leftStickY) > 0.01f) {
+        translation = Matrix4x4::translation(forward * (leftStickY * speed));
+        camera.transform(translation);
+    }
 
-    // Move camera up and down based on shoulder button states
+    // Move left/right using Left Stick X
+    if (std::abs(leftStickX) > 0.01f) {
+        translation = Matrix4x4::translation(right * (-leftStickX * speed)); // Negative for correct direction
+        camera.transform(translation);
+    }
+
+    // Right Stick: Quaternion-based Camera Rotation (Yaw & Pitch)
+    if (std::abs(rightStickX) > 0.01f || std::abs(rightStickY) > 0.01f) {
+        // Compute the input angles in degrees
+        double yawAngle = -rightStickX * speed * 5.0;   // Yaw (rotate left/right)
+        double pitchAngle = rightStickY * speed * 5.0;     // Pitch (look up/down)
+
+        // Compute the camera's forward vector (from origin to look_at)
+        vec3 forward = unit_vector(camera.get_look_at() - camera.get_origin());
+
+        // Compute the camera's right vector (using camera's up and forward)
+        vec3 right = unit_vector(cross(camera.get_up(), forward));
+
+        // Create quaternions from the axis–angle representation:
+        //   - Pitch: around the camera's right vector
+        //   - Yaw: around the global up axis (0,1,0)
+        vec4 qPitch = vec4().createQuaternion(right, pitchAngle);
+        vec4 qYaw = vec4().createQuaternion(vec3(0.0, 1.0, 0.0), yawAngle);
+
+        // Combine the quaternions.
+        // Note: Quaternion multiplication is not commutative. Here we want to apply pitch first, then yaw.
+        vec4 qCombined = qYaw * qPitch;
+
+        // Convert the combined quaternion into a rotation matrix.
+        Matrix4x4 rotationMatrix = Matrix4x4::quaternion(qCombined);
+
+        // Rotate the forward vector using the new rotation matrix.
+        vec3 newForward = unit_vector(rotationMatrix.transform_vector(forward));
+
+        // Recompute the look_at point so that the camera maintains its original distance.
+        double dist = (camera.get_look_at() - camera.get_origin()).length();
+        vec3 newLookAt = camera.get_origin() + newForward * dist;
+        camera.set_look_at(newLookAt);
+    }
+
+    // Move up/down using Shoulder Buttons
     if (moveUp) {
-        camera.set_origin(camera.get_origin() + up * (0.3 * speed));
-        camera.set_look_at(camera.get_look_at() + up * (0.3 * speed));
+        translation = Matrix4x4::translation(up * (0.3 * speed));
+        camera.transform(translation);
     }
     if (moveDown) {
-        camera.set_origin(camera.get_origin() - up * (0.3 * speed));
-        camera.set_look_at(camera.get_look_at() - up * (0.3 * speed));
+        translation = Matrix4x4::translation(-up * (0.3 * speed));
+        camera.transform(translation);
     }
 }
 
-void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, double aspect_ratio, Camera& camera, RenderState& render_state ,float speed = 0.1f) {
+
+void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, double aspect_ratio,
+    Camera& camera, RenderState& render_state, HittableManager& world,
+    std::optional<BoundingBox>& highlighted_box, float speed = 0.1f) {
+
     if (event.type == SDL_QUIT) {
         running = false;
     }
@@ -220,6 +269,11 @@ void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, dou
         case SDLK_4: // Set render mode: Disabled
             render_state.set_mode(Disabled);
             break;
+
+        case SDLK_h:
+            log_csg_hits(world, camera.compute_ray_at(
+                camera.get_image_width()/2, camera.get_image_height()/2));
+            break;
         }
     }
 
@@ -290,6 +344,83 @@ void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, dou
             moveDown = false;
         }
     }
+
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.WantCaptureMouse) {
+        return; // Don't process mouse events when ImGui is active
+    }
+
+    // Handle mouse click events
+    if (event.type == SDL_MOUSEBUTTONDOWN) {
+        if (event.button.button == SDL_BUTTON_LEFT) {
+            int mouse_x = event.button.x;
+            int mouse_y = event.button.y;
+
+            // Get the current window size
+            int window_width, window_height;
+            SDL_GetWindowSize(window, &window_width, &window_height);
+
+            // Convert the mouse coordinates to relative coordinates (0 to 1)
+            double relative_x = static_cast<double>(mouse_x) / window_width;
+            double relative_y = static_cast<double>(mouse_y) / window_height;
+
+            // Map these to the camera's resolution
+            int pixel_x = static_cast<int>(relative_x * camera.get_image_width());
+            int pixel_y = static_cast<int>(relative_y * camera.get_image_height());
+
+            // Compute the ray for the clicked position
+            ray clicked_ray = camera.compute_ray_at(pixel_x, pixel_y);
+
+            // Find the closest hit object
+            highlighted_box.reset();
+            hit_record closest_hit;
+            closest_hit.t = std::numeric_limits<double>::infinity();
+            std::shared_ptr<hittable> closest_object = nullptr;
+            ObjectID closest_id = -1; // Store the closest object's ID
+
+            auto objects = world.getObjects();
+            for (const auto& object : objects) {
+                const BoundingBox& box = object->bounding_box();
+                interval hit_range(0.0, closest_hit.t);
+
+                // First pass: Check bounding box
+                if (box.hit(clicked_ray, hit_range)) {
+                    // Second pass: Check actual object intersection
+                    hit_record temp_record;
+                    if (object->hit(clicked_ray, interval(0.0, closest_hit.t), temp_record)) {
+                        if (temp_record.t < closest_hit.t) {
+                            closest_hit = temp_record;
+                            closest_object = object;
+                        }
+                    }
+                }
+            }
+            // If a valid object is found, highlight its bounding box and auto-select in ImGui
+            if (closest_object) {
+                highlighted_box = closest_object->bounding_box();
+
+                // Get the ObjectID from the object
+                std::optional<ObjectID> object_id = world.get_object_id(closest_object);
+                if (object_id.has_value()) {
+                    selectedObjectID = object_id.value();
+                }
+            }
+        }
+    }
+
 }
 
+void DrawCrosshair(SDL_Renderer* renderer, int window_width, int window_height) {
+    int center_x = window_width / 2;
+    int center_y = window_height / 2;
+    int crosshair_size = 10; // Size of the crosshair
 
+    // Set the draw color to white (or any color you prefer)
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+
+    // Draw horizontal line
+    SDL_RenderDrawLine(renderer, center_x - crosshair_size, center_y, center_x + crosshair_size, center_y);
+
+    // Draw vertical line
+    SDL_RenderDrawLine(renderer, center_x, center_y - crosshair_size, center_x, center_y + crosshair_size);
+}

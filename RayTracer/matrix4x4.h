@@ -261,6 +261,48 @@ public:
         return mat;
     }
 
+    Matrix4x4 rotateAroundPoint(const point3& point, const vec3& direction, double angle_deg) {
+        // Step 1: Translate the point to the origin
+        Matrix4x4 translateToOrigin = Matrix4x4::translation(vec3(-point.x(), -point.y(), -point.z()));
+
+        // Step 2: Normalize the direction vector (axis of rotation)
+        vec3 axis = unit_vector(direction);
+
+        // Step 3: Compute the quaternion components
+        vec4 rotationQuat = rotationQuat.createQuaternion(direction, angle_deg);
+
+        // Step 4: Convert the quaternion to a rotation matrix
+        Matrix4x4 rotationMatrix = Matrix4x4::quaternion(rotationQuat);
+
+        // Step 5: Translate back to the original position
+        Matrix4x4 translateBack = Matrix4x4::translation(vec3(point.x(), point.y(), point.z()));
+
+        // Step 6: Compute the final transformation matrix
+        return translateBack * rotationMatrix * translateToOrigin;
+    }
+
+    Matrix4x4 rotateAroundVector(const point3& center, const point3& point, double angle_deg) {
+        // Compute the direction vector (axis of rotation)
+        vec3 axis = unit_vector(point - center);
+
+        // Call the rotation function using the computed axis
+        return rotateAroundPoint(center, axis, angle_deg);
+    }
+
+    Matrix4x4 scaleAroundPoint(const point3& point, double sx, double sy, double sz) {
+        // Step 1: Translate the point to the origin
+        Matrix4x4 translateToOrigin = Matrix4x4::translation(vec3(-point.x(), -point.y(), -point.z()));
+
+        // Step 2: Apply the scaling transformation
+        Matrix4x4 scaleMatrix = scaling(sx, sy, sz);
+
+        // Step 3: Translate back to the original position
+        Matrix4x4 translateBack = Matrix4x4::translation(vec3(point.x(), point.y(), point.z()));
+
+        // Step 4: Compute the final transformation matrix
+        return translateBack * scaleMatrix * translateToOrigin;
+    }
+
     // Assuming a uniform scale, extract the scaling factor from the matrix
     // by averaging the scaling components of the x, y, and z axes.
     double get_uniform_scale() const {

@@ -1,5 +1,6 @@
 
 #include "raytracer.h"
+#include "wireframe.h"
 
 #include "camera.h"
 #include "light.h"
@@ -10,15 +11,21 @@
 #include "cylinder.h"
 #include "cone.h"
 #include "box.h"
+#include "box_csg.h"
 #include "mesh.h"
 #include "torus.h"
+#include "squarepyramid.h"
+
+//modelling
+#include "csg.h"
+#include "octree.h"
 
 //scene setup
 #include "interface_imgui.h"
 #include "sdl_setup.h"
 #include "render_state.h"
-//#include "scene_builder.h"
 
+//external libs
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_sdlrenderer2.h>
@@ -27,23 +34,26 @@
 #include "stb_image.h"
 
 RenderState render_state;
-bool isCameraSpace = false;
+bool renderWireframe = true;
+bool renderWorldAxes = true;
+std::optional<BoundingBox> highlighted_box = std::nullopt;
 
 int main(int argc, char* argv[]) {
 
     // Image
     auto aspect_ratio = 16.0 / 9.0;
-    int image_width = 480;
+    int image_width = 720;
     int image_height = int(image_width / aspect_ratio);
     int window_width = 1080;
     int window_height = int(window_width / aspect_ratio);
 
+    omp_set_max_active_levels(1);
 
     if (!InitializeSDL()) {
         return -1;
     }
 
-    SDL_Window* window = CreateWindow(window_width, window_height, "Raytracing CG1");
+    SDL_Window* window = CreateWindow(window_width, window_height, "Modelagem CSG - Abner Augusto");
     if (!window) {
         SDL_Quit();
         return -1;
@@ -66,8 +76,8 @@ int main(int argc, char* argv[]) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
     ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
     ImGui_ImplSDLRenderer2_Init(renderer);
     ImGui::StyleColorsDark();
@@ -98,75 +108,146 @@ int main(int argc, char* argv[]) {
 
     // Create scenes
     std::vector<std::pair<ObjectID, std::shared_ptr<hittable>>> Scene1 = {
-        {0, make_shared<plane>(point3(0, -0.50, 0), vec3(0, 1, 0), xadrez)},
-        {1, make_shared<sphere>(point3(0, 0, -2), 0.5, mat(white))},
-        {2, make_shared<cylinder>(point3(-1.0, -0.15, -2), point3(-1.0, 0.35, -2), 0.3, mat(blue))},
-        {3, make_shared<cone>(point3(1, -0.15, -2), point3(1, 0.5, -2.5), 0.3, mat(red), false)},
-        {4, make_shared<torus>(point3(-2, 0, -2), 0.3, 0.1, vec3(0, 0.5, 0.5), mat(cyan))}
+        {0, std::make_shared<plane>(point3(0, -1.0, 0), vec3(0, 1, 0), mat(xadrez))},
+
     };
 
-    // Add all objects to the manager with their manually assigned IDs
+
+    //Add all objects to the manager with their manually assigned IDs
     for (const auto& [id, obj] : Scene1) {
         world.add(obj, id);
         //std::cout << "Added object with ID " << id << ".\n";
     }
 
+    // 1) Intersection of sphere & cube
+    auto sphere3 = std::make_shared<CSGPrimitive>(
+        std::make_shared<sphere>(point3(0, 0, -1), 0.6, mat(blue))
+    );
+    auto sphere1 = std::make_shared<CSGPrimitive>(
+        std::make_shared<sphere>(point3(0.5, 0, -1), 0.6, mat(cyan))
+    );
+    auto box1 = std::make_shared<CSGPrimitive>(
+        std::make_shared<box_csg>(point3(0, 0, -1), 0.9, mat(red))
+    );
+
+
+    auto rodY = std::make_shared<CSGPrimitive>(
+        std::make_shared<box_csg>(
+            point3(-0.15, -1.5, -1.15),   // Min corner
+            point3(0.15, 1.5, -0.85),   // Max corner
+            mat(cyan)                     // Material
+        )
+    );
+
+    auto rodX = std::make_shared<CSGPrimitive>(
+        std::make_shared<box_csg>(
+            point3(-1.5, -0.15, -1.15),   // Min corner
+            point3(1.5, 0.15, -0.85),   // Max corner
+            mat(cyan)                     // Material
+        )
+    );
+
+    auto rodZ = std::make_shared<CSGPrimitive>(
+        std::make_shared<box_csg>(
+            point3(-0.15, -0.15, -2.5),   // Min corner
+            point3(0.15, 0.15, 0.5),   // Max corner
+            mat(cyan)                     // Material
+        )
+    );
+
+    // Y-axis rod (vertical)
+    auto cylinder_Y = std::make_shared<CSGPrimitive>(
+        std::make_shared<cylinder>(
+            point3(0, -1.5, -1.0), // Base center (midpoint in X/Z)
+            3.0,                    // Height (matches box Y-length)
+            vec3(0, 1, 0),          // Direction: +Y axis
+            0.3,                   // Radius (matches box X/Z half-width)
+            mat(cyan),              // Material
+            true                    // Capped
+        )
+    );
+
+    // X-axis rod (horizontal)
+    auto cylinder_X = std::make_shared<CSGPrimitive>(
+        std::make_shared<cylinder>(
+            point3(-1.5, 0, -1.0), // Base center (midpoint in Y/Z)
+            3.0,                    // Height (matches box X-length)
+            vec3(1, 0, 0),          // Direction: +X axis
+            0.3,                   // Radius
+            mat(cyan),
+            true
+        )
+    );
+
+    // Z-axis rod (depth)
+    auto cylinder_Z = std::make_shared<CSGPrimitive>(
+        std::make_shared<cylinder>(
+            point3(0, 0, -2.5),     // Base center (matches box min-Z)
+            3.0,                    // Height (from Z=-2.5 to 0.5)
+            vec3(0, 0, 1),          // Direction: +Z axis
+            0.3,                   // Radius
+            mat(cyan),
+            true
+        )
+    );
+
+    // Intersection node
+    auto csgInter = std::make_shared<CSGNode<Intersection>>(sphere3, box1);
+
+    auto csgDiff = std::make_shared<CSGNode<Difference>>(csgInter, cylinder_Z);
+    auto csgDiff2 = std::make_shared<CSGNode<Difference>>(csgDiff, cylinder_X);
+    auto csgDiff3 = std::make_shared<CSGNode<Difference>>(csgDiff2, cylinder_Y);
+
+    //auto csgDiff = std::make_shared<CSGNode<Difference>>(csgInter, rodZ);
+    //auto csgDiff2 = std::make_shared<CSGNode<Difference>>(csgDiff, rodX);
+    //auto csgDiff3 = std::make_shared<CSGNode<Difference>>(csgDiff2, rodY);
+
+
+    // Finally, add to the world
+    ObjectID csg_id = world.add(csgDiff3);
+
+
     //Mesh Object
 
-    MeshOBJ mesh;
-    try {
-        // Load an OBJ mesh and add it to the manager
-        mesh = add_mesh_to_manager("models/suzanne.obj", world, orange);
+    //MeshOBJ mesh;
+    //try {
+    //    // Load an OBJ mesh and add it to the manager
+    //    mesh = add_mesh_to_manager("models/suzanne.obj", world, mat(orange));
 
-        // Apply transformation to all triangles in the mesh
-        if (!mesh.triangle_ids.empty()) {
+    //    // Apply transformation to all triangles in the mesh
+    //    if (!mesh.triangle_ids.empty()) {
 
-            Matrix4x4 translate = Matrix4x4::translation(vec3(0.0, 1, -3.0));
-            Matrix4x4 scale = Matrix4x4::scaling(0.5, 0.5, 0.5);
-            Matrix4x4 translate_origin = Matrix4x4::translation(-mesh.first_vertex.value());
-            Matrix4x4 translate_back = Matrix4x4::translation(mesh.first_vertex.value());
-            //Matrix4x4 rotate_mesh = Matrix4x4::rotation(15, 'Y');
-            //Matrix4x4 shear = Matrix4x4::shearing(0.1, 0.3, 0);
-            Matrix4x4 mesh_transform = translate * translate_back *  scale * translate_origin;
+    //        Matrix4x4 translate = Matrix4x4::translation(vec3(0.0, 1, -3.0));
+    //        Matrix4x4 scale = Matrix4x4::scaling(0.5, 0.5, 0.5);
+    //        Matrix4x4 translate_origin = Matrix4x4::translation(-mesh.first_vertex.value());
+    //        Matrix4x4 translate_back = Matrix4x4::translation(mesh.first_vertex.value());
+    //        //Matrix4x4 rotate_mesh = Matrix4x4::rotation(15, 'Y');
+    //        //Matrix4x4 shear = Matrix4x4::shearing(0.1, 0.3, 0);
+    //        Matrix4x4 mesh_transform = translate * translate_back *  scale * translate_origin;
 
-            for (ObjectID id : mesh.triangle_ids) {
-                world.transform_object(id, translate);
-            }
-        }
-    }
-    catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << "\n";
-    }
-
-    // Build Atividade 6 Scene
-    //SceneBuilder::buildAtividade6Scene(
-    //    world,
-    //    mat(grass_texture),
-    //    mat(orange),
-    //    mat(white),
-    //    mat(brown),
-    //    mat(green),
-    //    mat(red),
-    //    mat(brick_texture),
-    //    mat(wood_texture)
-    //);
+    //        for (ObjectID id : mesh.triangle_ids) {
+    //            world.transform_object(id, translate);
+    //        }
+    //    }
+    //}
+    //catch (const std::exception& e) {
+    //    std::cerr << "Error: " << e.what() << "\n";
+    //}
 
     //Light
-    std::vector<Light> lights = {
-        Light(vec3(0.0, 1, -0), 1.2, color(1.0, 1.0, 1.0)),
-        //Light(vec3(-5, 4.5, 0), 1.5, color(1.0, 0.82, 0.20)),
-        //Light(vec3(2.5, 6, -1), 2.0, color(0.3, 0.3, 1.0))
-    };
+    world.add_directional_light(vec3(-1, -1, 0), 0.5, color(1, 0.95, 0.8));
+    world.add_point_light(vec3(0, 1, 0.5), 1.0, color(1, 1, 1));
 
-    // Camera
+
+    // Cameran
     double camera_fov = 60;
     double viewport_height = 2.0;
     auto viewport_width = aspect_ratio * viewport_height;
     auto samples_per_pixel = 5; 
-    //point3 origin(-4.1, 4.3, 6.9);
-    //point3 look_at(-1.8 , 3.7, 3.0);
-    point3 origin(0, 0, 1);
-    point3 look_at(0 , 0, -3.0);
+    //point3 origin(-2.2, 1.2, 2.7);
+    //point3 look_at(0.5 , 0.0, -1.5);
+    point3 origin(0, 0, 2);
+    point3 look_at(0 , 0, -3);
 
 
     Camera camera(
@@ -178,13 +259,13 @@ int main(int argc, char* argv[]) {
     );
 
     // World to Camera
-    if (isCameraSpace) {
+    if (camera.CameraSpaceStatus()) {
         std::cout << "Calling World to Camera Transform" << ".\n";
-        camera.transform_scene_and_lights(world, lights);
+        world.transform(camera.world_to_camera_matrix);
     }
 
     //Build a BVH Tree
-    world.buildBVH();
+    //world.buildBVH();
 
     // FPS Counter
     float deltaTime = 0.0f;
@@ -203,7 +284,7 @@ int main(int argc, char* argv[]) {
 
         while (SDL_PollEvent(&event)) {
             ImGui_ImplSDL2_ProcessEvent(&event);
-            handle_event(event, running, window, aspect_ratio, camera, render_state);
+            handle_event(event, running, window, aspect_ratio, camera, render_state, world, highlighted_box);
         }
 
         // Start ImGui frame
@@ -213,10 +294,11 @@ int main(int argc, char* argv[]) {
 
         draw_menu(render_state,
             camera,
-            world, 
-            lights);
+            world);
 
         DrawFpsCounter(fps);
+
+        ShowHittableManagerUI(world);
 
         // Render ImGui
         ImGui::Render();
@@ -244,31 +326,7 @@ int main(int argc, char* argv[]) {
                 );
             }
 
-            //for (const auto& [id, object] : Scene1) {
-            //    if (id == 2) {
-            //        // Extract the bounding box
-            //        BoundingBox bb = object->bounding_box();
-
-            //        // Get the center of the bounding box
-            //        point3 bb_center = bb.getCenter();
-            //        vec3 axis(1, 0, 0);
-            //        vec3 vector = bb_center - camera.get_origin();
-            //        vec3 up_vector = camera.get_up();
-            //        vec3 cross_product = cross(vector, up_vector);
-
-            //        vec4 quaternion = quaternion.createQuaternion(cross_product, 5);
-            //        Matrix4x4 quatMatrix = quatMatrix.quaternion(quaternion);
-            //        Matrix4x4 moveOrigin = moveOrigin.translation(-bb_center);
-            //        Matrix4x4 moveBack = moveBack.translation(bb_center);
-            //        Matrix4x4 objTransform = moveBack * quatMatrix * moveOrigin;
-
-            //        world.transform_object(2, objTransform);
-
-            //        break;
-            //    }
-            //}
-
-            camera.render(world, lights, samples_per_pixel, false, isCameraSpace);
+            camera.render(world, samples_per_pixel, false);
         }
         else if (render_state.is_mode(HighResolution)) {
             Uint64 start_time = SDL_GetPerformanceCounter();
@@ -282,7 +340,7 @@ int main(int argc, char* argv[]) {
                 camera.get_image_height()
             );
 
-            camera.render(world, lights, samples_per_pixel, true, isCameraSpace);
+            camera.render(world,samples_per_pixel, true);
             Uint64 end_time = SDL_GetPerformanceCounter();
             double render_time = (end_time - start_time) / (double)SDL_GetPerformanceFrequency();
             std::cout << "render time: " << render_time << " seconds" << std::endl;
@@ -300,7 +358,7 @@ int main(int argc, char* argv[]) {
                 camera.get_image_height()
             );
 
-            camera.render(world, lights, samples_per_pixel * 2, true, isCameraSpace);
+            camera.render(world, samples_per_pixel * 2, true);
             Uint64 end_time = SDL_GetPerformanceCounter();
             double render_time = (end_time - start_time) / (double)SDL_GetPerformanceFrequency();
             std::cout << "render time: " << render_time << " seconds" << std::endl;
@@ -333,6 +391,16 @@ int main(int argc, char* argv[]) {
         SDL_UpdateTexture(texture, nullptr, pixels, camera.get_image_width() * sizeof(Uint32));
         SDL_RenderClear(renderer);
         SDL_RenderCopy(renderer, texture, nullptr, &destination_rect);
+
+        DrawCrosshair(renderer, window_width, window_height);
+
+        if (renderWorldAxes) {
+            render_world_axes(renderer, camera, destination_rect);
+        }
+
+        if (renderWireframe) {
+            DrawOctreeWireframe(renderer, world, camera, destination_rect, highlighted_box);
+        }
 
 
         // Render ImGui
