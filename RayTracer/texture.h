@@ -19,27 +19,18 @@ public:
 class checker_texture : public texture {
 public:
     color color1, color2;
-    double scale; // Controls the size of the checker pattern
+    double scale; // Controls the frequency of the sine wave pattern
 
     checker_texture(const color& c1, const color& c2, double s)
         : color1(c1), color2(c2), scale(s) {
     }
 
     virtual color value(double u, double v) const override {
-        // Wrap UV coordinates to the range [0, 1]
-        u = u - std::floor(u);
-        v = v - std::floor(v);
+        // Apply sine wave to the UV coordinates
+        double sine_pattern = sin(u * scale * M_PI) * sin(v * scale * M_PI);
 
-        // Scale UV coordinates
-        double u_scaled = u * scale;
-        double v_scaled = v * scale;
-
-        // Determine which checker square we're in
-        int checker_u = static_cast<int>(std::floor(u_scaled));
-        int checker_v = static_cast<int>(std::floor(v_scaled));
-
-        // Alternate between colors based on the parity of the grid square
-        if ((checker_u + checker_v) % 2 == 0) {
+        // Use the sign of the sine pattern to alternate colors
+        if (sine_pattern > 0) {
             return color1;
         }
         else {
@@ -51,8 +42,6 @@ public:
         return true; // Checker textures are always valid
     }
 };
-
-
 
 // Image-based texture
 class image_texture : public texture {
