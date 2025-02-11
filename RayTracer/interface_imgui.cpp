@@ -302,25 +302,25 @@ struct GUIConstants {
     static const std::array<float, 3> defaultPyramidColor;
 };
 
-// Initialize the static arrays (typically in a .cpp file)
+// Initialize the static arrays
 const std::array<float, 3> GUIConstants::defaultBoxCenter = { 0.0f, 0.0f, -1.0f };
 const std::array<float, 3> GUIConstants::defaultVmin = { -0.5f, -0.5f, -1.5f };
 const std::array<float, 3> GUIConstants::defaultVmax = { 0.5f, 0.5f, -0.5f };
-const std::array<float, 3> GUIConstants::defaultBoxColor = { 1.0f, 0.0f, 0.0f };
+const std::array<float, 3> GUIConstants::defaultBoxColor = { 0.8f, 0.1f, 0.1f }; // Deep Red
 
 const std::array<float, 3> GUIConstants::defaultSphereCenter = { 0.0f, 0.0f, -1.0f };
-const std::array<float, 3> GUIConstants::defaultSphereColor = { 0.0f, 0.0f, 1.0f };
+const std::array<float, 3> GUIConstants::defaultSphereColor = { 0.2f, 0.6f, 0.9f }; // Sky Blue
 
 const std::array<float, 3> GUIConstants::defaultCylinderBaseCenter = { 0.0f, -0.5f, -1.0f };
 const std::array<float, 3> GUIConstants::defaultCylinderTopCenter = { 0.0f, 0.5f, -1.0f };
-const std::array<float, 3> GUIConstants::defaultCylinderColor = { 0.0f, 0.5f, 1.0f };
+const std::array<float, 3> GUIConstants::defaultCylinderColor = { 0.3f, 0.85f, 0.3f }; // Lime Green
 
 const std::array<float, 3> GUIConstants::defaultConeBaseCenter = { 0.0f, -0.5f, -1.0f };
 const std::array<float, 3> GUIConstants::defaultConeTopVertex = { 0.0f, 0.5f, -1.0f };
-const std::array<float, 3> GUIConstants::defaultConeColor = { 1.0f, 0.5f, 0.0f };
+const std::array<float, 3> GUIConstants::defaultConeColor = { 0.6f, 0.3f, 0.8f }; // Violet
 
 const std::array<float, 3> GUIConstants::defaultPyramidBaseCenter = { 0.0f, -0.5f, -1.0f };
-const std::array<float, 3> GUIConstants::defaultPyramidColor = { 0.8f, 0.3f, 0.0f };
+const std::array<float, 3> GUIConstants::defaultPyramidColor = { 0.95f, 0.75f, 0.2f }; // Golden Yellow
 
 // ---------------------------------------------------------------------
 // Helper functions for each Tab
@@ -345,6 +345,23 @@ void ShowInfoTab(HittableManager& world) {
                 catch (const std::exception& e) {
                     std::cerr << "[ERROR] Failed to generate octree: " << e.what() << std::endl;
                 }
+            }
+
+            try {
+                vec3& diffuseColor = obj->get_material().diffuse_color;
+                float color[3] = { static_cast<float>(diffuseColor.e[0]),
+                                   static_cast<float>(diffuseColor.e[1]),
+                                   static_cast<float>(diffuseColor.e[2]) };
+
+                if (ImGui::ColorEdit3("Object Color", color)) {
+                    diffuseColor.e[0] = static_cast<double>(color[0]);
+                    diffuseColor.e[1] = static_cast<double>(color[1]);
+                    diffuseColor.e[2] = static_cast<double>(color[2]);
+                    obj->set_material(mat(diffuseColor));
+                }
+            }
+            catch (const std::exception& e) {
+                std::cerr << "[ERROR] Failed to set material: " << e.what() << std::endl;
             }
 
             if (world.hasOctree(selectedObjectID.value())) {
@@ -377,7 +394,6 @@ void ShowInfoTab(HittableManager& world) {
 
                 if (ImGui::Button("Print Octree")) {
                     try {
-                        // Use the . operator to access members of the Octree reference
                         world.getOctree(selectedObjectID.value()).root.ToHierarchicalString(
                             std::cout,
                             world.getOctree(selectedObjectID.value()).bounding_box
@@ -392,7 +408,6 @@ void ShowInfoTab(HittableManager& world) {
                 ImGui::Text("No Octree Generated");
             }
 
-            // Check if the object is a CSGNode or CSGPrimitive for CSG tree printing.
             if (dynamic_cast<CSGPrimitive*>(obj.get()) ||
                 dynamic_cast<CSGNode<Union>*>(obj.get()) ||
                 dynamic_cast<CSGNode<Intersection>*>(obj.get()) ||
