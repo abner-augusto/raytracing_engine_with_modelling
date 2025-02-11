@@ -15,16 +15,8 @@ public:
     double basis;         // Side length of the square base
     mat material;         // Material of the pyramid
 
-    // Constructor now takes a material.
     SquarePyramid(const point3& inferiorPoint, double height, double basis, const mat& material)
         : inferiorPoint(inferiorPoint), height(height), basis(basis), material(material) {
-    }
-
-    // Bounding Box for the Square Pyramid
-    BoundingBox boundingBox() const {
-        point3 min_corner = inferiorPoint - point3(basis / 2.0, 0, basis / 2.0);
-        double max_dimension = std::max(basis, height);
-        return BoundingBox(min_corner, max_dimension);
     }
 
     // Volume of the pyramid
@@ -261,7 +253,7 @@ public:
     char test_bb(const BoundingBox& bb) const override {
         // Step 1: Quick bounding-box overlap check
         //         If the pyramid's bounding box and 'bb' do not intersect, return 'w'.
-        if (!bb.intersects(this->boundingBox())) {
+        if (!bb.intersects(this->bounding_box())) {
             return 'w'; // completely outside
         }
 
@@ -275,7 +267,7 @@ public:
 
         // Step 2b: Count how many corners of the pyramid's bounding box are inside 'bb'.
         unsigned int pyramidBBCornersInsideBB = 0;
-        auto pyramidBBVertices = this->boundingBox().getVertices();
+        auto pyramidBBVertices = this->bounding_box().getVertices();
         for (const auto& corner : pyramidBBVertices) {
             // The bounding box class has a TestPoint(...) function.
             if (bb.contains(corner)) {
@@ -324,6 +316,14 @@ public:
 
     std::string get_type_name() const override {
         return "SquarePyramid";
+    }
+
+    void set_material(const mat& new_material) override {
+        material = new_material;
+    }
+
+    mat get_material() const override {
+        return material;
     }
 
     private:

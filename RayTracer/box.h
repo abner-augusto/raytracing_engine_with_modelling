@@ -78,10 +78,27 @@ public:
         return box;
     }
 
+    std::string get_type_name() const override {
+        return "Box Mesh";
+    }
+
+    // Getter for material
+    mat get_material() const override {
+        return material;
+    }
+
+    // Setter for material
+    void set_material(const mat& new_material) override {
+        material = new_material;
+        for (auto& tri : triangles) {
+            tri->set_material(new_material);
+        }
+    }
+
 private:
     point3 vmin;
     point3 vmax;
-    const mat& material;
+    mat material;
     double uv_scale;
     std::vector<std::shared_ptr<triangle>> triangles;
 

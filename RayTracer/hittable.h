@@ -52,6 +52,14 @@ public:
     virtual char test_bb(const BoundingBox& bb) const {
             return 'w'; // Default implementation
         }
+
+    virtual mat get_material() const {
+        return mat(color(1.0f, 1.0f, 1.0f)); // Default white material
+    }
+
+    virtual void set_material(const mat& material) {
+        throw std::runtime_error("set_material not supported for this object.");
+    }
 };
 
 #endif

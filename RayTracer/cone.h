@@ -29,8 +29,12 @@ public:
         update_constants();
     }
 
-    void set_material(const mat& new_material) {
+    void set_material(const mat& new_material) override {
         material = new_material;
+    }
+
+    mat get_material() const override {
+        return material;
     }
 
     bool hit(const ray& ray, interval ray_t, hit_record& record) const override {

@@ -137,6 +137,14 @@ public:
         return "Triangle";
     }
 
+    void set_material(const mat& new_material) override {
+        material = new_material;
+    }
+
+    mat get_material() const override {
+        return material;
+    }
+
 private:
     point3 v0, v1, v2;         // Vertices of the triangle
     double u0, v0_uv;          // UV coordinates for v0
