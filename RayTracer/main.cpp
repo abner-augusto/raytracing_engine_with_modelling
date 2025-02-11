@@ -95,7 +95,7 @@ int main(int argc, char* argv[]) {
     image_texture* wood_texture = new image_texture("textures/wood_floor.jpg");
     image_texture* grass_texture = new image_texture("textures/grass.jpg");
     image_texture* brick_texture = new image_texture("textures/brick.jpg");
-    checker_texture checker(black, white, 2);
+    checker_texture checker(black, white, 1);
     mat xadrez(&checker, 0.8, 1.0, 100.0, 0.25);
     mat sphere_mat(red, 0.8, 1.0, 150.0);
     mat sphere_mat2(green);
@@ -108,7 +108,7 @@ int main(int argc, char* argv[]) {
 
     // Create scenes
     std::vector<std::pair<ObjectID, std::shared_ptr<hittable>>> Scene1 = {
-        {0, std::make_shared<plane>(point3(0, -1.0, 0), vec3(0, 1, 0), mat(xadrez))},
+        {0, std::make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), mat(xadrez))},
 
     };
 
@@ -135,7 +135,7 @@ int main(int argc, char* argv[]) {
         std::make_shared<box_csg>(
             point3(-0.15, -1.5, -1.15),   // Min corner
             point3(0.15, 1.5, -0.85),   // Max corner
-            mat(cyan)                     // Material
+            mat(green)                     // Material
         )
     );
 
@@ -143,7 +143,7 @@ int main(int argc, char* argv[]) {
         std::make_shared<box_csg>(
             point3(-1.5, -0.15, -1.15),   // Min corner
             point3(1.5, 0.15, -0.85),   // Max corner
-            mat(cyan)                     // Material
+            mat(green)                     // Material
         )
     );
 
@@ -151,7 +151,7 @@ int main(int argc, char* argv[]) {
         std::make_shared<box_csg>(
             point3(-0.15, -0.15, -2.5),   // Min corner
             point3(0.15, 0.15, 0.5),   // Max corner
-            mat(cyan)                     // Material
+            mat(green)                     // Material
         )
     );
 
@@ -162,7 +162,7 @@ int main(int argc, char* argv[]) {
             3.0,                    // Height (matches box Y-length)
             vec3(0, 1, 0),          // Direction: +Y axis
             0.3,                   // Radius (matches box X/Z half-width)
-            mat(cyan),              // Material
+            mat(green),              // Material
             true                    // Capped
         )
     );
@@ -174,7 +174,7 @@ int main(int argc, char* argv[]) {
             3.0,                    // Height (matches box X-length)
             vec3(1, 0, 0),          // Direction: +X axis
             0.3,                   // Radius
-            mat(cyan),
+            mat(green),
             true
         )
     );
@@ -186,7 +186,7 @@ int main(int argc, char* argv[]) {
             3.0,                    // Height (from Z=-2.5 to 0.5)
             vec3(0, 0, 1),          // Direction: +Z axis
             0.3,                   // Radius
-            mat(cyan),
+            mat(green),
             true
         )
     );
@@ -235,7 +235,7 @@ int main(int argc, char* argv[]) {
     //}
 
     //Light
-    world.add_directional_light(vec3(-1, -1, 0), 0.5, color(1, 0.95, 0.8));
+    world.add_directional_light(vec3(-0.3, -0.5, -0.5), 1.0, color(1, 1, 1));
     world.add_point_light(vec3(0, 1, 0.5), 1.0, color(1, 1, 1));
 
 
