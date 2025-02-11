@@ -82,6 +82,14 @@ public:
         return "Plane";
     }
 
+    void set_material(const mat& new_material) override {
+        material = new_material;
+    }
+
+    mat get_material() const override {
+        return material;
+    }
+
 private:
     point3 point;  // A point on the plane
     vec3 normal;   // The plane's normal vector

@@ -87,6 +87,14 @@ public:
         return "CSGPrimitive<" + object->get_type_name() + ">";
     }
 
+    mat get_material() const override {
+        return object->get_material();
+    }
+
+    void set_material(const mat& new_material) override {
+        object->set_material(new_material);
+    }
+
 private:
     std::shared_ptr<hittable> object;
     // Mutable members for lazy BB calculation

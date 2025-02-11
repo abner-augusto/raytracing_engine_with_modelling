@@ -63,8 +63,12 @@ public:
         update_constants();
     }
 
-    void set_material(const mat& new_material) {
+    void set_material(const mat& new_material) override {
         material = new_material;
+    }
+
+    mat get_material() const override {
+        return material;
     }
 
     void set_capped(bool new_capped) {

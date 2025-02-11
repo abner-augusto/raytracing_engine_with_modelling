@@ -22,8 +22,12 @@ public:
         radius = std::fmax(0, new_radius);
     }
 
-    void set_material(const mat& new_material) {
+    void set_material(const mat& new_material) override {
         material = new_material;
+    }
+
+    mat get_material() const override {
+        return material;
     }
 
     bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
