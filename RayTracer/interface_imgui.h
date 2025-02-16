@@ -15,12 +15,15 @@
 #include "cylinder.h"
 #include "cone.h"
 #include "squarepyramid.h"
+#include "light.h"
 
 void draw_menu(RenderState& render_state, Camera& camera, HittableManager& world);
 
 void DrawFpsCounter(float fps);
 
 void ShowHittableManagerUI(HittableManager& world);
+
+void ShowLightsUI(HittableManager& world);
 
 // Displays the main ImGui window for object properties.
 void ShowInfoWindow(HittableManager& world);

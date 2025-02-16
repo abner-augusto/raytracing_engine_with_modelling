@@ -179,7 +179,7 @@ std::optional<ObjectID> selectedObjectID = std::nullopt;
 void ShowHittableManagerUI(HittableManager& world) {
     // Set window position to upper right corner
     ImVec2 screenSize = ImGui::GetIO().DisplaySize;
-    ImGui::SetNextWindowPos(ImVec2(screenSize.x - 10, 10), ImGuiCond_FirstUseEver, ImVec2(1.0f, 0.0f));
+    ImGui::SetNextWindowPos(ImVec2(screenSize.x, 0), ImGuiCond_Always, ImVec2(1.0f, 0.0f));
 
     ImGui::Begin("Scene Objects");
 
@@ -233,30 +233,160 @@ void ShowHittableManagerUI(HittableManager& world) {
     // End the main window
     ImGui::End();
 
-    // If the main window is collapsed, do not show the info window
     if (isCollapsed) {
         return;
     }
 
-    // Define padding between the two windows
-    constexpr float paddingY = 10.0f; // Adjust as needed for better spacing
+    constexpr float paddingY = 5.0f;
 
-    // Set the position of the properties window to be below the main window with padding
-    ImGui::SetNextWindowPos(
-        ImVec2(mainWindowPos.x, mainWindowPos.y + mainWindowSize.y + paddingY),
-        ImGuiCond_Always
-    );
+    // Display Info Window below Scene Objects window
+    ImGui::SetNextWindowPos(ImVec2(mainWindowPos.x, mainWindowPos.y + mainWindowSize.y + paddingY), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(mainWindowSize.x, 0), ImGuiCond_Always);
 
-    // Ensure the width of ShowInfoWindow matches the Scene Objects window
-    ImGui::SetNextWindowSize(
-        ImVec2(mainWindowSize.x, 0), // Width matches main window, height auto-adjusts
-        ImGuiCond_Always
-    );
-
-    // Show the properties window only if the main window is not collapsed
     ShowInfoWindow(world);
 }
 
+std::optional<size_t> selectedLightIndex = std::nullopt;
+
+void ShowLightsUI(HittableManager& world) {
+    ImGui::Begin("Scene Lights");
+
+    // Light list
+    auto& lights = world.get_lights();
+    if (lights.empty()) {
+        ImGui::Text("No lights in the scene.");
+    }
+    else {
+        for (size_t i = 0; i < lights.size(); ++i) {
+            ImGui::PushID(static_cast<int>(i));
+            bool isSelected = (selectedLightIndex.has_value() && selectedLightIndex.value() == i);
+            if (ImGui::Selectable(lights[i]->get_type_name().c_str(), isSelected)) {
+                selectedLightIndex = i;
+            }
+            ImGui::PopID();
+        }
+        if (selectedLightIndex.has_value() && ImGui::Button("Remove Light")) {
+            world.remove_light(selectedLightIndex.value());
+            selectedLightIndex.reset();
+        }
+    }
+
+    if (ImGui::BeginTabBar("LightTabs")) {
+        // Tab for editing existing lights
+        if (ImGui::BeginTabItem("Edit Lights")) {
+            if (selectedLightIndex.has_value()) {
+                auto& light = lights[selectedLightIndex.value()];
+                ImGui::Separator();
+                ImGui::Text("Edit Light Properties");
+
+                vec3 pos = light->get_position();
+                double pos_min = -100.0, pos_max = 100.0;
+                if (ImGui::SliderScalarN("Position", ImGuiDataType_Double, pos.e, 3, &pos_min, &pos_max, "%.3f")) {
+                    light->set_position(pos);
+                }
+
+                double intensity = light->get_intensity();
+                double inten_min = 0.0, inten_max = 10.0;
+                if (ImGui::SliderScalar("Intensity", ImGuiDataType_Double, &intensity, &inten_min, &inten_max, "%.3f")) {
+                    light->set_intensity(intensity);
+                }
+
+                vec3 col = light->get_color();
+                float col_f[3] = { static_cast<float>(col.e[0]), static_cast<float>(col.e[1]), static_cast<float>(col.e[2]) };
+                if (ImGui::ColorEdit3("Color", col_f)) {
+                    col.e[0] = static_cast<double>(col_f[0]);
+                    col.e[1] = static_cast<double>(col_f[1]);
+                    col.e[2] = static_cast<double>(col_f[2]);
+                    light->set_color(col);
+                }
+
+                if (auto dirLight = dynamic_cast<DirectionalLight*>(light.get())) {
+                    vec3 dir = dirLight->get_direction();
+                    double dir_min = -1.0, dir_max = 1.0;
+                    if (ImGui::SliderScalarN("Direction", ImGuiDataType_Double, dir.e, 3, &dir_min, &dir_max, "%.3f")) {
+                        dirLight->set_direction(dir);
+                    }
+                }
+
+                if (auto spotLight = dynamic_cast<SpotLight*>(light.get())) {
+                    vec3 dir = spotLight->get_direction();
+                    double dir_min = -1.0, dir_max = 1.0;
+                    if (ImGui::SliderScalarN("Direction", ImGuiDataType_Double, dir.e, 3, &dir_min, &dir_max, "%.3f")) {
+                        spotLight->set_direction(dir);
+                    }
+
+                    double inner = spotLight->get_inner_cutoff();
+                    double outer = spotLight->get_outer_cutoff();
+                    double cutoff_min = 0.0, cutoff_max = 90.0;
+                    if (ImGui::SliderScalar("Inner Cutoff", ImGuiDataType_Double, &inner, &cutoff_min, &cutoff_max, "%.1f")) {
+                        spotLight->set_cutoff_angles(inner, outer);
+                    }
+                    if (ImGui::SliderScalar("Outer Cutoff", ImGuiDataType_Double, &outer, &inner, &cutoff_max, "%.1f")) {
+                        spotLight->set_cutoff_angles(inner, outer);
+                    }
+                }
+            }
+            ImGui::EndTabItem();
+        }
+
+        // Tab for adding new lights
+        if (ImGui::BeginTabItem("Add Lights")) {
+            static int light_type = 0;
+            ImGui::RadioButton("Point Light", &light_type, 0); ImGui::SameLine();
+            ImGui::RadioButton("Directional Light", &light_type, 1); ImGui::SameLine();
+            ImGui::RadioButton("Spot Light", &light_type, 2);
+
+            static vec3 pos(0.0, 0.0, 0.0);
+            static vec3 dir(0.0, -1.0, 0.0);
+            static double intensity = 1.0;
+            static vec3 color(1.0, 1.0, 1.0);
+            static double cutoff = 30.0;
+            static double outer_cutoff = 45.0;
+
+            double pos_min = -100.0, pos_max = 100.0;
+            ImGui::SliderScalarN("Position", ImGuiDataType_Double, pos.e, 3, &pos_min, &pos_max, "%.3f");
+
+            if (light_type == 1 || light_type == 2) {
+                double dir_min = -1.0, dir_max = 1.0;
+                ImGui::SliderScalarN("Direction", ImGuiDataType_Double, dir.e, 3, &dir_min, &dir_max, "%.3f");
+            }
+
+            double inten_min = 0.0, inten_max = 10.0;
+            ImGui::SliderScalar("Intensity", ImGuiDataType_Double, &intensity, &inten_min, &inten_max, "%.3f");
+
+            float col_f[3] = { static_cast<float>(color.e[0]), static_cast<float>(color.e[1]), static_cast<float>(color.e[2]) };
+            if (ImGui::ColorEdit3("Color", col_f)) {
+                color.e[0] = static_cast<double>(col_f[0]);
+                color.e[1] = static_cast<double>(col_f[1]);
+                color.e[2] = static_cast<double>(col_f[2]);
+            }
+
+            if (light_type == 2) {
+                double cutoff_min = 0.0, cutoff_max = 90.0;
+                ImGui::SliderScalar("Inner Cutoff", ImGuiDataType_Double, &cutoff, &cutoff_min, &cutoff_max, "%.1f");
+                ImGui::SliderScalar("Outer Cutoff", ImGuiDataType_Double, &outer_cutoff, &cutoff, &cutoff_max, "%.1f");
+            }
+
+            if (ImGui::Button("Add Light")) {
+                if (light_type == 0) {
+                    world.add_point_light(pos, intensity, color);
+                }
+                else if (light_type == 1) {
+                    world.add_directional_light(dir, intensity, color);
+                }
+                else if (light_type == 2) {
+                    world.add_spot_light(pos, dir, intensity, color, cutoff, outer_cutoff);
+                }
+            }
+
+            ImGui::EndTabItem();
+        }
+
+        ImGui::EndTabBar();
+    }
+
+    ImGui::End();
+}
 
 // Define a struct to hold all GUI constants.
 struct GUIConstants {
@@ -462,6 +592,7 @@ void ShowGeometryTab(HittableManager& world) {
                 world.transform_object(selectedObjectID.value(), transform);
                 highlighted_box = world.get(selectedObjectID.value())->bounding_box();
                 translation[0] = translation[1] = translation[2] = 0.0f; // Reset
+                world.buildBVH();
             }
 
             ImGui::SameLine();
@@ -513,6 +644,7 @@ void ShowGeometryTab(HittableManager& world) {
                     Matrix4x4 rotationMatrix = rotationMatrix.rotateAroundPoint(rotationPoint, rotationAxis, rotationAngle);
                     world.transform_object(selectedObjectID.value(), rotationMatrix);
                     highlighted_box = world.get(selectedObjectID.value())->bounding_box();
+                    world.buildBVH();
                 }
             }
 
@@ -549,6 +681,7 @@ void ShowGeometryTab(HittableManager& world) {
                     Matrix4x4 rotationMatrix = rotationMatrix.rotateAroundPoint(rotationPoint, rotationAxis, frameRotationAngle);
                     world.transform_object(selectedObjectID.value(), rotationMatrix);
                     highlighted_box = world.get(selectedObjectID.value())->bounding_box();
+                    world.buildBVH(false);
                 }
             }
 
@@ -583,6 +716,7 @@ void ShowGeometryTab(HittableManager& world) {
                 highlighted_box = world.get(selectedObjectID.value())->bounding_box();
                 scaleValues[0] = scaleValues[1] = scaleValues[2] = 1.0f;
                 uniformScaleValue = 1.0f;
+                world.buildBVH();
             }
 
             ImGui::SameLine();
@@ -995,5 +1129,26 @@ void ShowInfoWindow(HittableManager& world) {
         //}
         ImGui::EndTabBar();
     }
-    ImGui::End();
+
+    ImVec2 infoWindowPos = ImGui::GetWindowPos();
+    ImVec2 infoWindowSize = ImGui::GetWindowSize();
+    bool isCollapsed = ImGui::IsWindowCollapsed();
+    ImGui::End();  // End Info window
+
+    constexpr float paddingY = 5.0f;
+
+    if (!isCollapsed) {
+        // Position Lights UI below the Info window when expanded
+        ImGui::SetNextWindowPos(ImVec2(infoWindowPos.x, infoWindowPos.y + infoWindowSize.y + paddingY), ImGuiCond_Always);
+    }
+    else {
+        // When Info window is collapsed, position Lights UI right below the title bar
+        float titleBarHeight = ImGui::GetFontSize() + ImGui::GetStyle().FramePadding.y * 2;
+        ImGui::SetNextWindowPos(ImVec2(infoWindowPos.x, infoWindowPos.y + titleBarHeight + paddingY), ImGuiCond_Always);
+    }
+
+    // Set width aligned with the left side of the Info window
+    ImGui::SetNextWindowSize(ImVec2(infoWindowSize.x, 0), ImGuiCond_Always);
+
+    ShowLightsUI(world);
 }
