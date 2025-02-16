@@ -350,18 +350,14 @@ private:
         // Get lights directly from the world (HittableManager)
         const HittableManager* manager_ptr = dynamic_cast<const HittableManager*>(&world);
         if (!manager_ptr) {
-            // Handle the case where 'world' is not a HittableManager
-            // (e.g., return black, throw an error, or use a default light set)
-            return color(0, 0, 0); // Or some other appropriate error handling
+            return color(0, 0, 0);
         }
         const auto& lights = manager_ptr->get_lights();
 
-
         // Only parallelize if we have enough lights to justify the overhead
         if (lights.size() > 4) {
-            // Use a smaller number of threads for this inner loop
             int available_threads = omp_get_num_threads();
-            int shading_threads = std::max(1, available_threads / 2);  // Use half of currently available threads
+            int shading_threads = std::max(1, available_threads / 2);
 
 #pragma omp parallel num_threads(shading_threads) if(lights.size() > 4)
             {
@@ -370,7 +366,7 @@ private:
 
 #pragma omp for nowait
                 for (int i = 0; i < static_cast<int>(lights.size()); ++i) {
-                    const auto& light = lights[i]; // light is a unique_ptr<Light>
+                    const auto& light = lights[i];
                     vec3 light_dir = light->get_light_direction(rec.p);
 
                     // Skip lights that don't contribute (back-facing)
@@ -383,9 +379,8 @@ private:
                         ray shadow_ray(rec.p + rec.normal * shadow_bias, light_dir);
                         hit_record shadow_rec;
 
-                        // For directional lights, we need to check a large distance
                         double max_distance = (dynamic_cast<DirectionalLight*>(light.get()) != nullptr) ?
-                            infinity : (light->position - rec.p).length();
+                            infinity : (light->get_position() - rec.p).length();
 
                         if (world.hit(shadow_ray, interval(0.001, max_distance), shadow_rec)) {
                             continue;
@@ -394,25 +389,25 @@ private:
                     // Get attenuation from the light
                     double attenuation = light->get_attenuation(rec.p);
 
-                    // Diffuse contribution
+                    // Diffuse contribution using getters
                     local_diffuse += calculate_diffuse(
                         rec.normal,
                         light_dir,
                         diffuse_color,
                         rec.material->k_diffuse,
-                        light->light_color,
-                        light->intensity
+                        light->get_color(),
+                        light->get_intensity()
                     ) * attenuation;
 
-                    // Specular contribution
+                    // Specular contribution using getters
                     local_specular += calculate_specular(
                         rec.normal,
                         light_dir,
                         view_dir,
                         rec.material->shininess,
                         rec.material->k_specular,
-                        light->light_color,
-                        light->intensity
+                        light->get_color(),
+                        light->get_intensity()
                     ) * attenuation;
                 }
 
@@ -424,8 +419,8 @@ private:
             }
         }
         else {
-            // Sequential processing for small number of lights
-            for (const auto& light : lights) {  // light is a unique_ptr<Light>
+            // Sequential processing for a small number of lights
+            for (const auto& light : lights) {
                 vec3 light_dir = light->get_light_direction(rec.p);
 
                 // Skip lights that don't contribute (back-facing)
@@ -438,38 +433,35 @@ private:
                     ray shadow_ray(rec.p + rec.normal * shadow_bias, light_dir);
                     hit_record shadow_rec;
 
-                    // For directional lights, we need to check a large distance
                     double max_distance = (dynamic_cast<DirectionalLight*>(light.get()) != nullptr) ?
-                        infinity : (light->position - rec.p).length();
-
+                        infinity : (light->get_position() - rec.p).length();
 
                     if (world.hit(shadow_ray, interval(0.001, max_distance), shadow_rec)) {
                         continue;
                     }
                 }
 
-                // Get attenuation from the light
                 double attenuation = light->get_attenuation(rec.p);
 
-                // Diffuse contribution (using -> to access members of the pointed-to object)
+                // Diffuse contribution using getters
                 diffuse += calculate_diffuse(
                     rec.normal,
                     light_dir,
                     diffuse_color,
                     rec.material->k_diffuse,
-                    light->light_color,
-                    light->intensity
+                    light->get_color(),
+                    light->get_intensity()
                 ) * attenuation;
 
-                // Specular contribution (using -> to access members of the pointed-to object)
+                // Specular contribution using getters
                 specular += calculate_specular(
                     rec.normal,
                     light_dir,
                     view_dir,
                     rec.material->shininess,
                     rec.material->k_specular,
-                    light->light_color,
-                    light->intensity
+                    light->get_color(),
+                    light->get_intensity()
                 ) * attenuation;
             }
         }
