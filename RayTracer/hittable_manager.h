@@ -201,9 +201,12 @@ public:
     }
     // --------------------------------------------------------
 
-    void buildBVH() {
+    void buildBVH(bool log = true) {
         // Collect all objects into a vector.
-        std::cout << "Building BVH \n";
+        if (log) {
+            std::cout << "Building BVH \n";
+        }
+
         std::vector<shared_ptr<hittable>> object_list;
         for (const auto& [id, object] : objects) {
             object_list.push_back(object);
@@ -278,6 +281,12 @@ public:
     void transform_lights(const Matrix4x4& matrix) {
         for (auto& light : lights) {
             light->transform(matrix);
+        }
+    }
+
+    void remove_light(size_t index) {
+        if (index < lights.size()) {
+            lights.erase(lights.begin() + index);
         }
     }
 
