@@ -27,7 +27,7 @@ const double pi = 3.1415926535897932385;
 #include "vec4.h"
 #include "matrix4x4.h"
 #include "hittable.h"
-#include "hittable_manager.h"
+#include "scene.h"
 
 // Utility Functions
 

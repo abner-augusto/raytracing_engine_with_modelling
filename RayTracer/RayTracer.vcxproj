@@ -43,7 +43,7 @@
     <ClInclude Include="csg_intesection.h" />
     <ClInclude Include="cylinder.h" />
     <ClInclude Include="hittable.h" />
-    <ClInclude Include="hittable_manager.h" />
+    <ClInclude Include="scene.h" />
     <ClInclude Include="hit_record.h" />
     <ClInclude Include="imgui\imconfig.h" />
     <ClInclude Include="imgui\imgui.h" />

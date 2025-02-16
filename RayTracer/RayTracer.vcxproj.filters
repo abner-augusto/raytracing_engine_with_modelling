@@ -185,7 +185,7 @@
     <ClInclude Include="bvh_node.h">
       <Filter>Header Files\raytracing</Filter>
     </ClInclude>
-    <ClInclude Include="hittable_manager.h">
+    <ClInclude Include="scene.h">
       <Filter>Header Files\raytracing</Filter>
     </ClInclude>
     <ClInclude Include="scene_builder.h">

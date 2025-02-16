@@ -108,7 +108,7 @@ public:
     }
 
     void render(
-        HittableManager& manager,
+        SceneManager& manager,
         int samples_per_pixel = 1,
         bool enable_antialias = false
     ) const {
@@ -347,8 +347,8 @@ private:
         color specular(0, 0, 0);
         const double shadow_bias = 1e-3;
 
-        // Get lights directly from the world (HittableManager)
-        const HittableManager* manager_ptr = dynamic_cast<const HittableManager*>(&world);
+        // Get lights directly from the world (SceneManager)
+        const SceneManager* manager_ptr = dynamic_cast<const SceneManager*>(&world);
         if (!manager_ptr) {
             return color(0, 0, 0);
         }

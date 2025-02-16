@@ -5,7 +5,7 @@
 #include <optional>
 #include "boundingbox.h"
 #include "camera.h"
-#include "hittable_manager.h"
+#include "scene.h"
 
 // Project a 3D point (in world space) to 2D screen space.
 std::optional<std::pair<int, int>> project(const point3& p, const Camera& camera, const SDL_Rect& viewport) {
@@ -43,7 +43,7 @@ std::optional<std::pair<int, int>> project(const point3& p, const Camera& camera
 
 // Function to draw octree voxels
 void DrawOctreeWireframe(SDL_Renderer* renderer,
-    const HittableManager& manager,
+    const SceneManager& manager,
     const Camera& camera,
     const SDL_Rect& viewport,
     const std::optional<BoundingBox>& highlighted_box) {

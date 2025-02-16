@@ -16,7 +16,7 @@
 class SceneBuilder {
 public:
     static void buildAtividade6Scene(
-        HittableManager& world,
+        SceneManager& world,
         const mat& grass_material,
         const mat& orange_material,
         const mat& white_material,
@@ -28,5 +28,5 @@ public:
     );
 
 private:
-    static void applySceneTransformations(HittableManager& world);
+    static void applySceneTransformations(SceneManager& world);
 };

@@ -5,7 +5,7 @@
 extern bool renderWireframe;
 extern bool renderWorldAxes;
 
-void draw_menu(RenderState& render_state, Camera& camera, HittableManager& world)
+void draw_menu(RenderState& render_state, Camera& camera, SceneManager& world)
 
 {
     ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
@@ -176,12 +176,12 @@ void DrawFpsCounter(float fps) {
 // Use an optional to track selection (no selection if std::nullopt).
 std::optional<ObjectID> selectedObjectID = std::nullopt;
 
-void ShowHittableManagerUI(HittableManager& world) {
+void ShowHittableManagerUI(SceneManager& world) {
     // Set window position to upper right corner
     ImVec2 screenSize = ImGui::GetIO().DisplaySize;
     ImGui::SetNextWindowPos(ImVec2(screenSize.x, 0), ImGuiCond_Always, ImVec2(1.0f, 0.0f));
 
-    ImGui::Begin("Scene Objects");
+    ImGui::Begin("SceneManager Objects");
 
     // List all objects in the scene
     auto objectList = world.list_object_names();
@@ -189,7 +189,7 @@ void ShowHittableManagerUI(HittableManager& world) {
         ImGui::Text("No objects in the scene.");
     }
     else {
-        ImGui::Text("Scene contains %d object(s):", (int)objectList.size());
+        ImGui::Text("SceneManager contains %d object(s):", (int)objectList.size());
         for (const auto& [id, name] : objectList) {
             ImGui::PushID((int)id);
             bool isSelected = (selectedObjectID.has_value() && selectedObjectID.value() == id);
@@ -239,7 +239,7 @@ void ShowHittableManagerUI(HittableManager& world) {
 
     constexpr float paddingY = 5.0f;
 
-    // Display Info Window below Scene Objects window
+    // Display Info Window below SceneManager Objects window
     ImGui::SetNextWindowPos(ImVec2(mainWindowPos.x, mainWindowPos.y + mainWindowSize.y + paddingY), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(mainWindowSize.x, 0), ImGuiCond_Always);
 
@@ -248,8 +248,8 @@ void ShowHittableManagerUI(HittableManager& world) {
 
 std::optional<size_t> selectedLightIndex = std::nullopt;
 
-void ShowLightsUI(HittableManager& world) {
-    ImGui::Begin("Scene Lights");
+void ShowLightsUI(SceneManager& world) {
+    ImGui::Begin("SceneManager Lights");
 
     // Light list
     auto& lights = world.get_lights();
@@ -456,7 +456,7 @@ const std::array<float, 3> GUIConstants::defaultPyramidColor = { 0.95f, 0.75f, 0
 // Helper functions for each Tab
 
 // Info Tab: Displays object information and octree controls.
-void ShowInfoTab(HittableManager& world) {
+void ShowInfoTab(SceneManager& world) {
     if (selectedObjectID.has_value()) {
         auto obj = world.get(selectedObjectID.value());
         if (obj) {
@@ -557,7 +557,7 @@ void ShowInfoTab(HittableManager& world) {
 }
 
 // Geometry Tab: Allows object transformation.
-void ShowGeometryTab(HittableManager& world) {
+void ShowGeometryTab(SceneManager& world) {
     if (!selectedObjectID.has_value()) {
         ImGui::Text("Select an object to transform it.");
         return;
@@ -734,7 +734,7 @@ void ShowGeometryTab(HittableManager& world) {
 
 
 // Primitives Tab: Displays sub-tabs for creating different primitives.
-void ShowPrimitivesTab(HittableManager& world) {
+void ShowPrimitivesTab(SceneManager& world) {
     if (ImGui::BeginTabBar("PrimitiveTabs")) {
         // ----- Box Tab -----
         if (ImGui::BeginTabItem("Box")) {
@@ -994,7 +994,7 @@ void ShowPrimitivesTab(HittableManager& world) {
 }
 
 // Boolean Tab: Allows for selecting two objects and applying a CSG Boolean operation.
-void ShowBooleanTab(HittableManager& world) {
+void ShowBooleanTab(SceneManager& world) {
     static std::optional<ObjectID> leftObjectID = std::nullopt;
     static std::optional<ObjectID> rightObjectID = std::nullopt;
     static CSGType selectedOperation = CSGType::UNION;
@@ -1108,7 +1108,7 @@ void ShowBooleanTab(HittableManager& world) {
 
 // ---------------------------------------------------------------------
 // Main window function that calls the helper functions in a TabBar.
-void ShowInfoWindow(HittableManager& world) {
+void ShowInfoWindow(SceneManager& world) {
     ImGui::Begin("Object Properties");
     if (ImGui::BeginTabBar("NodeWindowTabBar")) {
         if (ImGui::BeginTabItem("Info")) {

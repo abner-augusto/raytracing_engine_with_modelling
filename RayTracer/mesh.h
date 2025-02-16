@@ -8,7 +8,7 @@
 #include <unordered_map>
 #include "vec3.h"
 #include "triangle.h"
-#include "hittable_manager.h"
+#include "scene.h"
 #include "material.h"
 
 struct Material {
@@ -96,7 +96,7 @@ MeshOBJ load_obj(const std::string& filepath, const std::unordered_map<std::stri
 }
 
 
-MeshOBJ add_mesh_to_manager(const std::string& filepath, HittableManager& manager, const std::string& mtl_path = "", const mat& default_material = mat()) {
+MeshOBJ add_mesh_to_scene(const std::string& filepath, SceneManager& manager, const std::string& mtl_path = "", const mat& default_material = mat()) {
     std::unordered_map<std::string, Material> materials;
 
     if (!mtl_path.empty()) {

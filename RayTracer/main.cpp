@@ -103,23 +103,27 @@ int main(int argc, char* argv[]) {
     mat reflective_material(black, 0.8, 1.0, 150.0, 0.1);
     mat voxel_material(color(1, 1, 1));
 
-    // World Scene
-    HittableManager world;
+    // Class that holds all objects related to scene
+    SceneManager world;
 
     // Create scenes
-    std::vector<std::pair<ObjectID, std::shared_ptr<hittable>>> Scene1 = {
-        {0, std::make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), mat(grass_texture))},
-        {1, make_shared<sphere>(point3(0, 0, -1), 0.45, mat(xadrez))},
-        {2, make_shared<cylinder>(point3(-1.0, -0.25, -1), point3(-1.0, 0.35, -1), 0.3, mat(blue))},
-        {3, make_shared<cone>(point3(1, -0.15, -1), point3(1, 0.5, -1.5), 0.3, mat(red))},
-        {4, make_shared<torus>(point3(-2, 0, -1), 0.3, 0.1, vec3(0, 0.5, 0.5), mat(cyan))},
-        {5, make_shared<SquarePyramid>(point3(1.8, -0.3, -1), 0.8, 0.5, mat(green))}
+    std::vector<std::shared_ptr<hittable>> Scene1 = {
+        std::make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), mat(grass_texture)),
+        make_shared<sphere>(point3(0, 0, -1), 0.45, mat(xadrez)),
+        make_shared<cylinder>(point3(-1.0, -0.25, -1), point3(-1.0, 0.35, -1), 0.3, mat(blue)),
+        make_shared<cone>(point3(1, -0.15, -1), point3(1, 0.5, -1.5), 0.3, mat(red)),
+        make_shared<torus>(point3(-2, 0, -1), 0.3, 0.1, vec3(0, 0.5, 0.5), mat(cyan)),
+        make_shared<SquarePyramid>(point3(1.8, -0.3, -1), 0.8, 0.5, mat(green))
     };
 
+    std::vector<std::shared_ptr<hittable>> Scene2 = {
+    std::make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), mat(grass_texture)),
+    make_shared<torus>(point3(-2, 0, -1), 0.3, 0.1, vec3(0, 0.5, 0.5), mat(cyan)),
+    };
 
     //Add all objects to the manager with their manually assigned IDs
-    for (const auto& [id, obj] : Scene1) {
-        world.add(obj, id);
+    for (const auto& obj : Scene1) {
+        ObjectID id = world.add(obj);
         //std::cout << "Added object with ID " << id << ".\n";
     }
 
@@ -128,12 +132,12 @@ int main(int argc, char* argv[]) {
     MeshOBJ mesh;
     try {
         // Load an OBJ mesh and add it to the manager
-        mesh = add_mesh_to_manager("models/suzanne.obj", world, mat(orange));
+        mesh = add_mesh_to_scene("models/sonic.obj", world, "models/sonic.mtl");
 
         // Apply transformation to all triangles in the mesh
         if (!mesh.triangle_ids.empty()) {
 
-            Matrix4x4 translate = Matrix4x4::translation(vec3(0.0, 1, -3.0));
+            Matrix4x4 translate = Matrix4x4::translation(vec3(0.0, 0, -2.0));
             Matrix4x4 scale = Matrix4x4::scaling(0.5, 0.5, 0.5);
             Matrix4x4 translate_origin = Matrix4x4::translation(-mesh.first_vertex.value());
             Matrix4x4 translate_back = Matrix4x4::translation(mesh.first_vertex.value());
@@ -165,8 +169,9 @@ int main(int argc, char* argv[]) {
     //);
 
     //Light
-    //world.add_directional_light(vec3(-1, -1, 0), 0.5, color(1, 0.95, 0.8));
+    world.add_directional_light(vec3(-1, -1, 0), 0.5, color(1, 0.95, 0.8));
     world.add_point_light(vec3(0, 1, 0.5), 1.0, color(1, 1, 1));
+    //world.add_point_light(vec3(0, 3, -2), 1.0, color(1, 1, 1));
 
 
     // Cameran

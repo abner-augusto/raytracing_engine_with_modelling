@@ -9,7 +9,7 @@
 #include "matrix4x4.h"
 #include "render_state.h"
 #include "csg.h"
-#include "hittable_manager.h"
+#include "scene.h"
 #include "sphere.h"
 #include "box_csg.h"
 #include "cylinder.h"
@@ -17,28 +17,28 @@
 #include "squarepyramid.h"
 #include "light.h"
 
-void draw_menu(RenderState& render_state, Camera& camera, HittableManager& world);
+void draw_menu(RenderState& render_state, Camera& camera, SceneManager& world);
 
 void DrawFpsCounter(float fps);
 
-void ShowHittableManagerUI(HittableManager& world);
+void ShowHittableManagerUI(SceneManager& world);
 
-void ShowLightsUI(HittableManager& world);
+void ShowLightsUI(SceneManager& world);
 
 // Displays the main ImGui window for object properties.
-void ShowInfoWindow(HittableManager& world);
+void ShowInfoWindow(SceneManager& world);
 
 // Displays the "Info" tab where object details and octree controls are shown.
-void ShowInfoTab(HittableManager& world);
+void ShowInfoTab(SceneManager& world);
 
 // Displays the "Geometry" tab for object transformations.
-void ShowGeometryTab(HittableManager& world);
+void ShowGeometryTab(SceneManager& world);
 
 // Displays the "Primitives" tab with sub-tabs for creating different primitives.
-void ShowPrimitivesTab(HittableManager& world);
+void ShowPrimitivesTab(SceneManager& world);
 
 // Displays the "Boolean" tab for applying CSG operations between objects.
-void ShowBooleanTab(HittableManager& world);
+void ShowBooleanTab(SceneManager& world);
 
 extern std::optional<ObjectID> selectedObjectID;
 

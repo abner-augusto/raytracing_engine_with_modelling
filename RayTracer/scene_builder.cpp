@@ -1,7 +1,7 @@
 //#include "scene_builder.h"
 //
 //void SceneBuilder::buildAtividade6Scene(
-//    HittableManager& world,
+//    SceneManager& world,
 //    const mat& grass_material,
 //    const mat& orange_material,
 //    const mat& white_material,
@@ -50,7 +50,7 @@
 //    applySceneTransformations(world);
 //}
 //
-//void SceneBuilder::applySceneTransformations(HittableManager& world) {
+//void SceneBuilder::applySceneTransformations(SceneManager& world) {
 //    point3 viga_vmin = point3(0.5, 0.0, 0.0);
 //    point3 table_center = point3(1.25, 0.975, 0.75);
 //

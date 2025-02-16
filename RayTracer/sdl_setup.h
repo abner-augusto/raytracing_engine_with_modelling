@@ -141,7 +141,7 @@ void update_camera(Camera& camera, float speed) {
 
 
 void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, double aspect_ratio,
-    Camera& camera, RenderState& render_state, HittableManager& world,
+    Camera& camera, RenderState& render_state, SceneManager& world,
     std::optional<BoundingBox>& highlighted_box, float speed = 0.1f) {
 
     if (event.type == SDL_QUIT) {

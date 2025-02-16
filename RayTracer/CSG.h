@@ -515,7 +515,7 @@ inline  void gather_intersections_recursive(
     }
 }
 
-inline  void log_csg_hits(HittableManager& manager, const ray& central_ray) {
+inline  void log_csg_hits(SceneManager& manager, const ray& central_ray) {
     interval ray_interval(0.001, infinity);
     hit_record closest_hit;
 
