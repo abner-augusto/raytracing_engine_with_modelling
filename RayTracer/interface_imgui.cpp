@@ -63,10 +63,19 @@ void draw_menu(RenderState& render_state, Camera& camera, SceneManager& world)
             }
             ImGui::PopItemWidth();
 
+            static float ortho_scale_float = static_cast<float>(camera.get_ortho_scale());
+            ImGui::Text("Orthographic Scale");
+            ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x * 0.8f);
+            if (ImGui::SliderFloat("Ortho Scale", &ortho_scale_float, 0.5f, 5.0f)) {
+                camera.set_ortho_scale(static_cast<double>(ortho_scale_float));
+            }
+            ImGui::PopItemWidth();
+
             if (ImGui::Button("Reset to Default")) {
-                camera.set_origin(point3(0, 0, 0));
+                camera.set_origin(point3(0, 0, 2));
                 camera.set_look_at(point3(0, 0, -3));
                 camera.set_fov(60);
+                camera.set_ortho_scale(1);
                 if (isCameraSpace) {
                     world.transform(camera.world_to_camera_matrix);
                 }
@@ -280,7 +289,7 @@ void ShowLightsUI(SceneManager& world) {
                 ImGui::Text("Edit Light Properties");
 
                 vec3 pos = light->get_position();
-                double pos_min = -100.0, pos_max = 100.0;
+                double pos_min = -10.0, pos_max = 10.0;
                 if (ImGui::SliderScalarN("Position", ImGuiDataType_Double, pos.e, 3, &pos_min, &pos_max, "%.3f")) {
                     light->set_position(pos);
                 }
@@ -728,10 +737,114 @@ void ShowGeometryTab(SceneManager& world) {
             ImGui::EndTabItem();
         }
 
+        // Shearing Tab
+        if (ImGui::BeginTabItem("Shear")) {
+            static float shearValues[3] = { 0.0f, 0.0f, 0.0f };
+            static bool useCustomShearPoint = false;
+            static float customShearPoint[3] = { 0.0f, 0.0f, 0.0f };
+            static bool isShearing = false;
+            static float shearSpeed = 1.0f;
+            static float shearAmplitude = 1.0f;
+            static float time = 0.0f;
+            static Matrix4x4 accumulatedShearMatrix; // Matrix to store accumulated shear
+            static bool firstShear = true;
+
+            ImGui::Text("Shear Object");
+            ImGui::Checkbox("Use Custom Shearing Point", &useCustomShearPoint);
+
+            if (useCustomShearPoint) {
+                ImGui::Text("Custom Shearing Point:");
+                ImGui::SliderFloat3("Shearing Point", customShearPoint, -10.0f, 10.0f);
+            }
+
+            ImGui::SliderFloat3("Shear Factors", shearValues, -1.0f, 1.0f);
+
+            if (ImGui::Button("Apply Shear")) {
+                point3 shearingPoint = useCustomShearPoint ?
+                    point3(customShearPoint[0], customShearPoint[1], customShearPoint[2]) :
+                    center;
+                Matrix4x4 translateToOrigin = Matrix4x4::translation(vec3(-shearingPoint.x(), -shearingPoint.y(), -shearingPoint.z()));
+                Matrix4x4 shearMatrix = Matrix4x4::shearing(shearValues[0], shearValues[1], shearValues[2]);
+                Matrix4x4 translateBack = Matrix4x4::translation(vec3(shearingPoint.x(), shearingPoint.y(), shearingPoint.z()));
+                Matrix4x4 finalTransform = translateBack * shearMatrix * translateToOrigin;
+
+                // Accumulate the shearing transformation
+                if (firstShear) {
+                    accumulatedShearMatrix = finalTransform;
+                    firstShear = false;
+                }
+                else {
+                    accumulatedShearMatrix = finalTransform * accumulatedShearMatrix;
+                }
+
+                world.transform_object(selectedObjectID.value(), finalTransform);
+                highlighted_box = world.get(selectedObjectID.value())->bounding_box();
+                shearValues[0] = shearValues[1] = shearValues[2] = 0.0f;
+                world.buildBVH();
+            }
+
+            ImGui::SameLine();
+            if (ImGui::Button("Reset Shear")) {
+                // Apply the inverse of the accumulated shear matrix
+                try {
+                    Matrix4x4 inverseShear = accumulatedShearMatrix.inverse();
+                    world.transform_object(selectedObjectID.value(), inverseShear);
+                    highlighted_box = world.get(selectedObjectID.value())->bounding_box();
+                    world.buildBVH();
+                }
+                catch (const std::runtime_error& e) {
+                    std::cerr << "Error resetting shear: " << e.what() << "\n"; //error handling
+                }
+                // Reset the accumulated shear matrix and shear values
+                accumulatedShearMatrix.set_identity();
+                shearValues[0] = shearValues[1] = shearValues[2] = 0.0f;
+                firstShear = true; // Reset for next accumulation
+            }
+
+            ImGui::Separator();
+            ImGui::Checkbox("Enable Shear Animation", &isShearing);
+
+            if (isShearing) {
+                ImGui::SliderFloat("Shear Speed", &shearSpeed, 0.1f, 5.0f);
+                ImGui::SliderFloat("Shear Amplitude", &shearAmplitude, 0.1f, 2.0f);
+
+                static float deltaTime = 0.0f;
+                static auto lastTime = std::chrono::high_resolution_clock::now();
+                auto currentTime = std::chrono::high_resolution_clock::now();
+                deltaTime = std::chrono::duration<float>(currentTime - lastTime).count();
+                lastTime = currentTime;
+
+                time += deltaTime * shearSpeed;
+                float shearFactor = shearAmplitude * std::sin(time * 2 * M_PI);
+
+                point3 shearingPoint = useCustomShearPoint ?
+                    point3(customShearPoint[0], customShearPoint[1], customShearPoint[2]) : center;
+
+                Matrix4x4 translateToOrigin = Matrix4x4::translation(vec3(-shearingPoint.x(), -shearingPoint.y(), -shearingPoint.z()));
+                Matrix4x4 shearMatrix = Matrix4x4::shearing(shearFactor * shearValues[0], shearFactor * shearValues[1], shearFactor * shearValues[2]);
+                Matrix4x4 translateBack = Matrix4x4::translation(vec3(shearingPoint.x(), shearingPoint.y(), shearingPoint.z()));
+                Matrix4x4 finalTransform = translateBack * shearMatrix * translateToOrigin;
+
+                // Accumulate the shearing transformation for animation
+                if (firstShear) {
+                    accumulatedShearMatrix = finalTransform;
+                    firstShear = false;
+                }
+                else {
+                    accumulatedShearMatrix = finalTransform * accumulatedShearMatrix;
+                }
+
+                world.transform_object(selectedObjectID.value(), finalTransform);
+                highlighted_box = world.get(selectedObjectID.value())->bounding_box();
+                world.buildBVH(false);
+            }
+
+            ImGui::EndTabItem();
+        }
+
         ImGui::EndTabBar();
     }
 }
-
 
 // Primitives Tab: Displays sub-tabs for creating different primitives.
 void ShowPrimitivesTab(SceneManager& world) {

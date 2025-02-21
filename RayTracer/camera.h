@@ -200,8 +200,8 @@ public:
         double ndc_x = (static_cast<double>(pixel_x) + offset_x) / image_width;
         double ndc_y = (static_cast<double>(pixel_y) + offset_y) / image_height;
 
-        double screen_x = (2.0 * ndc_x - 1.0) * aspect_ratio;
-        double screen_y = (1.0 - 2.0 * ndc_y);
+        double screen_x = (2.0 * ndc_x - 1.0) * aspect_ratio * ortho_scale;
+        double screen_y = (1.0 - 2.0 * ndc_y) * ortho_scale;
 
         vec3 ray_origin = origin + (screen_x * right) + (screen_y * up);
         vec3 ray_direction = -forward;
@@ -273,6 +273,8 @@ public:
         calculate_matrices();
     }
 
+    void set_ortho_scale(double scale) { ortho_scale = scale; }
+
     void transform(const Matrix4x4& matrix) {
         origin = matrix.transform_point(origin);
         look_at = matrix.transform_point(look_at);
@@ -308,6 +310,7 @@ public:
     double get_fov_degrees() const { return fov; }
     int get_image_width() const { return image_width; }
     int get_image_height() const { return image_height; }
+    double get_ortho_scale() const { return ortho_scale; }
     Uint32* get_pixels() const { return pixels; }
     vec3 get_right() const { return right; }
     vec3 get_up() const { return up; }
@@ -511,6 +514,7 @@ private:
     int image_width;
     int image_height;
     double aspect_ratio;
+    double ortho_scale = 1.0;
     bool isCameraSpace = false;
     bool renderShadows = true;
 
