@@ -102,6 +102,33 @@ public:
         return false;
     }
 
+    char test_bb(const BoundingBox& bb) const override {
+        // Fast rejection: if the bounding box doesn't intersect the mesh's bounding box, return 'w'
+        if (!bb.intersects(this->bounding_box())) {
+            return 'w';
+        }
+
+        // Iterate through all triangles in the mesh
+        bool all_corners_inside_any_triangle = true;
+        bool any_corner_inside = false; // Flag for partial intersection
+
+        for (const auto& tri : triangles) {
+            char tri_result = tri->test_bb(bb);
+            if (tri_result == 'g') {
+                return 'g';  // Partial intersection: early exit
+            }
+            else if (tri_result == 'w') {
+                all_corners_inside_any_triangle = false;
+            }
+        }
+        // If all triangles are 'w' (outside), the result is 'w'
+        if (!all_corners_inside_any_triangle) {
+            return 'w';
+        }
+
+        //If after check all triangles and none is partial or outside, its full
+        return 'b';
+    }
 
 private:
     std::vector<std::shared_ptr<triangle>> triangles;

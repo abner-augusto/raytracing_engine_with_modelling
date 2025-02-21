@@ -171,6 +171,40 @@ public:
         return false;
     }
 
+    // Returns:
+    // 'w' if the bounding box doesn't intersect the triangle (empty)
+    // 'b' if the bounding box is completely inside the triangle (full)
+    // 'g' otherwise (partial)
+    char test_bb(const BoundingBox& bb) const override {
+
+        // Fast rejection: if the bounding box doesn't intersect the triangle's bounding box, return 'w'
+        if (!bb.intersects(this->bounding_box())) {
+            return 'w';
+        }
+
+        // Get all 8 corners of the bounding box
+        std::vector<point3> corners = bb.getVertices();
+
+        // Check if all corners are inside the triangle
+        bool all_inside = true;
+        for (const point3& corner : corners) {
+            if (!this->is_point_inside(corner)) {
+                all_inside = false;
+                break;
+            }
+        }
+        if (all_inside) {
+            return 'b'; // bounding box completely inside
+        }
+        //Check if triangle vertices are inside the bounding box
+        if (bb.contains(v0) || bb.contains(v1) || bb.contains(v2)) {
+            return 'g';//partial
+        }
+
+        // If not all corners are inside, and box intersects, it's a partial intersection.
+        return 'g';
+    }
+
 private:
     point3 v0, v1, v2;         // Vertices of the triangle
     double u0, v0_uv;          // UV coordinates for v0
