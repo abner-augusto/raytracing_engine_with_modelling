@@ -129,25 +129,17 @@ int main(int argc, char* argv[]) {
 
     //Mesh Object
 
-    MeshOBJ mesh;
+    MeshData mesh;
     try {
         // Load an OBJ mesh and add it to the manager
-        mesh = add_mesh_to_scene("models/sonic.obj", world, "models/sonic.mtl");
+        ObjectID mesh_id = add_mesh_to_scene("models/sonic.obj", world, "models/sonic.mtl");
 
         // Apply transformation to all triangles in the mesh
-        if (!mesh.triangle_ids.empty()) {
+        if (world.contains(mesh_id)) {
 
-            Matrix4x4 translate = Matrix4x4::translation(vec3(0.0, 0, -2.0));
-            Matrix4x4 scale = Matrix4x4::scaling(0.5, 0.5, 0.5);
-            Matrix4x4 translate_origin = Matrix4x4::translation(-mesh.first_vertex.value());
-            Matrix4x4 translate_back = Matrix4x4::translation(mesh.first_vertex.value());
-            //Matrix4x4 rotate_mesh = Matrix4x4::rotation(15, 'Y');
-            //Matrix4x4 shear = Matrix4x4::shearing(0.1, 0.3, 0);
-            Matrix4x4 mesh_transform = translate * translate_back *  scale * translate_origin;
+            Matrix4x4 translate = Matrix4x4::translation(vec3(0.0, 0, -3.0));
 
-            for (ObjectID id : mesh.triangle_ids) {
-                world.transform_object(id, translate);
-            }
+            world.transform_object(mesh_id, translate);
         }
     }
     catch (const std::exception& e) {
@@ -265,7 +257,7 @@ int main(int argc, char* argv[]) {
         }
         else if (render_state.is_mode(HighResolution)) {
             Uint64 start_time = SDL_GetPerformanceCounter();
-            camera.set_image_width(1280);
+            camera.set_image_width(1920);
             SDL_DestroyTexture(texture);
             texture = SDL_CreateTexture(
                 renderer,
@@ -275,7 +267,7 @@ int main(int argc, char* argv[]) {
                 camera.get_image_height()
             );
 
-            camera.render(world,samples_per_pixel, true);
+            camera.render(world,samples_per_pixel, false);
             Uint64 end_time = SDL_GetPerformanceCounter();
             double render_time = (end_time - start_time) / (double)SDL_GetPerformanceFrequency();
             std::cout << "render time: " << render_time << " seconds" << std::endl;
