@@ -145,6 +145,32 @@ public:
         return material;
     }
 
+    bool is_point_inside(const point3& p) const override {
+        // Calculate edges
+        vec3 edge0 = v1 - v0;
+        vec3 edge1 = v2 - v1;
+        vec3 edge2 = v0 - v2;
+
+        // Calculate vectors from vertices to the point
+        vec3 vp0 = p - v0;
+        vec3 vp1 = p - v1;
+        vec3 vp2 = p - v2;
+
+        // Calculate cross products
+        vec3 c0 = cross(edge0, vp0);
+        vec3 c1 = cross(edge1, vp1);
+        vec3 c2 = cross(edge2, vp2);
+
+        // Calculate the normal of the triangle
+        vec3 normal = cross(edge0, edge1);
+
+        // Check if all cross products have the same orientation as the normal
+        if (dot(normal, c0) >= 0 && dot(normal, c1) >= 0 && dot(normal, c2) >= 0) {
+            return true;
+        }
+        return false;
+    }
+
 private:
     point3 v0, v1, v2;         // Vertices of the triangle
     double u0, v0_uv;          // UV coordinates for v0
