@@ -74,6 +74,11 @@ float rightStickX = 0.0f, rightStickY = 0.0f;
 bool moveUp = false;
 bool moveDown = false;
 
+const int DOUBLE_CLICK_INTERVAL = 300; // Maximum time between clicks in milliseconds
+Uint32 last_click_time = 0;
+int last_click_x = 0;
+int last_click_y = 0;
+
 // Call this function in the game loop to apply continuous movement
 void update_camera(Camera& camera, float speed) {
     vec3 forward = unit_vector(camera.get_look_at() - camera.get_origin()); // Camera forward direction
@@ -268,6 +273,7 @@ void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, dou
 
         case SDLK_4: // Set render mode: Disabled
             render_state.set_mode(Disabled);
+            camera.clear_pixels();
             break;
 
         case SDLK_h:
@@ -356,6 +362,21 @@ void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, dou
             int mouse_x = event.button.x;
             int mouse_y = event.button.y;
 
+            // Check for double click
+            Uint32 current_time = SDL_GetTicks();
+            bool is_double_click = false;
+
+            if (current_time - last_click_time < DOUBLE_CLICK_INTERVAL &&
+                abs(mouse_x - last_click_x) < 5 && // Allow small mouse movement between clicks
+                abs(mouse_y - last_click_y) < 5) {
+                is_double_click = true;
+            }
+
+            // Update click tracking
+            last_click_time = current_time;
+            last_click_x = mouse_x;
+            last_click_y = mouse_y;
+
             // Get the current window size
             int window_width, window_height;
             SDL_GetWindowSize(window, &window_width, &window_height);
@@ -376,9 +397,9 @@ void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, dou
             hit_record closest_hit;
             closest_hit.t = std::numeric_limits<double>::infinity();
             std::shared_ptr<hittable> closest_object = nullptr;
-            ObjectID closest_id = -1; // Store the closest object's ID
-
+            ObjectID closest_id = -1;
             auto objects = world.getObjects();
+
             for (const auto& object : objects) {
                 const BoundingBox& box = object->bounding_box();
                 interval hit_range(0.0, closest_hit.t);
@@ -395,14 +416,20 @@ void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, dou
                     }
                 }
             }
+
             // If a valid object is found, highlight its bounding box and auto-select in ImGui
             if (closest_object) {
                 highlighted_box = closest_object->bounding_box();
-
                 // Get the ObjectID from the object
                 std::optional<ObjectID> object_id = world.get_object_id(closest_object);
                 if (object_id.has_value()) {
                     selectedObjectID = object_id.value();
+                }
+
+                // If this was a double click, set the camera look-at point to the object's center
+                if (is_double_click) {
+                    point3 object_center = closest_object->bounding_box().getCenter();
+                    camera.set_look_at(object_center);
                 }
             }
         }
