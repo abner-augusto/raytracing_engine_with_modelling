@@ -1,27 +1,121 @@
 ﻿#define _CRT_SECURE_NO_WARNINGS
 #include "interface_imgui.h"
+#include <windows.h>
+#include <commdlg.h>
+#include <string>
+
+#ifdef DIFFERENCE
+#undef DIFFERENCE
+#endif
 
 
 extern bool renderWireframe;
 extern bool renderWorldAxes;
 
-void draw_menu(RenderState& render_state, Camera& camera, SceneManager& world)
+// Function to open a file dialog and return the selected file path
+std::string OpenFileDialog(const wchar_t* filter) {
+    OPENFILENAMEW ofn; // Use wide-character version
+    wchar_t file[MAX_PATH] = L""; // Wide-character string for file path
 
-{
-    ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowCollapsed(true, ImGuiCond_FirstUseEver);
+    ZeroMemory(&ofn, sizeof(ofn));
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = NULL;
+    ofn.lpstrFilter = filter;
+    ofn.lpstrFile = file;
+    ofn.nMaxFile = MAX_PATH;
+    ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
 
-    if (ImGui::Begin("Menu", nullptr, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (GetOpenFileNameW(&ofn)) {
+        // Convert wide string to std::string
+        int size_needed = WideCharToMultiByte(CP_UTF8, 0, file, -1, NULL, 0, NULL, NULL);
+        std::string converted_str(size_needed, 0);
+        WideCharToMultiByte(CP_UTF8, 0, file, -1, &converted_str[0], size_needed, NULL, NULL);
+        return converted_str;
+    }
+    return "";
+}
 
-        static bool isCameraSpace = false;
-        static point3 previous_origin = camera.get_origin();  // Store previous origin
-        static point3 previous_look_at = camera.get_look_at();  // Store previous look-at
+void draw_menu(RenderState& render_state, Camera& camera, SceneManager& world) {
+    // Initialize static variables
+    static bool isCameraSpace = camera.CameraSpaceStatus();
+    static point3 previous_origin = camera.get_origin();
+    static point3 previous_look_at = camera.get_look_at();
+    static bool renderShadows = camera.shadowStatus();
 
-        // Camera Header
-        if (ImGui::CollapsingHeader("Camera")) {
-            //ImGui::Checkbox("Camera Space Transform", &isCameraSpace);
+    // Menu state tracking variables
+    static bool cameraMenuOpen = false;
+    static bool renderMenuOpen = false;
+    static bool importMenuOpen = false;
+    static bool projectionsMenuOpen = false;
 
-            // Camera Origin with keyboard control info
+    // Calculate total width needed for buttons
+    float buttonSpacing = 5.0f;
+    float cameraWidth = ImGui::CalcTextSize("Camera").x + 20.0f;  // Add padding
+    float renderWidth = ImGui::CalcTextSize("Render").x + 20.0f;
+    float importWidth = ImGui::CalcTextSize("Import").x + 20.0f;
+    float totalWidth = cameraWidth + renderWidth + importWidth + (buttonSpacing * 2) + 10.0f;
+
+    // Create a custom window to act as our menu bar
+    ImGui::SetNextWindowPos(ImVec2(0, 0));
+    ImGui::SetNextWindowSize(ImVec2(totalWidth, 0)); // 0 height for auto-sizing height
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(5, 5));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+
+    if (ImGui::Begin("##MenuBar", nullptr,
+        ImGuiWindowFlags_NoTitleBar |
+        ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoScrollbar |
+        ImGuiWindowFlags_NoScrollWithMouse |
+        ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoSavedSettings |
+        ImGuiWindowFlags_AlwaysAutoResize)) {
+
+        // Create horizontal layout
+        ImGui::BeginGroup();
+
+        // Camera Menu Button
+        if (ImGui::Button("Camera", ImVec2(cameraWidth, 0))) {
+            cameraMenuOpen = !cameraMenuOpen;
+            renderMenuOpen = false;
+            importMenuOpen = false;
+        }
+
+        // Render Menu Button
+        ImGui::SameLine(0, buttonSpacing);
+        if (ImGui::Button("Render", ImVec2(renderWidth, 0))) {
+            renderMenuOpen = !renderMenuOpen;
+            cameraMenuOpen = false;
+            importMenuOpen = false;
+        }
+
+        // Import Menu Button
+        ImGui::SameLine(0, buttonSpacing);
+        if (ImGui::Button("Import", ImVec2(importWidth, 0))) {
+            importMenuOpen = !importMenuOpen;
+            cameraMenuOpen = false;
+            renderMenuOpen = false;
+        }
+
+        ImGui::EndGroup();
+
+        ImGui::End();
+    }
+
+    ImGui::PopStyleVar(3); // Pop the style variables we pushed
+
+    // Store the menu bar height for positioning dropdowns
+    float menuBarHeight = ImGui::GetFrameHeightWithSpacing();
+
+    // Camera Menu Content
+    if (cameraMenuOpen) {
+        ImGui::SetNextWindowPos(ImVec2(0, menuBarHeight));
+        if (ImGui::Begin("CameraMenu", &cameraMenuOpen,
+            ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
+            ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize)) {
+
+            // Camera Origin controls
             ImGui::Text("Camera Origin (WASD Keys)");
             float origin_array[3] = {
                 static_cast<float>(camera.get_origin().x()),
@@ -29,131 +123,189 @@ void draw_menu(RenderState& render_state, Camera& camera, SceneManager& world)
                 static_cast<float>(camera.get_origin().z())
             };
 
-            // Fixed width for sliders
-            ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x * 0.8f);
+            ImGui::PushItemWidth(200);
             if (ImGui::SliderFloat3("Origin", origin_array, -10.0f, 10.0f)) {
                 camera.set_origin(point3(origin_array[0], origin_array[1], origin_array[2]));
-                if (isCameraSpace) {
-                    world.transform(camera.world_to_camera_matrix);
-                }
+                //if (isCameraSpace) {
+                //    world.transform(camera.world_to_camera_matrix);
+                //}
             }
-            ImGui::PopItemWidth();
 
-            // Look At Target with arrow key info
+            // Look At Target controls
             ImGui::Text("Look At Target (Arrow Keys)");
             float target_array[3] = {
                 static_cast<float>(camera.get_look_at().x()),
                 static_cast<float>(camera.get_look_at().y()),
                 static_cast<float>(camera.get_look_at().z())
             };
-            ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x * 0.8f);
             if (ImGui::SliderFloat3("Look At", target_array, -10.0f, 10.0f)) {
                 camera.set_look_at(point3(target_array[0], target_array[1], target_array[2]));
-                if (isCameraSpace) {
-                    world.transform(camera.world_to_camera_matrix);
-                }
+                //if (isCameraSpace) {
+                //    world.transform(camera.world_to_camera_matrix);
+                //}
             }
-            ImGui::PopItemWidth();
 
+            // FOV and Orthographic Scale
             float camera_fov_degrees = static_cast<float>(camera.get_fov_degrees());
-            ImGui::Text("Camera FOV");
-            ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x * 0.8f);
             if (ImGui::SliderFloat("FOV", &camera_fov_degrees, 10.0f, 120.0f)) {
                 camera.set_fov(static_cast<double>(camera_fov_degrees));
             }
-            ImGui::PopItemWidth();
 
-            static float ortho_scale_float = static_cast<float>(camera.get_ortho_scale());
-            ImGui::Text("Orthographic Scale");
-            ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x * 0.8f);
+            float ortho_scale_float = static_cast<float>(camera.get_ortho_scale());
             if (ImGui::SliderFloat("Ortho Scale", &ortho_scale_float, 0.5f, 5.0f)) {
                 camera.set_ortho_scale(static_cast<double>(ortho_scale_float));
             }
             ImGui::PopItemWidth();
 
+            ImGui::Separator();
+
+            // Integrated Projections Submenu using a Collapsing Header
+            if (ImGui::CollapsingHeader("Projections")) {
+                if (ImGui::Button("Perspective")) {
+                    camera.set_origin(previous_origin);
+                    camera.set_look_at(previous_look_at);
+                    camera.use_perspective_projection();
+                }
+                if (ImGui::Button("Orthographic")) {
+                    previous_origin = camera.get_origin();
+                    previous_look_at = camera.get_look_at();
+                    camera.use_orthographic_projection();
+                }
+                if (ImGui::Button("Isometric")) {
+                    previous_origin = camera.get_origin();
+                    previous_look_at = camera.get_look_at();
+                    camera.set_origin(point3(1, 1.5, 1));
+                    camera.set_look_at(point3(0, 0, 0));
+                    camera.use_orthographic_projection();
+                    camera.rotate_to_isometric_view();
+                }
+                if (ImGui::Button("Iso rotation")) {
+                    camera.rotate_to_isometric_view();
+                }
+            }
+
+            ImGui::Separator();
             if (ImGui::Button("Reset to Default")) {
+                if (isCameraSpace) {
+                    camera.toggleCameraSpace();
+                    isCameraSpace = false;
+                    world.transform(camera.camera_to_world_matrix);
+                }
                 camera.set_origin(point3(0, 0, 2));
                 camera.set_look_at(point3(0, 0, -3));
                 camera.set_fov(60);
                 camera.set_ortho_scale(1);
-                if (isCameraSpace) {
+
+            }
+
+            ImGui::Separator();
+            if (ImGui::Checkbox("Camera Space", &isCameraSpace)) {
+                camera.toggleCameraSpace();
+
+                if (camera.CameraSpaceStatus()) {
+                    std::cout << "Switching to Camera Space: Applying World to Camera Transform.\n";
                     world.transform(camera.world_to_camera_matrix);
                 }
-            }
-            ImGui::Separator();
-            ImGui::Text("Camera Projections:");
-
-            if (ImGui::Button("Perspective")) {
-                // Restore previous camera position before switching to perspective
-                camera.set_origin(previous_origin);
-                camera.set_look_at(previous_look_at);
-                camera.use_perspective_projection();
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Orthographic")) {
-                previous_origin = camera.get_origin();
-                previous_look_at = camera.get_look_at();
-                camera.use_orthographic_projection();
+                else {
+                    std::cout << "Switching to World Space: Applying Camera to World Transform.\n";
+                    world.transform(camera.camera_to_world_matrix);
+                }
             }
 
-            if (ImGui::Button("Isometric")) {
-                // Store current camera position before switching to orthographic
-                previous_origin = camera.get_origin();
-                previous_look_at = camera.get_look_at();
-                camera.set_origin(point3(1, 1.5, 1));
-                camera.set_look_at(point3(0, 0, 0));
-                camera.use_orthographic_projection();
-                camera.rotate_to_isometric_view();
-            }
-            ImGui::SameLine();
-            if (ImGui::Button("Iso rotation")) {
-                camera.rotate_to_isometric_view();
-            }
-
-            ImGui::Separator();
-
-            ImGui::Text("Hint: Camera is now controllable");
-            ImGui::Text("by the gamepad as well!");
+            ImGui::End();
         }
+    }
 
-        bool renderShadows = camera.shadowStatus();
-
-        // Render Header with keyboard shortcuts
-        if (ImGui::CollapsingHeader("Render Options")) {
-            ImGui::Text("Press 1-4 to quickly change render mode:");
+    // Render Menu Content
+    if (renderMenuOpen) {
+        ImGui::SetNextWindowPos(ImVec2(cameraWidth + buttonSpacing, menuBarHeight));
+        if (ImGui::Begin("RenderMenu", &renderMenuOpen, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::Text("Quick render modes (1-4):");
             ImGui::Separator();
 
             if (ImGui::Button("Real Time Low-Res Render (1)")) {
                 render_state.set_mode(DefaultRender);
             }
-
             if (ImGui::Button("Low-Res Frame (2)")) {
                 render_state.set_mode(LowResolution);
             }
-
             if (ImGui::Button("High-Res Frame (3)")) {
                 render_state.set_mode(HighResolution);
             }
-
             if (ImGui::Button("Disable Raytracing (4)")) {
                 render_state.set_mode(Disabled);
                 camera.clear_pixels();
             }
 
+            ImGui::Separator();
+
             if (ImGui::Checkbox("Toggle Shadows", &renderShadows)) {
                 camera.toggleShadows();
             }
-
-            if (ImGui::Checkbox("Toggle Wireframe", &renderWireframe)) {
-
+            bool wireframe = renderWireframe;
+            if (ImGui::Checkbox("Toggle Wireframe", &wireframe)) {
+                renderWireframe = wireframe;
+                // Wireframe toggle logic
+            }
+            bool worldAxes = renderWorldAxes;
+            if (ImGui::Checkbox("Toggle World Axes", &worldAxes)) {
+                renderWorldAxes = worldAxes;
+                // World axes toggle logic
             }
 
-            if (ImGui::Checkbox("Toggle World Axes", &renderWorldAxes)) {
-
-            }
+            ImGui::End();
         }
     }
-    ImGui::End();
+
+    // Import Menu Content
+    if (importMenuOpen) {
+        ImGui::SetNextWindowPos(ImVec2(cameraWidth + renderWidth + (buttonSpacing * 2), menuBarHeight));
+        if (ImGui::Begin("ImportMenu", &importMenuOpen, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize)) {
+            static std::string obj_filepath = "";
+            static std::string mtl_filepath = "";
+            static bool use_material = false;
+            static float material_color[3] = { 1.0f, 1.0f, 1.0f };
+            static mat default_material;
+
+            if (ImGui::Button("Select OBJ File")) {
+                std::string selected_file = OpenFileDialog(L"Wavefront OBJ (*.obj)\0*.obj\0");
+                if (!selected_file.empty()) {
+                    obj_filepath = selected_file;
+                }
+            }
+            ImGui::Text("Selected OBJ: %s", obj_filepath.c_str());
+
+            ImGui::Checkbox("Use MTL File", &use_material);
+            if (use_material) {
+                if (ImGui::Button("Select MTL File")) {
+                    std::string selected_file = OpenFileDialog(L"Material File (*.mtl)\0*.mtl\0");
+                    if (!selected_file.empty()) {
+                        mtl_filepath = selected_file;
+                    }
+                }
+                ImGui::Text("Selected MTL: %s", mtl_filepath.c_str());
+            }
+            else {
+                ImGui::ColorEdit3("Material Color", material_color);
+            }
+
+            if (ImGui::Button("Import")) {
+                try {
+                    if (!use_material) {
+                        default_material = mat(color(material_color[0], material_color[1], material_color[2]));
+                    }
+                    add_mesh_to_scene(obj_filepath, world, use_material ? mtl_filepath : "", default_material);
+                    std::cout << "Successfully imported OBJ file: " << obj_filepath << std::endl;
+                    world.buildBVH();
+                }
+                catch (const std::exception& e) {
+                    std::cerr << "Error importing OBJ: " << e.what() << std::endl;
+                }
+            }
+
+            ImGui::End();
+        }
+    }
 }
 
 void DrawFpsCounter(float fps) {
@@ -185,7 +337,7 @@ void DrawFpsCounter(float fps) {
 // Use an optional to track selection (no selection if std::nullopt).
 std::optional<ObjectID> selectedObjectID = std::nullopt;
 
-void ShowHittableManagerUI(SceneManager& world) {
+void ShowHittableManagerUI(SceneManager& world, Camera& camera) {
     // Set window position to upper right corner
     ImVec2 screenSize = ImGui::GetIO().DisplaySize;
     ImGui::SetNextWindowPos(ImVec2(screenSize.x, 0), ImGuiCond_Always, ImVec2(1.0f, 0.0f));
@@ -199,18 +351,34 @@ void ShowHittableManagerUI(SceneManager& world) {
     }
     else {
         ImGui::Text("SceneManager contains %d object(s):", (int)objectList.size());
+        static int lastSelectedID = -1;
+        static double lastClickTime = 0.0;
+
         for (const auto& [id, name] : objectList) {
             ImGui::PushID((int)id);
             bool isSelected = (selectedObjectID.has_value() && selectedObjectID.value() == id);
             if (ImGui::Selectable(name.c_str(), isSelected)) {
+                // Track selection
+                if (selectedObjectID.has_value() && selectedObjectID.value() == id) {
+                    double currentTime = ImGui::GetTime();
+                    if (lastSelectedID == id && (currentTime - lastClickTime) < 1.0) { // Double-click detected
+                        auto object = world.get(id);
+                        if (object) {
+                            camera.set_look_at(object->bounding_box().getCenter());
+                        }
+                    }
+                    lastClickTime = currentTime;
+                }
+
                 selectedObjectID = id;
+                lastSelectedID = id;
             }
             ImGui::PopID();
         }
     }
 
-    // Remove selected object button
     if (selectedObjectID.has_value()) {
+        // Remove selected object button
         if (ImGui::Button("Remove Selected Object")) {
             if (selectedObjectID.value() == 0) {
                 ImGui::OpenPopup("Cannot Delete Plane");
@@ -219,6 +387,16 @@ void ShowHittableManagerUI(SceneManager& world) {
                 world.remove(selectedObjectID.value());
                 selectedObjectID.reset();
                 highlighted_box.reset();
+            }
+        }
+
+        ImGui::SameLine(); // Ensure buttons are placed side by side
+
+        // Look at Object button
+        if (ImGui::Button("Look at Object")) {
+            auto object = world.get(selectedObjectID.value());
+            if (object) {
+                camera.set_look_at(object->bounding_box().getCenter());
             }
         }
 
@@ -255,6 +433,7 @@ void ShowHittableManagerUI(SceneManager& world) {
     ShowInfoWindow(world);
 }
 
+
 std::optional<size_t> selectedLightIndex = std::nullopt;
 
 void ShowLightsUI(SceneManager& world) {
@@ -288,10 +467,12 @@ void ShowLightsUI(SceneManager& world) {
                 ImGui::Separator();
                 ImGui::Text("Edit Light Properties");
 
-                vec3 pos = light->get_position();
-                double pos_min = -10.0, pos_max = 10.0;
-                if (ImGui::SliderScalarN("Position", ImGuiDataType_Double, pos.e, 3, &pos_min, &pos_max, "%.3f")) {
-                    light->set_position(pos);
+                if (!dynamic_cast<DirectionalLight*>(light.get())) {
+                    vec3 pos = light->get_position();
+                    double pos_min = -10.0, pos_max = 10.0;
+                    if (ImGui::SliderScalarN("Position", ImGuiDataType_Double, pos.e, 3, &pos_min, &pos_max, "%.3f")) {
+                        light->set_position(pos);
+                    }
                 }
 
                 double intensity = light->get_intensity();
@@ -352,7 +533,7 @@ void ShowLightsUI(SceneManager& world) {
             static double cutoff = 30.0;
             static double outer_cutoff = 45.0;
 
-            double pos_min = -100.0, pos_max = 100.0;
+            double pos_min = -10.0, pos_max = 10.0;
             ImGui::SliderScalarN("Position", ImGuiDataType_Double, pos.e, 3, &pos_min, &pos_max, "%.3f");
 
             if (light_type == 1 || light_type == 2) {
@@ -702,6 +883,8 @@ void ShowGeometryTab(SceneManager& world) {
             static float scaleValues[3] = { 1.0f, 1.0f, 1.0f }; // Default scale values
             static bool uniformScale = false; // Checkbox for uniform scaling
             static float uniformScaleValue = 1.0f; // Single slider value for uniform scaling
+            static Matrix4x4 accumulatedScaleMatrix; // Store accumulated scaling transformation
+            static bool firstScale = true;
 
             ImGui::Text("Scale Object");
 
@@ -720,22 +903,52 @@ void ShowGeometryTab(SceneManager& world) {
 
             if (ImGui::Button("Apply Scaling")) {
                 // Apply scaling around the object's center
-                Matrix4x4 scaleMatrix = scaleMatrix.scaleAroundPoint(center, scaleValues[0], scaleValues[1], scaleValues[2]);
-                world.transform_object(selectedObjectID.value(), scaleMatrix);
+                Matrix4x4 translateToOrigin = Matrix4x4::translation(vec3(-center.x(), -center.y(), -center.z()));
+                Matrix4x4 scaleMatrix = Matrix4x4::scaling(scaleValues[0], scaleValues[1], scaleValues[2]);
+                Matrix4x4 translateBack = Matrix4x4::translation(vec3(center.x(), center.y(), center.z()));
+                Matrix4x4 finalTransform = translateBack * scaleMatrix * translateToOrigin;
+
+                // Accumulate the scaling transformation
+                if (firstScale) {
+                    accumulatedScaleMatrix = finalTransform;
+                    firstScale = false;
+                }
+                else {
+                    accumulatedScaleMatrix = finalTransform * accumulatedScaleMatrix;
+                }
+
+                world.transform_object(selectedObjectID.value(), finalTransform);
                 highlighted_box = world.get(selectedObjectID.value())->bounding_box();
+                world.buildBVH();
+
+                // Reset scale values for next input
                 scaleValues[0] = scaleValues[1] = scaleValues[2] = 1.0f;
                 uniformScaleValue = 1.0f;
-                world.buildBVH();
             }
 
             ImGui::SameLine();
             if (ImGui::Button("Reset Scaling")) {
-                scaleValues[0] = scaleValues[1] = scaleValues[2] = 1.0f; // Reset to default scale
+                try {
+                    // Apply the inverse of the accumulated scaling matrix
+                    Matrix4x4 inverseScale = accumulatedScaleMatrix.inverse();
+                    world.transform_object(selectedObjectID.value(), inverseScale);
+                    highlighted_box = world.get(selectedObjectID.value())->bounding_box();
+                    world.buildBVH();
+                }
+                catch (const std::runtime_error& e) {
+                    std::cerr << "Error resetting scale: " << e.what() << "\n"; // Error handling
+                }
+
+                // Reset accumulated scaling matrix
+                accumulatedScaleMatrix.set_identity();
+                firstScale = true; // Reset for next accumulation
+                scaleValues[0] = scaleValues[1] = scaleValues[2] = 1.0f;
                 uniformScaleValue = 1.0f;
             }
 
             ImGui::EndTabItem();
         }
+
 
         // Shearing Tab
         if (ImGui::BeginTabItem("Shear")) {

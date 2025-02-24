@@ -168,7 +168,7 @@ struct MeshData {
     std::vector<std::string> face_materials;
 };
 
-std::unordered_map<std::string, MaterialData> load_mtl(const std::string& filepath) {
+inline std::unordered_map<std::string, MaterialData> load_mtl(const std::string& filepath) {
     std::unordered_map<std::string, MaterialData> materials;
     std::ifstream file(filepath);
     if (!file.is_open()) throw std::runtime_error("Failed to open MTL file: " + filepath);
@@ -202,7 +202,7 @@ std::unordered_map<std::string, MaterialData> load_mtl(const std::string& filepa
     return materials;
 }
 
-MeshData load_obj(const std::string& filepath, const std::unordered_map<std::string, MaterialData>& materials) {
+inline MeshData load_obj(const std::string& filepath, const std::unordered_map<std::string, MaterialData>& materials) {
     MeshData model;
     std::ifstream file(filepath);
     if (!file.is_open()) throw std::runtime_error("Failed to open OBJ file: " + filepath);
@@ -235,7 +235,7 @@ MeshData load_obj(const std::string& filepath, const std::unordered_map<std::str
     return model;
 }
 
-ObjectID add_mesh_to_scene(const std::string& filepath, SceneManager& manager, const std::string& mtl_path = "", const mat& default_material = mat()) {
+inline ObjectID add_mesh_to_scene(const std::string& filepath, SceneManager& manager, const std::string& mtl_path = "", const mat& default_material = mat()) {
     std::unordered_map<std::string, MaterialData> materials;
 
     if (!mtl_path.empty()) {
