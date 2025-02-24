@@ -113,7 +113,8 @@ int main(int argc, char* argv[]) {
         make_shared<cylinder>(point3(-1.0, -0.25, -1), point3(-1.0, 0.35, -1), 0.3, mat(blue)),
         make_shared<cone>(point3(1, -0.15, -1), point3(1, 0.5, -1.5), 0.3, mat(red)),
         make_shared<torus>(point3(-2, 0, -1), 0.3, 0.1, vec3(0, 0.5, 0.5), mat(cyan)),
-        make_shared<SquarePyramid>(point3(1.8, -0.3, -1), 0.8, 0.5, mat(green))
+        make_shared<SquarePyramid>(point3(1.8, -0.3, -1), 0.8, 0.5, mat(green)),
+        make_shared<box>(point3(2.6, 0, -1), 0.7, mat(brick_texture))
     };
 
     std::vector<std::shared_ptr<hittable>> Scene2 = {
@@ -161,20 +162,20 @@ int main(int argc, char* argv[]) {
     //);
 
     //Light
-    world.add_directional_light(vec3(-1, -1, 0), 0.5, color(1, 0.95, 0.8));
-    world.add_point_light(vec3(0, 1, 0.5), 1.0, color(1, 1, 1));
-    //world.add_point_light(vec3(0, 3, -2), 1.0, color(1, 1, 1));
+    world.add_directional_light(vec3(-0.6, -0.5, -0.5), 0.4, color(1, 0.95, 0.8));
+    world.add_point_light(point3(0, 1, 0.5), 1.0, color(1, 1, 1));
+    world.add_spot_light(point3(0, 0.7, -1.0), vec3(0,0.043,-1.0), 6.5, color(0,0.1,1), 30, 45);
 
 
-    // Cameran
+    // Camera
     double camera_fov = 60;
     double viewport_height = 2.0;
     auto viewport_width = aspect_ratio * viewport_height;
     auto samples_per_pixel = 5; 
-    //point3 origin(-2.2, 1.2, 2.7);
-    //point3 look_at(0.5 , 0.0, -1.5);
-    point3 origin(0, 0, 2);
-    point3 look_at(0 , 0, -3);
+    point3 origin(2.2, 1.8, 2.1);
+    point3 look_at(1.0 , 0.05, -2.5);
+    //point3 origin(0, 0, 2);
+    //point3 look_at(0 , 0, -3);
 
 
     Camera camera(
@@ -225,7 +226,7 @@ int main(int argc, char* argv[]) {
 
         DrawFpsCounter(fps);
 
-        ShowHittableManagerUI(world);
+        ShowHittableManagerUI(world, camera);
 
         // Render ImGui
         ImGui::Render();
@@ -267,10 +268,15 @@ int main(int argc, char* argv[]) {
                 camera.get_image_height()
             );
 
-            camera.render(world,samples_per_pixel, false);
+            camera.render(world, samples_per_pixel, false);
             Uint64 end_time = SDL_GetPerformanceCounter();
             double render_time = (end_time - start_time) / (double)SDL_GetPerformanceFrequency();
-            std::cout << "render time: " << render_time << " seconds" << std::endl;
+
+            // Print resolution along with render time
+            std::cout << "High-Resolution Render: "
+                << camera.get_image_width() << "x" << camera.get_image_height()
+                << " | Render Time: " << render_time << " seconds" << std::endl;
+
             render_state.set_mode(Disabled);
         }
         else if (render_state.is_mode(LowResolution)) {
@@ -288,7 +294,12 @@ int main(int argc, char* argv[]) {
             camera.render(world, samples_per_pixel * 2, true);
             Uint64 end_time = SDL_GetPerformanceCounter();
             double render_time = (end_time - start_time) / (double)SDL_GetPerformanceFrequency();
-            std::cout << "render time: " << render_time << " seconds" << std::endl;
+
+            // Print resolution along with render time
+            std::cout << "Low-Resolution Render: "
+                << camera.get_image_width() << "x" << camera.get_image_height()
+                << " | Render Time: " << render_time << " seconds" << std::endl;
+
             render_state.set_mode(Disabled);
         }
 
