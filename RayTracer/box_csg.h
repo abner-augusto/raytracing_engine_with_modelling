@@ -45,11 +45,11 @@ public:
         vec3 t0 = (min_corner - r.origin()) * invD;
         vec3 t1 = (max_corner - r.origin()) * invD;
 
-        vec3 t_min = min(t0, t1);
-        vec3 t_max = max(t0, t1);
+        vec3 t_min = t0.cmin(t1);
+        vec3 t_max = t0.cmax(t1);
 
-        double tNear = std::max({ t_min.x(), t_min.y(), t_min.z() });
-        double tFar = std::min({ t_max.x(), t_max.y(), t_max.z() });
+        double tNear = t_min.max();
+        double tFar = t_max.min();
 
         if (tNear > tFar || tFar < 0.0) return false;
 
@@ -73,6 +73,7 @@ public:
         rec.hit_object = this;
         return true;
     }
+
     bool csg_intersect(const ray& r, interval ray_t,
         std::vector<CSGIntersection>& out_intersections) const override
     {
@@ -82,8 +83,8 @@ public:
         vec3 t0 = (min_corner - r.origin()) * invD;
         vec3 t1 = (max_corner - r.origin()) * invD;
 
-        vec3 t_min = min(t0, t1);
-        vec3 t_max = max(t0, t1);
+        vec3 t_min = t0.cmin(t1);
+        vec3 t_max = t0.cmax(t1);
 
         double tNear = std::max({ t_min.x(), t_min.y(), t_min.z() });
         double tFar = std::min({ t_max.x(), t_max.y(), t_max.z() });

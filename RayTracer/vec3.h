@@ -192,40 +192,20 @@ inline vec3 unit_vector(const vec3& v) {
     return v / v.length();
 }
 
-inline vec3 min(const vec3& u, const vec3& v) {
-    return vec3(std::min(u.e[0], v.e[0]),
-                std::min(u.e[1], v.e[1]),
-                std::min(u.e[2], v.e[2]));
-}
-
-inline vec3 max(const vec3& u, const vec3& v) {
-    return vec3(std::max(u.e[0], v.e[0]),
-                std::max(u.e[1], v.e[1]),
-                std::max(u.e[2], v.e[2]));
-}
-
 inline vec3 step(const vec3& edge, const vec3& v) {
-    return vec3(v.e[0] >= edge.e[0] ? 1.0 : 0.0,
-                v.e[1] >= edge.e[1] ? 1.0 : 0.0,
-                v.e[2] >= edge.e[2] ? 1.0 : 0.0);
+    return vec3((v.e[0] >= edge.e[0]),
+                (v.e[1] >= edge.e[1]),
+                (v.e[2] >= edge.e[2]));
 }
 
 inline vec3 sign(const vec3& v) {
-    return vec3((v.e[0] > 0) - (v.e[0] < 0),
-                (v.e[1] > 0) - (v.e[1] < 0),
-                (v.e[2] > 0) - (v.e[2] < 0));
+    return vec3((v.e[0] > 0.0) - (v.e[0] < 0.0),
+                (v.e[1] > 0.0) - (v.e[1] < 0.0),
+                (v.e[2] > 0.0) - (v.e[2] < 0.0));
 }
 
 inline vec3 reflect(const vec3& I, const vec3& N) {
-    return I - 2 * dot(I, N) * N;
-}
-
-inline double distance(const vec3& a, const vec3& b) {
-    return (a - b).length();
-}
-
-inline double norm(const vec3& v) {
-    return v.length();
+    return I - 2.0 * dot(I, N) * N;
 }
 
 #endif // VEC3_H

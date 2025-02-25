@@ -142,7 +142,7 @@ public:
     }
 
     bool is_point_inside(const point3& p) const override {
-        return distance(p, center) <= radius;
+        return (p - center).length() <= radius;
     }
 
     // Returns:

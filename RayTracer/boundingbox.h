@@ -112,9 +112,9 @@ public:
     point3 getFurthestPoint(const point3& p) const {
         auto verts = getVertices();
         point3 furthest = verts[0];
-        double max_dist = distance(p, furthest);
+        double max_dist = (p - furthest).length();
         for (size_t i = 1; i < verts.size(); i++) {
-            double d = distance(p, verts[i]);
+            double d = (p - verts[i]).length();
             if (d > max_dist) {
                 max_dist = d;
                 furthest = verts[i];
