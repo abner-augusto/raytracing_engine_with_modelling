@@ -350,8 +350,8 @@ void ShowHittableManagerUI(SceneManager& world, Camera& camera) {
         ImGui::Text("No objects in the scene.");
     }
     else {
-        ImGui::Text("SceneManager contains %d object(s):", (int)objectList.size());
-        static int lastSelectedID = -1;
+        ImGui::Text("SceneManager contains %zu object(s):", objectList.size());
+        static size_t lastSelectedID = -1;
         static double lastClickTime = 0.0;
 
         for (const auto& [id, name] : objectList) {
@@ -1028,7 +1028,7 @@ void ShowGeometryTab(SceneManager& world) {
                 lastTime = currentTime;
 
                 time += deltaTime * shearSpeed;
-                float shearFactor = shearAmplitude * std::sin(time * 2 * M_PI);
+                float shearFactor = shearAmplitude * std::sin(time * 2 * pi);
 
                 point3 shearingPoint = useCustomShearPoint ?
                     point3(customShearPoint[0], customShearPoint[1], customShearPoint[2]) : center;
