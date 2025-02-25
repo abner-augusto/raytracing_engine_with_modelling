@@ -65,10 +65,7 @@ public:
     }
 
     bool operator==(const vec3& other) const {
-        const double epsilon = 1e-8;
-        return std::fabs(e[0] - other.e[0]) < epsilon &&
-               std::fabs(e[1] - other.e[1]) < epsilon &&
-               std::fabs(e[2] - other.e[2]) < epsilon;
+        return e[0] == other.e[0] && e[1] == other.e[1] && e[2] == other.e[2];
     }
 
     bool operator!=(const vec3& other) const {
