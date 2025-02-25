@@ -8,10 +8,10 @@
 #include <unordered_map>
 #include <memory>
 #include "vec3.h"
-#include "triangle.h"
 #include "scene.h"
 #include "material.h"
 #include "bvh_node.h"
+#include "triangle.h"
 
 class Mesh : public hittable {
 public:

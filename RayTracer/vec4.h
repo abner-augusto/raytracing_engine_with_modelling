@@ -4,7 +4,7 @@
 #include <cmath>
 #include <iostream>
 
-#include "vec3.h"
+#include "raytracer.h"
 
 class vec4 {
 public:
@@ -100,7 +100,7 @@ public:
 
     vec4 createQuaternion(const vec3& u, double angle) {
         // Convert angle to radians and calculate half-angle
-        double halfAngle = angle * M_PI / 360.0;
+        double halfAngle = angle * pi / 360.0;
         double sinHalfAngle = std::sin(halfAngle);
         double cosHalfAngle = std::cos(halfAngle);
 
