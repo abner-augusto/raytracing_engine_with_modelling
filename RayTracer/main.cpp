@@ -47,13 +47,14 @@ int main(int argc, char* argv[]) {
     int window_width = 1080;
     int window_height = int(window_width / aspect_ratio);
 
+    _putenv("KMP_WARNINGS=0");
     omp_set_max_active_levels(1);
 
     if (!InitializeSDL()) {
         return -1;
     }
 
-    SDL_Window* window = CreateWindow(window_width, window_height, "Modelagem CSG - Abner Augusto");
+    SDL_Window* window = CreateWindow(window_width, window_height, "Raytracer CG1 - Abner Augusto");
     if (!window) {
         SDL_Quit();
         return -1;
