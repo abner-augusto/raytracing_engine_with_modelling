@@ -1,12 +1,12 @@
 #ifndef TRIANGLE_H
 #define TRIANGLE_H
 
+#include <algorithm>
+#include <cmath>
 #include "hittable.h"
 #include "vec3.h"
 #include "material.h"
 #include "interval.h"
-#include <algorithm>
-#include <cmath>
 
 class triangle : public hittable {
 public:

@@ -1,13 +1,6 @@
 #ifndef SCENE_H
 #define SCENE_H
 
-#include "hittable.h"
-#include "hit_record.h"
-#include "matrix4x4.h"
-#include "boundingbox.h"
-#include "octree.h"
-#include "bvh_node.h"
-#include "light.h"
 #include <unordered_map>
 #include <memory>
 #include <optional>
@@ -15,6 +8,13 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include "hittable.h"
+#include "hit_record.h"
+#include "matrix4x4.h"
+#include "boundingbox.h"
+#include "octree.h"
+#include "bvh_node.h"
+#include "light.h"
 
 using std::shared_ptr;
 using std::make_shared;
