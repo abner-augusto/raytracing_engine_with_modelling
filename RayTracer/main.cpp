@@ -19,6 +19,8 @@
 //modelling
 #include "csg.h"
 #include "octree.h"
+#include "winged_edge.h"
+#include "winged_edge_ui.h"
 
 //scene setup
 #include "interface_imgui.h"
@@ -96,7 +98,7 @@ int main(int argc, char* argv[]) {
     image_texture* wood_texture = new image_texture("textures/wood_floor.jpg");
     image_texture* grass_texture = new image_texture("textures/grass.jpg");
     image_texture* brick_texture = new image_texture("textures/brick.jpg");
-    checker_texture checker(black, white, 15);
+    checker_texture checker(black, white, 2);
     mat xadrez(&checker, 0.8, 1.0, 100.0, 0.25);
     mat sphere_mat(red, 0.8, 1.0, 150.0);
     mat sphere_mat2(green);
@@ -109,13 +111,13 @@ int main(int argc, char* argv[]) {
 
     // Create scenes
     std::vector<std::shared_ptr<hittable>> Scene1 = {
-        std::make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), mat(grass_texture)),
-        make_shared<sphere>(point3(0, 0, -1), 0.45, mat(xadrez)),
-        make_shared<cylinder>(point3(-1.0, -0.25, -1), point3(-1.0, 0.35, -1), 0.3, mat(blue)),
-        make_shared<cone>(point3(1, -0.15, -1), point3(1, 0.5, -1.5), 0.3, mat(red)),
-        make_shared<torus>(point3(-2, 0, -1), 0.3, 0.1, vec3(0, 0.5, 0.5), mat(cyan)),
-        make_shared<SquarePyramid>(point3(1.8, -0.3, -1), 0.8, 0.5, mat(green)),
-        make_shared<box>(point3(2.6, 0, -1), 0.7, mat(brick_texture))
+        std::make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), mat(xadrez)),
+        //make_shared<sphere>(point3(0, 0, -1), 0.45, mat(xadrez)),
+        //make_shared<cylinder>(point3(-1.0, -0.25, -1), point3(-1.0, 0.35, -1), 0.3, mat(blue)),
+        //make_shared<cone>(point3(1, -0.15, -1), point3(1, 0.5, -1.5), 0.3, mat(red)),
+        //make_shared<torus>(point3(-2, 0, -1), 0.3, 0.1, vec3(0, 0.5, 0.5), mat(cyan)),
+        //make_shared<SquarePyramid>(point3(1.8, -0.3, -1), 0.8, 0.5, mat(green)),
+        //make_shared<box>(point3(2.6, 0, -1), 0.7, mat(brick_texture))
     };
 
     std::vector<std::shared_ptr<hittable>> Scene2 = {
@@ -148,24 +150,24 @@ int main(int argc, char* argv[]) {
         std::cerr << "Error: " << e.what() << "\n";
     }
 
+    MeshCollection meshCollection;
 
-    // Build Atividade 6 Scene
-    //SceneBuilder::buildAtividade6Scene(
-    //    world,
-    //    mat(grass_texture),
-    //    mat(orange),
-    //    mat(white),
-    //    mat(brown),
-    //    mat(green),
-    //    mat(red),
-    //    mat(brick_texture),
-    //    mat(wood_texture)
-    //);
+    std::unique_ptr<WingedEdge> tetrahedron = PrimitiveFactory::createTetrahedron();
+    meshCollection.addMesh(std::move(tetrahedron), "Tetrahedron");
+
+    const WingedEdge* tetraMesh = meshCollection.getMeshByName("Tetrahedron");
+    if (tetraMesh) {
+        std::shared_ptr<Mesh> triangleMesh = tetraMesh->toMesh(mat(blue, 1.0, 1.0, 50, 0.0));
+        ObjectID tetraID = world.add(triangleMesh);
+    }
+
+    meshCollection.printInfo();
+    meshCollection.traverseMeshes();
 
     //Light
     world.add_directional_light(vec3(-0.6, -0.5, -0.5), 0.4, color(1, 0.95, 0.8));
     world.add_point_light(point3(0, 1, 0.5), 1.0, color(1, 1, 1));
-    world.add_spot_light(point3(0, 0.7, -1.0), vec3(0,0.043,-1.0), 6.5, color(0,0.1,1), 30, 45);
+    //world.add_spot_light(point3(0, 0.7, -1.0), vec3(0,0.043,-1.0), 6.5, color(0,0.1,1), 30, 45);
 
 
     // Camera
@@ -228,6 +230,8 @@ int main(int argc, char* argv[]) {
         DrawFpsCounter(fps);
 
         ShowHittableManagerUI(world, camera);
+
+        drawWingedEdgeImGui(meshCollection);
 
         // Render ImGui
         ImGui::Render();
@@ -341,6 +345,7 @@ int main(int argc, char* argv[]) {
             DrawOctreeWireframe(renderer, world, camera, destination_rect, highlighted_box);
         }
 
+        RenderWingedEdgeMeshes(renderer, meshCollection, camera, destination_rect);
 
         // Render ImGui
         ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
