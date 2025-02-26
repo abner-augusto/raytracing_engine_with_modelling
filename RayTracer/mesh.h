@@ -152,9 +152,9 @@ private:
 
 struct MaterialData {
     color diffuse = color(1.0, 1.0, 1.0);
-    double k_diffuse = 0.8;
-    double k_specular = 0.3;
-    double shininess = 10.0;
+    double k_diffuse = 1.0;
+    double k_specular = 0.5;
+    double shininess = 50.0;
     double reflection = 0.0;
 };
 
@@ -174,7 +174,7 @@ inline std::unordered_map<std::string, MaterialData> load_mtl(const std::string&
     if (!file.is_open()) throw std::runtime_error("Failed to open MTL file: " + filepath);
 
     std::string line, current_material;
-    MaterialData mat = { color(1,1,1), 0.8, 0.3, 10.0, 0.0 }; // Default values
+    MaterialData mat = { color(1,1,1), 1.0, 0.5, 50.0, 0.0 }; // Default values
 
     while (std::getline(file, line)) {
         std::istringstream iss(line);
@@ -184,7 +184,7 @@ inline std::unordered_map<std::string, MaterialData> load_mtl(const std::string&
         if (prefix == "newmtl") {
             if (!current_material.empty()) materials[current_material] = mat;
             iss >> current_material;
-            mat = { color(1,1,1), 0.8, 0.3, 10.0, 0.0 };
+            mat = { color(1,1,1), 1.0, 0.5, 50.0, 0.0 };
         }
         else if (prefix == "Kd") {
             double r, g, b; iss >> r >> g >> b;
