@@ -85,7 +85,7 @@ public:
     void printInfo();
     void traverseMesh();
 
-    std::unique_ptr<Mesh> toMesh(const mat& material = mat()) const;
+    std::shared_ptr<Mesh> toMesh(const mat& material = mat()) const;
 };
 
 // Factory class
@@ -113,6 +113,8 @@ public:
 
     // Get a mesh by its name (const access). Returns nullptr if not found.
     const WingedEdge* getMeshByName(const std::string& name) const;
+
+    std::string getMeshName(const WingedEdge* mesh) const;
 
     // Get a mesh by its name (mutable access). Returns nullptr if not found.
     WingedEdge* getMeshByName(const std::string& name);

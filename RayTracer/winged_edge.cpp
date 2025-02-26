@@ -224,8 +224,8 @@ void WingedEdge::traverseMesh() {
     }
 }
 
-std::unique_ptr<Mesh> WingedEdge::toMesh(const mat& material) const {
-    auto mesh = std::make_unique<Mesh>();
+std::shared_ptr<Mesh> WingedEdge::toMesh(const mat& material) const {
+    auto mesh = std::make_shared<Mesh>();
 
     // Iterate through each face in the WingedEdge structure.
     for (const auto& face : faces) {
@@ -238,13 +238,14 @@ std::unique_ptr<Mesh> WingedEdge::toMesh(const mat& material) const {
             vec3 v2 = face->vIsReversed[2] ? face->vEdges[2]->destVec : face->vEdges[2]->origVec;
 
             // Create a triangle object and add it to the Mesh.
-            auto tri = std::make_shared<triangle>(v0, v1, v2, material);
+            auto tri = std::make_shared<triangle>(v2, v1, v0, material);
             mesh->add_triangle(tri);
         }
         else {
-            //for not triangle faces
+            // Handle non-triangular faces (optional).
         }
     }
+
     mesh->buildBVH();
     return mesh;
 }
@@ -330,6 +331,15 @@ WingedEdge* MeshCollection::getMeshByName(const std::string& name) {
         return meshes_[it->second].get();
     }
     return nullptr;
+}
+
+std::string MeshCollection::getMeshName(const WingedEdge* mesh) const {
+    for (const auto& pair : nameToIndexMap_) {
+        if (meshes_[pair.second].get() == mesh) {
+            return pair.first;
+        }
+    }
+    return "";
 }
 
 size_t MeshCollection::getMeshCount() const {
