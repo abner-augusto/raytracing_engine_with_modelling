@@ -6,6 +6,7 @@
 #include "boundingbox.h"
 #include "camera.h"
 #include "scene.h"
+#include "winged_edge.h"
 
 // Project a 3D point (in world space) to 2D screen space.
 std::optional<std::pair<int, int>> project(const point3& p, const Camera& camera, const SDL_Rect& viewport) {
@@ -157,4 +158,41 @@ void render_world_axes(SDL_Renderer* renderer, const Camera& camera, const SDL_R
 
     // Reset color
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+}
+
+void RenderWingedEdgeMeshes(SDL_Renderer* renderer,
+    const MeshCollection& meshCollection,
+    const Camera& camera,
+    const SDL_Rect& viewport) {
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // White for edges
+
+    // Iterate through each WingedEdge mesh in the collection
+    for (const auto& meshPtr : meshCollection) {
+        if (!meshPtr) continue;
+        const WingedEdge& mesh = *meshPtr;
+
+        // Project and draw edges
+        for (const auto& edgePtr : mesh.edges) {
+            if (!edgePtr) continue;
+
+            auto p1 = project(edgePtr->origVec, camera, viewport);
+            auto p2 = project(edgePtr->destVec, camera, viewport);
+
+            if (p1 && p2) {
+                SDL_RenderDrawLine(renderer, p1->first, p1->second, p2->first, p2->second);
+            }
+        }
+
+        // Render vertices
+        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); // Red for vertices
+        for (const auto& vertex : mesh.vertices) {
+            auto projected = project(vertex, camera, viewport);
+            if (projected) {
+                SDL_Rect pointRect = { projected->first - 2, projected->second - 2, 9, 9 };
+                SDL_RenderFillRect(renderer, &pointRect);
+            }
+        }
+    }
 }
