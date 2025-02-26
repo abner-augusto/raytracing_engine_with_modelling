@@ -668,7 +668,7 @@ void ShowInfoTab(SceneManager& world) {
             }
 
             try {
-                vec3& diffuseColor = obj->get_material().diffuse_color;
+                color diffuseColor = obj->get_material().diffuse_color;
                 float color[3] = { static_cast<float>(diffuseColor.e[0]),
                                    static_cast<float>(diffuseColor.e[1]),
                                    static_cast<float>(diffuseColor.e[2]) };
