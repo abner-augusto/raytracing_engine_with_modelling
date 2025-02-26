@@ -75,6 +75,12 @@
     <ClCompile Include="scene_builder.cpp">
       <Filter>Header Files\scenes</Filter>
     </ClCompile>
+    <ClCompile Include="winged_edge.cpp">
+      <Filter>Header Files\modelagem</Filter>
+    </ClCompile>
+    <ClCompile Include="winged_edge_ui.cpp">
+      <Filter>Header Files\modelagem</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="imgui\imgui_impl_opengl3.h">
@@ -211,6 +217,12 @@
     </ClInclude>
     <ClInclude Include="camera.h">
       <Filter>Header Files\raytracing</Filter>
+    </ClInclude>
+    <ClInclude Include="winged_edge.h">
+      <Filter>Header Files\modelagem</Filter>
+    </ClInclude>
+    <ClInclude Include="winged_edge_ui.h">
+      <Filter>Header Files\modelagem</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

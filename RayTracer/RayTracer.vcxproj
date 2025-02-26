@@ -31,6 +31,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="scene_builder.cpp" />
     <ClCompile Include="winged_edge.cpp" />
+    <ClCompile Include="winged_edge_ui.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="boundingbox.h" />
@@ -78,6 +79,7 @@
     <ClInclude Include="vec3.h" />
     <ClInclude Include="vec4.h" />
     <ClInclude Include="winged_edge.h" />
+    <ClInclude Include="winged_edge_ui.h" />
     <ClInclude Include="wireframe.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -197,7 +199,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>Default</ConformanceMode>
       <AdditionalIncludeDirectories>SDL2;imgui;stb;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>-openmp:llvm
  %(AdditionalOptions)</AdditionalOptions>
       <OpenMPSupport>true</OpenMPSupport>
