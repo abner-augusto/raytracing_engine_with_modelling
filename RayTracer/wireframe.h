@@ -7,6 +7,7 @@
 #include "camera.h"
 #include "scene.h"
 #include "winged_edge.h"
+#include "winged_edge_ui.h"
 
 // Project a 3D point (in world space) to 2D screen space.
 std::optional<std::pair<int, int>> project(const point3& p, const Camera& camera, const SDL_Rect& viewport) {
@@ -163,17 +164,19 @@ void render_world_axes(SDL_Renderer* renderer, const Camera& camera, const SDL_R
 void RenderWingedEdgeMeshes(SDL_Renderer* renderer,
     const MeshCollection& meshCollection,
     const Camera& camera,
-    const SDL_Rect& viewport) {
+    const SDL_Rect& viewport,
+    WingedEdgeImGui& imguiInterface,
+    bool renderArrow = true) {
+
+    // Get the vector of selected edges (if an edge loop is active)
+    const auto& selectedEdges = imguiInterface.getSelectedEdgeLoop();
 
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // White for edges
 
-    // Iterate through each WingedEdge mesh in the collection
     for (const auto& meshPtr : meshCollection) {
         if (!meshPtr) continue;
         const WingedEdge& mesh = *meshPtr;
 
-        // Project and draw edges
         for (const auto& edgePtr : mesh.edges) {
             if (!edgePtr) continue;
 
@@ -181,12 +184,75 @@ void RenderWingedEdgeMeshes(SDL_Renderer* renderer,
             auto p2 = project(edgePtr->destVec, camera, viewport);
 
             if (p1 && p2) {
-                SDL_RenderDrawLine(renderer, p1->first, p1->second, p2->first, p2->second);
+                // Set color and draw the edge
+                if (!selectedEdges.empty() &&
+                    std::find(selectedEdges.begin(), selectedEdges.end(), edgePtr) != selectedEdges.end()) {
+                    SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255); // Green for selected loop edges
+
+                    // Draw a thicker line by offsetting perpendicular directions
+                    float dx = static_cast<float>(p2->first - p1->first);
+                    float dy = static_cast<float>(p2->second - p1->second);
+                    float length = sqrt(dx * dx + dy * dy);
+                    if (length > 0) {
+                        float offsetX = (-dy / length);
+                        float offsetY = (dx / length);
+
+                        SDL_RenderDrawLine(renderer, p1->first, p1->second, p2->first, p2->second);
+                        SDL_RenderDrawLine(renderer,
+                            static_cast<int>(p1->first + offsetX), static_cast<int>(p1->second + offsetY),
+                            static_cast<int>(p2->first + offsetX), static_cast<int>(p2->second + offsetY));
+                        SDL_RenderDrawLine(renderer,
+                            static_cast<int>(p1->first - offsetX), static_cast<int>(p1->second - offsetY),
+                            static_cast<int>(p2->first - offsetX), static_cast<int>(p2->second - offsetY));
+                    }
+                }
+                else {
+                    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // White for normal edges
+                    SDL_RenderDrawLine(renderer, p1->first, p1->second, p2->first, p2->second);
+                }
+
+                // --- Arrow drawing code ---
+                if (renderArrow) { 
+                    // Choose a point along the edge for the arrow tip
+                    float arrowFactor = 0.75f;
+                    int tipX = p1->first + static_cast<int>(arrowFactor * (p2->first - p1->first));
+                    int tipY = p1->second + static_cast<int>(arrowFactor * (p2->second - p1->second));
+
+                    // Compute the unit direction vector along the edge
+                    float dx = static_cast<float>(p2->first - p1->first);
+                    float dy = static_cast<float>(p2->second - p1->second);
+                    float len = sqrt(dx * dx + dy * dy);
+                    if (len > 0) {
+                        float udx = dx / len;
+                        float udy = dy / len;
+
+                        // Compute a perpendicular vector
+                        float perpX = -udy;
+                        float perpY = udx;
+
+                        // Parameters for the arrowhead (length and angle)
+                        float arrowHeadLength = 10.0f; // pixels
+                        float arrowHeadAngle = pi / 6; // 30 degrees in radians
+
+                        float cosAngle = cos(arrowHeadAngle);
+                        float sinAngle = sin(arrowHeadAngle);
+
+                        // Calculate the endpoints for the arrow wings
+                        float leftWingX = tipX - arrowHeadLength * (udx * cosAngle + perpX * sinAngle);
+                        float leftWingY = tipY - arrowHeadLength * (udy * cosAngle + perpY * sinAngle);
+                        float rightWingX = tipX - arrowHeadLength * (udx * cosAngle - perpX * sinAngle);
+                        float rightWingY = tipY - arrowHeadLength * (udy * cosAngle - perpY * sinAngle);
+
+                        // Draw the arrowhead lines
+                        SDL_RenderDrawLine(renderer, tipX, tipY, static_cast<int>(leftWingX), static_cast<int>(leftWingY));
+                        SDL_RenderDrawLine(renderer, tipX, tipY, static_cast<int>(rightWingX), static_cast<int>(rightWingY));
+                    }
+                }
             }
         }
 
-        // Render vertices
-        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); // Red for vertices
+        // Render vertices as usual
+        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
         for (const auto& vertex : mesh.vertices) {
             auto projected = project(vertex, camera, viewport);
             if (projected) {
@@ -195,4 +261,19 @@ void RenderWingedEdgeMeshes(SDL_Renderer* renderer,
             }
         }
     }
+}
+
+void DrawCrosshair(SDL_Renderer* renderer, int window_width, int window_height) {
+    int center_x = window_width / 2;
+    int center_y = window_height / 2;
+    int crosshair_size = 10; // Size of the crosshair
+
+    // Set the draw color to white (or any color you prefer)
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+
+    // Draw horizontal line
+    SDL_RenderDrawLine(renderer, center_x - crosshair_size, center_y, center_x + crosshair_size, center_y);
+
+    // Draw vertical line
+    SDL_RenderDrawLine(renderer, center_x, center_y - crosshair_size, center_x, center_y + crosshair_size);
 }
