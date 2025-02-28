@@ -38,6 +38,8 @@
 RenderState render_state;
 bool renderWireframe = false;
 bool renderWorldAxes = true;
+bool renderWingedEdge = true;
+bool renderWingedEdgeArrows = true;
 std::optional<BoundingBox> highlighted_box = std::nullopt;
 std::shared_ptr<edge> selectedEdge = nullptr;
 WingedEdgeImGui* g_imguiInstance = nullptr;
@@ -350,7 +352,9 @@ int main(int argc, char* argv[]) {
             DrawOctreeWireframe(renderer, world, camera, destination_rect, highlighted_box);
         }
 
-        RenderWingedEdgeMeshes(renderer, meshCollection, camera, destination_rect, WEimguiInterface);
+        if (renderWingedEdge) {
+            RenderWingedEdgeWireframe(renderer, meshCollection, camera, destination_rect, WEimguiInterface, renderWingedEdgeArrows);
+        }
 
         // Render ImGui
         ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);

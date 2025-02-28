@@ -161,7 +161,7 @@ void render_world_axes(SDL_Renderer* renderer, const Camera& camera, const SDL_R
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 }
 
-void RenderWingedEdgeMeshes(SDL_Renderer* renderer,
+void RenderWingedEdgeWireframe(SDL_Renderer* renderer,
     const MeshCollection& meshCollection,
     const Camera& camera,
     const SDL_Rect& viewport,

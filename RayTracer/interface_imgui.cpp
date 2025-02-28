@@ -11,6 +11,8 @@
 
 extern bool renderWireframe;
 extern bool renderWorldAxes;
+extern bool renderWingedEdge;
+extern bool renderWingedEdgeArrows;
 
 // Function to open a file dialog and return the selected file path
 std::string OpenFileDialog(const wchar_t* filter) {
@@ -243,14 +245,20 @@ void draw_menu(RenderState& render_state, Camera& camera, SceneManager& world) {
                 camera.toggleShadows();
             }
             bool wireframe = renderWireframe;
-            if (ImGui::Checkbox("Toggle Wireframe", &wireframe)) {
+            if (ImGui::Checkbox("Toggle BB Wireframe", &wireframe)) {
                 renderWireframe = wireframe;
-                // Wireframe toggle logic
             }
             bool worldAxes = renderWorldAxes;
             if (ImGui::Checkbox("Toggle World Axes", &worldAxes)) {
                 renderWorldAxes = worldAxes;
-                // World axes toggle logic
+            }
+            bool wingedEdge = renderWingedEdge;
+            if (ImGui::Checkbox("Toggle Winged Edge Wireframe", &wingedEdge)) {
+                renderWingedEdge = wingedEdge;
+            }
+            bool wingedEdgeArrows = renderWingedEdgeArrows;
+            if (ImGui::Checkbox("Toggle Edge Arrows", &wingedEdgeArrows)) {
+                renderWingedEdgeArrows = wingedEdgeArrows;
             }
 
             ImGui::End();
