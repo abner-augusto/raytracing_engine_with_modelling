@@ -8,7 +8,7 @@
 class WingedEdgeImGui {
 private:
     MeshCollection* meshCollection;
-    int selectedMeshIndex = -1;
+    size_t selectedMeshIndex = -1;
     int selectedEdgeIndex = -1;
     int selectedFaceIndex = -1;
     bool showEdgeDetails = false;
@@ -28,11 +28,20 @@ private:
     void renderFaceDetails();
 
 public:
+    std::vector<std::shared_ptr<edge>> selectedEdgeLoopEdges;
     WingedEdgeImGui(MeshCollection* collection);
     void render();
+    // Update selection from another event (SDL)
+    void updateSelection(WingedEdge* selectedMesh, std::shared_ptr<edge> selectedEdge);
+    // Retrieve the currently selected edge (for use in SDL rendering).
+    std::shared_ptr<edge> getSelectedEdge() const;
+    // New getter for the edge loop selection
+    const std::vector<std::shared_ptr<edge>>& getSelectedEdgeLoop() const {
+        return selectedEdgeLoopEdges;
+    }
+    // New method to compute and set the edge loop
+    void selectLinkedEdgeLoop(WingedEdge* mesh, bool clockwiseOnly = false);
+    void selectLinkedEdgeLoopCounterclockwise(WingedEdge* mesh);
 };
-
-// Function to use in your main loop
-void drawWingedEdgeImGui(MeshCollection& meshCollection);
 
 #endif // WINGED_EDGE_UI_H
