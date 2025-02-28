@@ -39,6 +39,8 @@ RenderState render_state;
 bool renderWireframe = false;
 bool renderWorldAxes = true;
 std::optional<BoundingBox> highlighted_box = std::nullopt;
+std::shared_ptr<edge> selectedEdge = nullptr;
+WingedEdgeImGui* g_imguiInstance = nullptr;
 
 int main(int argc, char* argv[]) {
 
@@ -152,6 +154,7 @@ int main(int argc, char* argv[]) {
 
     MeshCollection meshCollection;
 
+
     std::unique_ptr<WingedEdge> tetrahedron = PrimitiveFactory::createTetrahedron();
     meshCollection.addMesh(std::move(tetrahedron), "Tetrahedron");
 
@@ -163,6 +166,7 @@ int main(int argc, char* argv[]) {
 
     meshCollection.printInfo();
     meshCollection.traverseMeshes();
+    WingedEdgeImGui WEimguiInterface(&meshCollection);
 
     //Light
     world.add_directional_light(vec3(-0.6, -0.5, -0.5), 0.4, color(1, 0.95, 0.8));
@@ -215,7 +219,8 @@ int main(int argc, char* argv[]) {
 
         while (SDL_PollEvent(&event)) {
             ImGui_ImplSDL2_ProcessEvent(&event);
-            handle_event(event, running, window, aspect_ratio, camera, render_state, world, highlighted_box);
+            handle_event(event, running, window, destination_rect,aspect_ratio, camera, render_state,
+                         world, meshCollection,highlighted_box, selectedEdge, WEimguiInterface);
         }
 
         // Start ImGui frame
@@ -231,7 +236,7 @@ int main(int argc, char* argv[]) {
 
         ShowHittableManagerUI(world, camera);
 
-        drawWingedEdgeImGui(meshCollection);
+        WEimguiInterface.render();
 
         // Render ImGui
         ImGui::Render();
@@ -345,7 +350,7 @@ int main(int argc, char* argv[]) {
             DrawOctreeWireframe(renderer, world, camera, destination_rect, highlighted_box);
         }
 
-        RenderWingedEdgeMeshes(renderer, meshCollection, camera, destination_rect);
+        RenderWingedEdgeMeshes(renderer, meshCollection, camera, destination_rect, WEimguiInterface);
 
         // Render ImGui
         ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
