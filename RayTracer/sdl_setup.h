@@ -67,7 +67,7 @@ void Cleanup_SDL(SDL_Window* window, SDL_Renderer* renderer, SDL_Texture* textur
     SDL_Quit();
 }
 
-// Define thresholds and store stick values
+// Event Constants
 const float DEAD_ZONE = 8000; // Approx 24% of full range
 float leftStickX = 0.0f, leftStickY = 0.0f;
 float rightStickX = 0.0f, rightStickY = 0.0f;
@@ -144,41 +144,150 @@ void update_camera(Camera& camera, float speed) {
     }
 }
 
+// Helper function: computes the 2D distance from point p to the line segment ab.
+float pointToSegmentDistance(const SDL_Point& p, const SDL_Point& a, const SDL_Point& b) {
+    float dx = static_cast<float>(b.x - a.x);
+    float dy = static_cast<float>(b.y - a.y);
+    float len_sq = dx * dx + dy * dy;
 
-void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, double aspect_ratio,
-    Camera& camera, RenderState& render_state, SceneManager& world,
-    std::optional<BoundingBox>& highlighted_box, float speed = 0.1f) {
-
-    if (event.type == SDL_QUIT) {
-        running = false;
+    if (len_sq == 0) {
+        return hypotf(static_cast<float>(p.x - a.x), static_cast<float>(p.y - a.y)); // Degenerate segment
     }
 
-    if (event.type == SDL_WINDOWEVENT) {
-        if (event.window.event == SDL_WINDOWEVENT_CLOSE &&
-            event.window.windowID == SDL_GetWindowID(window)) {
-            running = false;
+    float t = (static_cast<float>(p.x - a.x) * dx + static_cast<float>(p.y - a.y) * dy) / len_sq;
+    t = fmaxf(0.0f, fminf(1.0f, t));  // Clamp t to the segment [0, 1]
+
+    float projX = static_cast<float>(a.x) + t * dx;
+    float projY = static_cast<float>(a.y) + t * dy;
+
+    return hypotf(static_cast<float>(p.x) - projX, static_cast<float>(p.y) - projY);
+}
+
+void handleObjectSelection(const SDL_Event& event, SDL_Window* window, Camera& camera, SceneManager& world,
+    Uint32& last_click_time, int& last_click_x, int& last_click_y,
+    std::optional<ObjectID>& selectedObjectID, std::optional<BoundingBox>& highlighted_box) {
+    // Ensure this is a left mouse button event
+    if (event.button.button == SDL_BUTTON_LEFT) {
+        int mouse_x = event.button.x;
+        int mouse_y = event.button.y;
+
+        // Check for double click
+        Uint32 current_time = SDL_GetTicks();
+        bool is_double_click = false;
+        if (current_time - last_click_time < DOUBLE_CLICK_INTERVAL &&
+            abs(mouse_x - last_click_x) < 5 &&
+            abs(mouse_y - last_click_y) < 5) {
+            is_double_click = true;
         }
 
-        if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
-            // Get the new window size
-            int new_width = event.window.data1;
-            int new_height = event.window.data2;
+        // Update click tracking
+        last_click_time = current_time;
+        last_click_x = mouse_x;
+        last_click_y = mouse_y;
 
-            // Adjust the window size to preserve the aspect ratio
-            int adjusted_width = new_width;
-            int adjusted_height = static_cast<int>(new_width / aspect_ratio);
+        // Get the current window size
+        int window_width, window_height;
+        SDL_GetWindowSize(window, &window_width, &window_height);
 
-            // If the adjusted height is greater than the available height, adjust by height
-            if (adjusted_height > new_height) {
-                adjusted_height = new_height;
-                adjusted_width = static_cast<int>(new_height * aspect_ratio);
+        // Convert the mouse coordinates to relative coordinates (0 to 1)
+        double relative_x = static_cast<double>(mouse_x) / window_width;
+        double relative_y = static_cast<double>(mouse_y) / window_height;
+
+        // Map these to the camera's resolution
+        int pixel_x = static_cast<int>(relative_x * camera.get_image_width());
+        int pixel_y = static_cast<int>(relative_y * camera.get_image_height());
+
+        // Compute the ray for the clicked position
+        ray clicked_ray = camera.compute_ray_at(pixel_x, pixel_y);
+
+        // Reset any previous highlight
+        highlighted_box.reset();
+
+        hit_record closest_hit;
+        closest_hit.t = std::numeric_limits<double>::infinity();
+        std::shared_ptr<hittable> closest_object = nullptr;
+        auto objects = world.getObjects();
+
+        for (const auto& object : objects) {
+            const BoundingBox& box = object->bounding_box();
+            interval hit_range(0.0, closest_hit.t);
+
+            // First pass: Check bounding box
+            if (box.hit(clicked_ray, hit_range)) {
+                // Second pass: Check actual object intersection
+                hit_record temp_record;
+                if (object->hit(clicked_ray, interval(0.0, closest_hit.t), temp_record)) {
+                    if (temp_record.t < closest_hit.t) {
+                        closest_hit = temp_record;
+                        closest_object = object;
+                    }
+                }
+            }
+        }
+
+        // If a valid object is found, update the highlighted box and selected object ID
+        if (closest_object) {
+            highlighted_box = closest_object->bounding_box();
+
+            // Get the ObjectID from the object
+            std::optional<ObjectID> object_id = world.get_object_id(closest_object);
+            if (object_id.has_value()) {
+                selectedObjectID = object_id.value();
             }
 
-            // Set the window size with the adjusted dimensions
-            SDL_SetWindowSize(window, adjusted_width, adjusted_height);
+            // On double click, set camera look-at to the object's center
+            if (is_double_click) {
+                point3 object_center = closest_object->bounding_box().getCenter();
+                camera.set_look_at(object_center);
+            }
         }
     }
+}
 
+void handleEdgeSelection(const SDL_MouseButtonEvent& event, const Camera& camera,
+    const SDL_Rect& viewport, const MeshCollection& meshCollection,
+    std::shared_ptr<edge>& selectedEdge, WingedEdgeImGui& imguiInstance) {
+
+    if (event.button == SDL_BUTTON_LEFT) {
+        int mouse_x = event.x;
+        int mouse_y = event.y;
+        SDL_Point clickPoint = { mouse_x, mouse_y };
+
+        const float threshold = 10.0f;
+        float minDistance = threshold;
+        selectedEdge = nullptr;
+
+        for (auto it = meshCollection.begin(); it != meshCollection.end(); ++it) {
+            WingedEdge* mesh = it->get();
+            for (const auto& edgePtr : mesh->edges) {
+                if (!edgePtr) continue;
+
+                auto projP1 = project(edgePtr->origVec, camera, viewport);
+                auto projP2 = project(edgePtr->destVec, camera, viewport);
+                if (projP1 && projP2) {
+                    SDL_Point a = { projP1->first, projP1->second };
+                    SDL_Point b = { projP2->first, projP2->second };
+
+                    float distance = pointToSegmentDistance(clickPoint, a, b);
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        selectedEdge = edgePtr;
+                    }
+                }
+            }
+        }
+
+        if (selectedEdge) {
+
+            // Clear previous selection and add the new edge to the loop selection array
+            imguiInstance.selectedEdgeLoopEdges.clear();
+            imguiInstance.selectedEdgeLoopEdges.push_back(selectedEdge);
+        }
+    }
+}
+
+
+void handle_keyboard_event(const SDL_Event& event, bool& running, Camera& camera, RenderState& render_state, SceneManager& world, float speed) {
     if (event.type == SDL_KEYDOWN) {
         switch (event.key.keysym.sym) {
         case SDLK_ESCAPE:
@@ -278,11 +387,13 @@ void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, dou
 
         case SDLK_h:
             log_csg_hits(world, camera.compute_ray_at(
-                camera.get_image_width()/2, camera.get_image_height()/2));
+                camera.get_image_width() / 2, camera.get_image_height() / 2));
             break;
         }
     }
+}
 
+void handle_joystick_event(const SDL_Event& event, RenderState& render_state, bool& moveUp, bool& moveDown) {
     if (event.type == SDL_CONTROLLERAXISMOTION) {
         if (event.caxis.axis == SDL_CONTROLLER_AXIS_LEFTX) {
             if (abs(event.caxis.value) > DEAD_ZONE) {
@@ -318,7 +429,6 @@ void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, dou
         }
     }
 
-    // Handle gamepad button events
     if (event.type == SDL_CONTROLLERBUTTONDOWN) {
         switch (event.cbutton.button) {
         case SDL_CONTROLLER_BUTTON_A:
@@ -350,6 +460,48 @@ void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, dou
             moveDown = false;
         }
     }
+}
+void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, SDL_Rect& viewport, double aspect_ratio,
+    Camera& camera, RenderState& render_state, SceneManager& world,
+    MeshCollection& meshCollection, // Added MeshCollection
+    std::optional<BoundingBox>& highlighted_box,
+    std::shared_ptr<edge>& selectedEdge, // Added selectedEdge
+    WingedEdgeImGui& imguiInterface,
+    float speed = 0.1f) {
+
+    if (event.type == SDL_QUIT) {
+        running = false;
+    }
+
+    if (event.type == SDL_WINDOWEVENT) {
+        if (event.window.event == SDL_WINDOWEVENT_CLOSE &&
+            event.window.windowID == SDL_GetWindowID(window)) {
+            running = false;
+        }
+
+        if (event.window.event == SDL_WINDOWEVENT_RESIZED) {
+            // Get the new window size
+            int new_width = event.window.data1;
+            int new_height = event.window.data2;
+
+            // Adjust the window size to preserve the aspect ratio
+            int adjusted_width = new_width;
+            int adjusted_height = static_cast<int>(new_width / aspect_ratio);
+
+            // If the adjusted height is greater than the available height, adjust by height
+            if (adjusted_height > new_height) {
+                adjusted_height = new_height;
+                adjusted_width = static_cast<int>(new_height * aspect_ratio);
+            }
+
+            // Set the window size with the adjusted dimensions
+            SDL_SetWindowSize(window, adjusted_width, adjusted_height);
+        }
+    }
+
+    // Handle keyboard and joystick events
+    handle_keyboard_event(event, running, camera, render_state, world, speed);
+    handle_joystick_event(event, render_state, moveUp, moveDown);
 
     ImGuiIO& io = ImGui::GetIO();
     if (io.WantCaptureMouse) {
@@ -358,96 +510,7 @@ void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, dou
 
     // Handle mouse click events
     if (event.type == SDL_MOUSEBUTTONDOWN) {
-        if (event.button.button == SDL_BUTTON_LEFT) {
-            int mouse_x = event.button.x;
-            int mouse_y = event.button.y;
-
-            // Check for double click
-            Uint32 current_time = SDL_GetTicks();
-            bool is_double_click = false;
-
-            if (current_time - last_click_time < DOUBLE_CLICK_INTERVAL &&
-                abs(mouse_x - last_click_x) < 5 && // Allow small mouse movement between clicks
-                abs(mouse_y - last_click_y) < 5) {
-                is_double_click = true;
-            }
-
-            // Update click tracking
-            last_click_time = current_time;
-            last_click_x = mouse_x;
-            last_click_y = mouse_y;
-
-            // Get the current window size
-            int window_width, window_height;
-            SDL_GetWindowSize(window, &window_width, &window_height);
-
-            // Convert the mouse coordinates to relative coordinates (0 to 1)
-            double relative_x = static_cast<double>(mouse_x) / window_width;
-            double relative_y = static_cast<double>(mouse_y) / window_height;
-
-            // Map these to the camera's resolution
-            int pixel_x = static_cast<int>(relative_x * camera.get_image_width());
-            int pixel_y = static_cast<int>(relative_y * camera.get_image_height());
-
-            // Compute the ray for the clicked position
-            ray clicked_ray = camera.compute_ray_at(pixel_x, pixel_y);
-
-            // Find the closest hit object
-            highlighted_box.reset();
-            hit_record closest_hit;
-            closest_hit.t = std::numeric_limits<double>::infinity();
-            std::shared_ptr<hittable> closest_object = nullptr;
-            ObjectID closest_id = -1;
-            auto objects = world.getObjects();
-
-            for (const auto& object : objects) {
-                const BoundingBox& box = object->bounding_box();
-                interval hit_range(0.0, closest_hit.t);
-
-                // First pass: Check bounding box
-                if (box.hit(clicked_ray, hit_range)) {
-                    // Second pass: Check actual object intersection
-                    hit_record temp_record;
-                    if (object->hit(clicked_ray, interval(0.0, closest_hit.t), temp_record)) {
-                        if (temp_record.t < closest_hit.t) {
-                            closest_hit = temp_record;
-                            closest_object = object;
-                        }
-                    }
-                }
-            }
-
-            // If a valid object is found, highlight its bounding box and auto-select in ImGui
-            if (closest_object) {
-                highlighted_box = closest_object->bounding_box();
-                // Get the ObjectID from the object
-                std::optional<ObjectID> object_id = world.get_object_id(closest_object);
-                if (object_id.has_value()) {
-                    selectedObjectID = object_id.value();
-                }
-
-                // If this was a double click, set the camera look-at point to the object's center
-                if (is_double_click) {
-                    point3 object_center = closest_object->bounding_box().getCenter();
-                    camera.set_look_at(object_center);
-                }
-            }
-        }
+        handleObjectSelection(event, window, camera, world, last_click_time, last_click_x, last_click_y, selectedObjectID, highlighted_box);
+        handleEdgeSelection(event.button, camera, viewport, meshCollection, selectedEdge, imguiInterface);
     }
-
-}
-
-void DrawCrosshair(SDL_Renderer* renderer, int window_width, int window_height) {
-    int center_x = window_width / 2;
-    int center_y = window_height / 2;
-    int crosshair_size = 10; // Size of the crosshair
-
-    // Set the draw color to white (or any color you prefer)
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-
-    // Draw horizontal line
-    SDL_RenderDrawLine(renderer, center_x - crosshair_size, center_y, center_x + crosshair_size, center_y);
-
-    // Draw vertical line
-    SDL_RenderDrawLine(renderer, center_x, center_y - crosshair_size, center_x, center_y + crosshair_size);
 }
