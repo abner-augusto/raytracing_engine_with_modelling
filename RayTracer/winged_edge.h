@@ -2,157 +2,171 @@
 #define WINGED_EDGE_H
 
 #include <vector>
-#include <array>
 #include <unordered_map>
 #include <memory>
-#include <functional>
+#include <stdexcept>
 #include "vec3.h"
 #include "mesh.h"
 
 // Forward declarations
-struct edge;
-struct face;
+struct Edge;
+struct Face;
+struct Vertex;
 class WingedEdge;
 
+//-------------------------------------------------------------------
+// Vertex Table
+//-------------------------------------------------------------------
+// Each vertex stores its coordinates and a pointer to one incident edge.
+struct Vertex {
+    vec3 pos;
+    int index;
+    Edge* incidentEdge;  // Pointer to one incident edge
 
-// EdgeKey structure
-struct EdgeKey {
-    vec3 v1, v2;
-
-    EdgeKey(const vec3& a, const vec3& b);
-
-    bool operator==(const EdgeKey& other) const;
+    Vertex(const vec3& position, int idx)
+        : pos(position), index(idx), incidentEdge(nullptr) {
+    }
 };
 
-// std::hash specializations
+//-------------------------------------------------------------------
+// Edge Table
+//-------------------------------------------------------------------
+// Each edge stores pointers to its two end vertices, pointers to its
+// adjacent faces (left and right), and four wing pointer.
+struct Edge {
+    Vertex* origin;
+    Vertex* destination;
+
+    // Wing pointers
+    Edge* ccw_l_edge = nullptr; // Counterclockwise next edge on left face
+    Edge* cw_l_edge = nullptr; // Clockwise previous edge on left face
+    Edge* ccw_r_edge = nullptr; // Counterclockwise next edge on right face
+    Edge* cw_r_edge = nullptr; // Clockwise previous edge on right face
+
+    // Adjacent face pointers (using weak_ptr to avoid ownership cycles)
+    std::weak_ptr<Face> l_face;
+    std::weak_ptr<Face> r_face;
+
+    int index = -1;
+
+    Edge(Vertex* orig, Vertex* dest)
+        : origin(orig), destination(dest) {
+    }
+
+    // Equality of an edge is determined by its vertices (order-independent)
+    bool operator==(const Edge& other) const {
+        return ((origin == other.origin && destination == other.destination) ||
+            (origin == other.destination && destination == other.origin));
+    }
+};
+
+// A key to look up an edge uniquely (using vertex indices)
+struct EdgeKey {
+    int v1, v2; // stored so that v1 < v2
+
+    EdgeKey(int a, int b) {
+        if (a == b)
+            throw std::invalid_argument("Edge cannot have identical vertices.");
+        if (a < b) { v1 = a; v2 = b; }
+        else { v1 = b; v2 = a; }
+    }
+
+    bool operator==(const EdgeKey& other) const {
+        return v1 == other.v1 && v2 == other.v2;
+    }
+};
+
+// Specialize std::hash for EdgeKey so that it can be used in unordered_map.
 namespace std {
     template <>
-    struct hash<vec3> {
-        size_t operator()(const vec3& v) const;
-    };
-
-    template <>
     struct hash<EdgeKey> {
-        size_t operator()(const EdgeKey& key) const;
+        size_t operator()(const EdgeKey& key) const {
+            size_t h1 = std::hash<int>{}(key.v1);
+            size_t h2 = std::hash<int>{}(key.v2);
+            return h1 ^ (h2 << 1);
+        }
     };
 }
 
-
-struct edge {
-    vec3 origVec;
-    vec3 destVec;
-
-    // Wing pointers
-    edge* ccw_l_edge = nullptr;
-    edge* ccw_r_edge = nullptr;
-    edge* cw_l_edge = nullptr;
-    edge* cw_r_edge = nullptr;
-
-    // Weak pointers to adjacent faces
-    std::weak_ptr<face> l_face;
-    std::weak_ptr<face> r_face;
+//-------------------------------------------------------------------
+// Face Table
+//-------------------------------------------------------------------
+// A face is represented by storing a pointer to one of its boundary edges.
+// The complete boundary can be obtained by following the wing pointers.
+struct Face {
     int index = -1;
+    Edge* edge = nullptr;              // Pointer to one of the boundary edges
+    std::vector<Edge*> boundaryEdges;  // The boundary edges (if needed)
+    std::vector<Vertex*> vertices;     // The ordered vertices of the face
 
-    edge(const vec3& orig, const vec3& dest);
+    Face() : edge(nullptr) {}
 
-    bool operator==(const edge& other) const;
-};
-
-struct face {
-    int index = -1;
-    std::vector<edge*> vEdges;
-    std::vector<bool> vIsReversed;
-    bool bIsTetra = false;
+    // Return the stored ordered vertices.
+    std::vector<Vertex*> getVertices() const;
+    std::vector<Edge*> getBoundary() const;
 
     vec3 normal() const;
 };
 
 
-
+//-------------------------------------------------------------------
+// WingedEdge Mesh Structure
+//-------------------------------------------------------------------
 class WingedEdge {
 public:
-    std::vector<vec3> vertices;
-    std::vector<std::shared_ptr<edge>> edges;
-    std::vector<std::shared_ptr<face>> faces;
-    std::unordered_map<EdgeKey, std::shared_ptr<edge>> edgeLookup;
+    std::vector<std::unique_ptr<Vertex>> vertices;
+    std::vector<std::shared_ptr<Edge>> edges;
+    std::vector<std::shared_ptr<Face>> faces;
 
-    WingedEdge();
-    ~WingedEdge();
+    // Lookup table for edges based on their end vertices
+    std::unordered_map<EdgeKey, std::shared_ptr<Edge>> edgeLookup;
 
-    std::shared_ptr<edge> findOrCreateEdge(const vec3& v1, const vec3& v2);
-    std::shared_ptr<face> createTriangularFace(const vec3& v1, const vec3& v2, const vec3& v3);
+    WingedEdge() = default;
+    ~WingedEdge() = default;
+
+    // Find an existing edge or create a new one between two vertices.
+    std::shared_ptr<Edge> findOrCreateEdge(Vertex* v1, Vertex* v2);
+
+    // Create a face given an ordered boundary (a list of vertices).
+    std::shared_ptr<Face> createFace(const std::vector<Vertex*>& boundary);
+
+    // Setup the wing pointers for all edges based on the face boundaries.
     void setupWingedEdgePointers();
+
+    // Utility functions to print and traverse the mesh.
     void printInfo();
     void traverseMesh();
 
     std::shared_ptr<Mesh> toMesh(const mat& material = mat()) const;
 };
 
-// Factory class
+//-------------------------------------------------------------------
+// Primitive Factory and Mesh Collection (scene management)
+//-------------------------------------------------------------------
 class PrimitiveFactory {
 public:
     static std::unique_ptr<WingedEdge> createTetrahedron();
-    // Add other primitive creation methods here as needed.
+    // Additional primitive creation methods can be added.
 };
 
-// Scene class
 class MeshCollection {
 public:
-    // Add a mesh to the collection with an optional name.
+    // Add, remove, access meshes as needed...
     void addMesh(std::unique_ptr<WingedEdge> mesh, const std::string& name = "");
-
-    // Remove a mesh by its index.  Throws if index is out of range.
     void removeMesh(size_t index);
-
-    // Get a mesh by its index (const access).  Throws if out of range.
     const WingedEdge* getMesh(size_t index) const;
-
-    // Get a mesh by its index (mutable access). Throws if out of range.
     WingedEdge* getMesh(size_t index);
-
-
-    // Get a mesh by its name (const access). Returns nullptr if not found.
     const WingedEdge* getMeshByName(const std::string& name) const;
-
     std::string getMeshName(const WingedEdge* mesh) const;
-
-    // Get a mesh by its name (mutable access). Returns nullptr if not found.
     WingedEdge* getMeshByName(const std::string& name);
-
-    // Get the number of meshes in the collection.
     size_t getMeshCount() const;
-
-    // Clear all meshes from the collection.
     void clear();
-
-    // Print information about all meshes in the collection.
     void printInfo() const;
-
-    // Traverse all meshes in the collection.
     void traverseMeshes() const;
-
-
-    // --- Iterators (added for easier access to meshes) ---
-
-    // Define iterator types using the underlying vector's iterators.
-    using iterator = typename std::vector<std::unique_ptr<WingedEdge>>::iterator;
-    using const_iterator = typename std::vector<std::unique_ptr<WingedEdge>>::const_iterator;
-
-    // Begin and end iterators (for range-based for loops and standard algorithms).
-    iterator begin() { return meshes_.begin(); }
-    iterator end() { return meshes_.end(); }
-    const_iterator begin() const { return meshes_.begin(); }
-    const_iterator end() const { return meshes_.end(); }
-    const_iterator cbegin() const { return meshes_.cbegin(); } // Added const begin/end
-    const_iterator cend() const { return meshes_.cend(); }
 
 private:
     std::vector<std::unique_ptr<WingedEdge>> meshes_;
-    std::unordered_map<std::string, size_t> nameToIndexMap_; // Map mesh names to indices.
+    std::unordered_map<std::string, size_t> nameToIndexMap_;
 };
-
-// Helper function (declared here, defined in .cpp)
-bool compareVec3(const vec3& a, const vec3& b);
-
 
 #endif // WINGED_EDGE_H

@@ -9,14 +9,15 @@ class WingedEdgeImGui {
 private:
     MeshCollection* meshCollection;
     size_t selectedMeshIndex = -1;
+    int selectedVertexIndex = -1;
     int selectedEdgeIndex = -1;
     int selectedFaceIndex = -1;
     bool showEdgeDetails = false;
     bool showFaceDetails = false;
 
     // Helper methods declarations
-    std::string getEdgeDisplayString(const edge* e);
-    std::string getFaceDisplayString(const face* f);
+    std::string getEdgeDisplayString(const Edge* e);
+    std::string getFaceDisplayString(const Face* f);
 
     // Private rendering methods
     void renderMeshList();
@@ -28,15 +29,15 @@ private:
     void renderFaceDetails(WingedEdge* mesh);
 
 public:
-    std::vector<std::shared_ptr<edge>> selectedEdgeLoopEdges;
+    std::vector<std::shared_ptr<Edge>> selectedEdgeLoopEdges;
     WingedEdgeImGui(MeshCollection* collection);
     void render();
     // Update selection from another event (SDL)
-    void updateSelection(WingedEdge* selectedMesh, std::shared_ptr<edge> selectedEdge);
+    void updateSelection(WingedEdge* selectedMesh, std::shared_ptr<Edge> selectedEdge);
     // Retrieve the currently selected edge (for use in SDL rendering).
-    std::shared_ptr<edge> getSelectedEdge() const;
+    std::shared_ptr<Edge> getSelectedEdge() const;
     // New getter for the edge loop selection
-    const std::vector<std::shared_ptr<edge>>& getSelectedEdgeLoop() const {
+    const std::vector<std::shared_ptr<Edge>>& getSelectedEdgeLoop() const {
         return selectedEdgeLoopEdges;
     }
     // New method to compute and set the edge loop
