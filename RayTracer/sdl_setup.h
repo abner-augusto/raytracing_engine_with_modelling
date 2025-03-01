@@ -246,7 +246,7 @@ void handleObjectSelection(const SDL_Event& event, SDL_Window* window, Camera& c
 
 void handleEdgeSelection(const SDL_MouseButtonEvent& event, const Camera& camera,
     const SDL_Rect& viewport, const MeshCollection& meshCollection,
-    std::shared_ptr<edge>& selectedEdge, WingedEdgeImGui& imguiInstance) {
+    std::shared_ptr<Edge>& selectedEdge, WingedEdgeImGui& imguiInstance) {
 
     if (event.button == SDL_BUTTON_LEFT) {
         int mouse_x = event.x;
@@ -256,15 +256,18 @@ void handleEdgeSelection(const SDL_MouseButtonEvent& event, const Camera& camera
         const float threshold = 10.0f;
         float minDistance = threshold;
         selectedEdge = nullptr;
-        WingedEdge* selectedMesh = nullptr; // Track the mesh of the selected edge
+        const WingedEdge* selectedMesh = nullptr;
 
-        for (auto it = meshCollection.begin(); it != meshCollection.end(); ++it) {
-            WingedEdge* mesh = it->get();
+        for (size_t i = 0; i < meshCollection.getMeshCount(); i++) {
+            const WingedEdge* mesh = meshCollection.getMesh(i);
+            if (!mesh) continue;
+
             for (const auto& edgePtr : mesh->edges) {
                 if (!edgePtr) continue;
 
-                auto projP1 = project(edgePtr->origVec, camera, viewport);
-                auto projP2 = project(edgePtr->destVec, camera, viewport);
+                auto projP1 = project(edgePtr->origin->pos, camera, viewport);
+                auto projP2 = project(edgePtr->destination->pos, camera, viewport);
+
                 if (projP1 && projP2) {
                     SDL_Point a = { projP1->first, projP1->second };
                     SDL_Point b = { projP2->first, projP2->second };
@@ -280,15 +283,12 @@ void handleEdgeSelection(const SDL_MouseButtonEvent& event, const Camera& camera
         }
 
         if (selectedEdge && selectedMesh) {
-            // Clear previous selection and add the new edge to the loop selection array
             imguiInstance.selectedEdgeLoopEdges.clear();
             imguiInstance.selectedEdgeLoopEdges.push_back(selectedEdge);
-            imguiInstance.updateSelection(selectedMesh, selectedEdge);
+            imguiInstance.updateSelection(const_cast<WingedEdge*>(selectedMesh), selectedEdge);
         }
     }
 }
-
-
 
 void handle_keyboard_event(const SDL_Event& event, bool& running, Camera& camera, RenderState& render_state, SceneManager& world, float speed) {
     if (event.type == SDL_KEYDOWN) {
@@ -468,7 +468,7 @@ void handle_event(const SDL_Event& event, bool& running, SDL_Window* window, SDL
     Camera& camera, RenderState& render_state, SceneManager& world,
     MeshCollection& meshCollection, // Added MeshCollection
     std::optional<BoundingBox>& highlighted_box,
-    std::shared_ptr<edge>& selectedEdge, // Added selectedEdge
+    std::shared_ptr<Edge>& selectedEdge, // Added selectedEdge
     WingedEdgeImGui& imguiInterface,
     float speed = 0.1f) {
 

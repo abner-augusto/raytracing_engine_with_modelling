@@ -1,5 +1,6 @@
 #pragma once
 #include <SDL2/SDL.h>
+#include <SDL_ttf.h>
 #include <vector>
 #include <algorithm>
 #include <optional>
@@ -166,84 +167,77 @@ void RenderWingedEdgeWireframe(SDL_Renderer* renderer,
     const Camera& camera,
     const SDL_Rect& viewport,
     WingedEdgeImGui& imguiInterface,
-    bool renderArrow = true) {
+    TTF_Font* font,
+    bool renderArrow = true,
+    bool renderText = true) {
 
-    // Get the vector of selected edges (if an edge loop is active)
     const auto& selectedEdges = imguiInterface.getSelectedEdgeLoop();
-
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
 
-    for (const auto& meshPtr : meshCollection) {
-        if (!meshPtr) continue;
-        const WingedEdge& mesh = *meshPtr;
+    for (size_t i = 0; i < meshCollection.getMeshCount(); i++) {
+        const WingedEdge* mesh = meshCollection.getMesh(i);
+        if (!mesh) continue;
 
-        for (const auto& edgePtr : mesh.edges) {
+        // Render edges
+        for (const auto& edgePtr : mesh->edges) {
             if (!edgePtr) continue;
 
-            auto p1 = project(edgePtr->origVec, camera, viewport);
-            auto p2 = project(edgePtr->destVec, camera, viewport);
+            auto p1 = project(edgePtr->origin->pos, camera, viewport);
+            auto p2 = project(edgePtr->destination->pos, camera, viewport);
 
             if (p1 && p2) {
-                // Set color and draw the edge
                 if (!selectedEdges.empty() &&
                     std::find(selectedEdges.begin(), selectedEdges.end(), edgePtr) != selectedEdges.end()) {
+
                     SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255); // Green for selected loop edges
+                    SDL_RenderDrawLine(renderer, p1->first, p1->second, p2->first, p2->second);
 
-                    // Draw a thicker line by offsetting perpendicular directions
-                    float dx = static_cast<float>(p2->first - p1->first);
-                    float dy = static_cast<float>(p2->second - p1->second);
-                    float length = sqrt(dx * dx + dy * dy);
-                    if (length > 0) {
-                        float offsetX = (-dy / length);
-                        float offsetY = (dx / length);
-
-                        SDL_RenderDrawLine(renderer, p1->first, p1->second, p2->first, p2->second);
-                        SDL_RenderDrawLine(renderer,
-                            static_cast<int>(p1->first + offsetX), static_cast<int>(p1->second + offsetY),
-                            static_cast<int>(p2->first + offsetX), static_cast<int>(p2->second + offsetY));
-                        SDL_RenderDrawLine(renderer,
-                            static_cast<int>(p1->first - offsetX), static_cast<int>(p1->second - offsetY),
-                            static_cast<int>(p2->first - offsetX), static_cast<int>(p2->second - offsetY));
+                    if (renderText) {
+                        std::string edgeLabel = "e" + std::to_string(edgePtr->index);
+                        int midX = (p1->first + p2->first) / 2;
+                        int midY = (p1->second + p2->second) / 2;
+                        SDL_Color green = { 0, 255, 0, 255 };
+                        SDL_Surface* textSurface = TTF_RenderText_Solid(font, edgeLabel.c_str(), green);
+                        if (textSurface) {
+                            SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+                            SDL_Rect textRect = { midX, midY, textSurface->w, textSurface->h };
+                            SDL_RenderCopy(renderer, textTexture, nullptr, &textRect);
+                            SDL_FreeSurface(textSurface);
+                            SDL_DestroyTexture(textTexture);
+                        }
                     }
                 }
                 else {
-                    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255); // White for normal edges
+                    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
                     SDL_RenderDrawLine(renderer, p1->first, p1->second, p2->first, p2->second);
                 }
 
-                // --- Arrow drawing code ---
-                if (renderArrow) { 
-                    // Choose a point along the edge for the arrow tip
+                // Arrow Rendering
+                if (renderArrow) {
                     float arrowFactor = 0.75f;
                     int tipX = p1->first + static_cast<int>(arrowFactor * (p2->first - p1->first));
                     int tipY = p1->second + static_cast<int>(arrowFactor * (p2->second - p1->second));
 
-                    // Compute the unit direction vector along the edge
                     float dx = static_cast<float>(p2->first - p1->first);
                     float dy = static_cast<float>(p2->second - p1->second);
                     float len = sqrt(dx * dx + dy * dy);
                     if (len > 0) {
                         float udx = dx / len;
                         float udy = dy / len;
-
-                        // Compute a perpendicular vector
                         float perpX = -udy;
                         float perpY = udx;
 
-                        // Parameters for the arrowhead (length and angle)
-                        float arrowHeadLength = 10.0f; // pixels
-                        float arrowHeadAngle = pi / 6; // 30 degrees in radians
+                        float arrowHeadLength = 10.0f;
+                        float arrowHeadAngle = pi / 6;
 
                         float cosAngle = cos(arrowHeadAngle);
                         float sinAngle = sin(arrowHeadAngle);
 
-                        // Calculate the endpoints for the arrow wings
                         float leftWingX = tipX - arrowHeadLength * (udx * cosAngle + perpX * sinAngle);
                         float leftWingY = tipY - arrowHeadLength * (udy * cosAngle + perpY * sinAngle);
                         float rightWingX = tipX - arrowHeadLength * (udx * cosAngle - perpX * sinAngle);
                         float rightWingY = tipY - arrowHeadLength * (udy * cosAngle - perpY * sinAngle);
 
-                        // Draw the arrowhead lines
                         SDL_RenderDrawLine(renderer, tipX, tipY, static_cast<int>(leftWingX), static_cast<int>(leftWingY));
                         SDL_RenderDrawLine(renderer, tipX, tipY, static_cast<int>(rightWingX), static_cast<int>(rightWingY));
                     }
@@ -253,15 +247,56 @@ void RenderWingedEdgeWireframe(SDL_Renderer* renderer,
 
         // Render vertices
         SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
-        for (const auto& vertex : mesh.vertices) {
-            auto projected = project(vertex, camera, viewport);
+        for (const auto& vertex : mesh->vertices) {
+            auto projected = project(vertex->pos, camera, viewport);
             if (projected) {
                 SDL_Rect pointRect = { projected->first - 2, projected->second - 2, 9, 9 };
                 SDL_RenderFillRect(renderer, &pointRect);
+
+                if (renderText) {
+                    std::string vertexLabel = "v" + std::to_string(vertex->index);
+                    SDL_Surface* textSurface = TTF_RenderText_Solid(font, vertexLabel.c_str(), { 255, 0, 0, 255 });
+                    if (textSurface) {
+                        SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+                        SDL_Rect textRect = { projected->first + 10, projected->second - 10, textSurface->w, textSurface->h };
+                        SDL_RenderCopy(renderer, textTexture, nullptr, &textRect);
+                        SDL_FreeSurface(textSurface);
+                        SDL_DestroyTexture(textTexture);
+                    }
+                }
             }
+        }
+
+        // --- Render face indices at the center of each  face ---
+        for (const auto& face : mesh->faces) {
+            auto verts = face->getVertices();
+            if (verts.empty()) continue; // Skip faces with no vertices
+
+            // Generalized centroid calculation
+            vec3 centroid = vec3(0.0, 0.0, 0.0);
+            for (const auto& v : verts) {
+                centroid += v->pos;
+            }
+            centroid /= static_cast<float>(verts.size()); // Average
+
+            auto projCentroid = project(centroid, camera, viewport);
+            if (projCentroid && renderText) {
+                std::string faceLabel = "f" + std::to_string(face->index);
+                SDL_Color faceColor = { 255, 255, 0, 255 };  // Yellow
+                SDL_Surface* textSurface = TTF_RenderText_Solid(font, faceLabel.c_str(), faceColor);
+                if (textSurface) {
+                    SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+                    SDL_Rect textRect = { projCentroid->first, projCentroid->second, textSurface->w, textSurface->h };
+                    SDL_RenderCopy(renderer, textTexture, nullptr, &textRect);
+                    SDL_FreeSurface(textSurface);
+                    SDL_DestroyTexture(textTexture);
+                }
+            }
+
         }
     }
 }
+
 
 void DrawCrosshair(SDL_Renderer* renderer, int window_width, int window_height) {
     int center_x = window_width / 2;
