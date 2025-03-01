@@ -24,8 +24,8 @@ private:
     void renderVerticesTab(WingedEdge* mesh);
     void renderEdgesTab(WingedEdge* mesh);
     void renderFacesTab(WingedEdge* mesh);
-    void renderEdgeDetails();
-    void renderFaceDetails();
+    void renderEdgeDetails(WingedEdge* mesh);
+    void renderFaceDetails(WingedEdge* mesh);
 
 public:
     std::vector<std::shared_ptr<edge>> selectedEdgeLoopEdges;

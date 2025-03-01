@@ -51,15 +51,6 @@ void WingedEdgeImGui::render() {
         renderMeshDetails();
     }
 
-    // Show edge details window if requested
-    if (showEdgeDetails && selectedEdgeIndex >= 0) {
-        renderEdgeDetails();
-    }
-
-    // Show face details window if requested
-    if (showFaceDetails && selectedFaceIndex >= 0) {
-        renderFaceDetails();
-    }
 }
 
 void WingedEdgeImGui::renderMeshList() {
@@ -141,11 +132,57 @@ void WingedEdgeImGui::renderMeshDetails() {
 
         if (ImGui::BeginTabItem("Edges")) {
             renderEdgesTab(mesh);
+
+            // Add a separator after the loop buttons
+            ImGui::Separator();
+
+            // Render edge details as a collapsible header if an edge is selected
+            if (selectedEdgeIndex >= 0 && selectedEdgeIndex < mesh->edges.size()) {
+                edge* e = mesh->edges[selectedEdgeIndex].get();
+                std::string headerText = std::format("Edge Details (e{})", e->index);
+
+                // Use a color for the collapsing header to make it stand out
+                ImGui::PushStyleColor(ImGuiCol_Header, IM_COL32(70, 70, 120, 255));
+                ImGui::PushStyleColor(ImGuiCol_HeaderHovered, IM_COL32(90, 90, 150, 255));
+                ImGui::PushStyleColor(ImGuiCol_HeaderActive, IM_COL32(100, 100, 170, 255));
+
+                if (ImGui::CollapsingHeader(headerText.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+                    ImGui::PopStyleColor(3);
+                    renderEdgeDetails(mesh);
+                }
+                else {
+                    ImGui::PopStyleColor(3);
+                }
+            }
+
             ImGui::EndTabItem();
         }
 
         if (ImGui::BeginTabItem("Faces")) {
             renderFacesTab(mesh);
+
+            // Add a separator after the faces list
+            ImGui::Separator();
+
+            // Render face details as a collapsible header if a face is selected
+            if (selectedFaceIndex >= 0 && selectedFaceIndex < mesh->faces.size()) {
+                face* f = mesh->faces[selectedFaceIndex].get();
+                std::string headerText = std::format("Face Details (f{})", f->index);
+
+                // Use a color for the collapsing header to make it stand out
+                ImGui::PushStyleColor(ImGuiCol_Header, IM_COL32(70, 120, 70, 255));
+                ImGui::PushStyleColor(ImGuiCol_HeaderHovered, IM_COL32(90, 150, 90, 255));
+                ImGui::PushStyleColor(ImGuiCol_HeaderActive, IM_COL32(100, 170, 100, 255));
+
+                if (ImGui::CollapsingHeader(headerText.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+                    ImGui::PopStyleColor(3);
+                    renderFaceDetails(mesh);
+                }
+                else {
+                    ImGui::PopStyleColor(3);
+                }
+            }
+
             ImGui::EndTabItem();
         }
 
@@ -226,84 +263,102 @@ void WingedEdgeImGui::renderFacesTab(WingedEdge* mesh) {
     ImGui::EndChild();
 }
 
-void WingedEdgeImGui::renderEdgeDetails() {
-    if (selectedMeshIndex < 0 || selectedEdgeIndex < 0) return;
-
-    WingedEdge* mesh = meshCollection->getMesh(selectedMeshIndex);
-    if (selectedEdgeIndex >= mesh->edges.size()) return;
-
+void WingedEdgeImGui::renderEdgeDetails(WingedEdge* mesh) {
     edge* e = mesh->edges[selectedEdgeIndex].get();
 
-    ImGui::Begin("Edge Details", &showEdgeDetails);
+    ImGui::Indent();  // Add indentation for better visual hierarchy
 
-    ImGui::Text("Edge Index: %d", e->index);
+    // Use color for basic properties
+    ImGui::TextColored(ImVec4(0.0f, 0.8f, 0.8f, 1.0f), "Origin:");
+    ImGui::SameLine();
+    ImGui::Text("(%.4f, %.4f, %.4f)", e->origVec.x(), e->origVec.y(), e->origVec.z());
+
+    ImGui::TextColored(ImVec4(0.0f, 0.8f, 0.8f, 1.0f), "Destination:");
+    ImGui::SameLine();
+    ImGui::Text("(%.4f, %.4f, %.4f)", e->destVec.x(), e->destVec.y(), e->destVec.z());
+
     ImGui::Separator();
+    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "Wing Pointers:");
 
-    ImGui::Text("Origin: (%.4f, %.4f, %.4f)",
-        e->origVec.x(), e->origVec.y(), e->origVec.z());
-    ImGui::Text("Destination: (%.4f, %.4f, %.4f)",
-        e->destVec.x(), e->destVec.y(), e->destVec.z());
-
-    ImGui::Separator();
-    ImGui::Text("Wing Pointers:");
-
-    // Display wing pointers
+    // Display wing pointers with improved color contrast
+    // Use different colors for different types of wing pointers
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(150, 220, 255, 255)); // Light blue for CCW
     if (ImGui::TreeNode("CCW Left Edge")) {
+        ImGui::PopStyleColor();
         ImGui::Text("%s", getEdgeDisplayString(e->ccw_l_edge).c_str());
         ImGui::TreePop();
     }
+    else {
+        ImGui::PopStyleColor();
+    }
 
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(150, 220, 255, 255)); // Light blue for CCW
     if (ImGui::TreeNode("CCW Right Edge")) {
+        ImGui::PopStyleColor();
         ImGui::Text("%s", getEdgeDisplayString(e->ccw_r_edge).c_str());
         ImGui::TreePop();
     }
+    else {
+        ImGui::PopStyleColor();
+    }
 
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 200, 150, 255)); // Light orange for CW
     if (ImGui::TreeNode("CW Left Edge")) {
+        ImGui::PopStyleColor();
         ImGui::Text("%s", getEdgeDisplayString(e->cw_l_edge).c_str());
         ImGui::TreePop();
     }
+    else {
+        ImGui::PopStyleColor();
+    }
 
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 200, 150, 255)); // Light orange for CW
     if (ImGui::TreeNode("CW Right Edge")) {
+        ImGui::PopStyleColor();
         ImGui::Text("%s", getEdgeDisplayString(e->cw_r_edge).c_str());
         ImGui::TreePop();
     }
+    else {
+        ImGui::PopStyleColor();
+    }
 
     ImGui::Separator();
-    ImGui::Text("Adjacent Faces:");
+    ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f), "Adjacent Faces:");
 
-    // Display adjacent faces
+    // Display adjacent faces with green color theme
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(150, 255, 150, 255)); // Light green
     if (ImGui::TreeNode("Left Face")) {
+        ImGui::PopStyleColor();
         face* lf = e->l_face.expired() ? nullptr : e->l_face.lock().get();
         ImGui::Text("%s", getFaceDisplayString(lf).c_str());
         ImGui::TreePop();
     }
+    else {
+        ImGui::PopStyleColor();
+    }
 
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(150, 255, 150, 255)); // Light green
     if (ImGui::TreeNode("Right Face")) {
+        ImGui::PopStyleColor();
         face* rf = e->r_face.expired() ? nullptr : e->r_face.lock().get();
         ImGui::Text("%s", getFaceDisplayString(rf).c_str());
         ImGui::TreePop();
     }
+    else {
+        ImGui::PopStyleColor();
+    }
 
-    ImGui::End();
+    ImGui::Unindent();  // Remove indentation
 }
 
-void WingedEdgeImGui::renderFaceDetails() {
-    if (selectedMeshIndex < 0 || selectedFaceIndex < 0) return;
-
-    WingedEdge* mesh = meshCollection->getMesh(selectedMeshIndex);
-    if (selectedFaceIndex >= mesh->faces.size()) return;
-
+void WingedEdgeImGui::renderFaceDetails(WingedEdge* mesh) {
     face* f = mesh->faces[selectedFaceIndex].get();
 
-    ImGui::Begin("Face Details", &showFaceDetails);
-
-    ImGui::Text("Face Index: %d", f->index);
+    ImGui::Indent();  // Add indentation for better visual hierarchy
 
     if (f->bIsTetra) {
         ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "Tetrahedron Face");
     }
-
-    ImGui::Separator();
 
     vec3 normal = f->normal();
     ImGui::Text("Normal: (%.4f, %.4f, %.4f)", normal.x(), normal.y(), normal.z());
@@ -311,7 +366,7 @@ void WingedEdgeImGui::renderFaceDetails() {
     ImGui::Separator();
     ImGui::Text("Edges (%zu):", f->vEdges.size());
 
-    ImGui::BeginChild("FaceEdgesList", ImVec2(0, 200), true);
+    ImGui::BeginChild("FaceEdgesList", ImVec2(0, 120), true);
     for (size_t i = 0; i < f->vEdges.size(); i++) {
         edge* e = f->vEdges[i];
         bool reversed = f->vIsReversed[i];
@@ -324,7 +379,6 @@ void WingedEdgeImGui::renderFaceDetails() {
             for (size_t j = 0; j < mesh->edges.size(); j++) {
                 if (mesh->edges[j].get() == e) {
                     selectedEdgeIndex = static_cast<int>(j);
-                    showEdgeDetails = true;
                     break;
                 }
             }
@@ -332,7 +386,7 @@ void WingedEdgeImGui::renderFaceDetails() {
     }
     ImGui::EndChild();
 
-    ImGui::End();
+    ImGui::Unindent();  // Remove indentation
 }
 
 // --- Added method to update the selection ---

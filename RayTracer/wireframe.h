@@ -251,7 +251,7 @@ void RenderWingedEdgeWireframe(SDL_Renderer* renderer,
             }
         }
 
-        // Render vertices as usual
+        // Render vertices
         SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
         for (const auto& vertex : mesh.vertices) {
             auto projected = project(vertex, camera, viewport);

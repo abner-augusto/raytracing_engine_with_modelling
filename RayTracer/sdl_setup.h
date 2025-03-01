@@ -256,6 +256,7 @@ void handleEdgeSelection(const SDL_MouseButtonEvent& event, const Camera& camera
         const float threshold = 10.0f;
         float minDistance = threshold;
         selectedEdge = nullptr;
+        WingedEdge* selectedMesh = nullptr; // Track the mesh of the selected edge
 
         for (auto it = meshCollection.begin(); it != meshCollection.end(); ++it) {
             WingedEdge* mesh = it->get();
@@ -272,19 +273,21 @@ void handleEdgeSelection(const SDL_MouseButtonEvent& event, const Camera& camera
                     if (distance < minDistance) {
                         minDistance = distance;
                         selectedEdge = edgePtr;
+                        selectedMesh = mesh;
                     }
                 }
             }
         }
 
-        if (selectedEdge) {
-
+        if (selectedEdge && selectedMesh) {
             // Clear previous selection and add the new edge to the loop selection array
             imguiInstance.selectedEdgeLoopEdges.clear();
             imguiInstance.selectedEdgeLoopEdges.push_back(selectedEdge);
+            imguiInstance.updateSelection(selectedMesh, selectedEdge);
         }
     }
 }
+
 
 
 void handle_keyboard_event(const SDL_Event& event, bool& running, Camera& camera, RenderState& render_state, SceneManager& world, float speed) {
