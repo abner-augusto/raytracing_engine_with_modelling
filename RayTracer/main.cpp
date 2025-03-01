@@ -32,16 +32,18 @@
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_sdlrenderer2.h>
 #include <SDL2/SDL.h>
+#include <SDL_ttf.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
 RenderState render_state;
 bool renderWireframe = false;
-bool renderWorldAxes = true;
+bool renderWorldAxes = false;
 bool renderWingedEdge = true;
 bool renderWingedEdgeArrows = true;
+bool renderWingedEdgeText = true;
 std::optional<BoundingBox> highlighted_box = std::nullopt;
-std::shared_ptr<edge> selectedEdge = nullptr;
+std::shared_ptr<Edge> selectedEdge = nullptr;
 WingedEdgeImGui* g_imguiInstance = nullptr;
 
 int main(int argc, char* argv[]) {
@@ -58,6 +60,12 @@ int main(int argc, char* argv[]) {
 
     if (!InitializeSDL()) {
         return -1;
+    }
+
+    if (TTF_Init() < 0) {
+        std::cerr << "SDL_ttf could not initialize! TTF_Error: " << TTF_GetError() << std::endl;
+        SDL_Quit();
+        return 1;
     }
 
     SDL_Window* window = CreateWindow(window_width, window_height, "Raytracer CG1 - Abner Augusto");
@@ -88,6 +96,16 @@ int main(int argc, char* argv[]) {
     ImGui_ImplSDL2_InitForSDLRenderer(window, renderer);
     ImGui_ImplSDLRenderer2_Init(renderer);
     ImGui::StyleColorsDark();
+
+    TTF_Font* font = TTF_OpenFont("fonts/Roboto-Medium.ttf", 16);
+    if (font == nullptr) {
+        std::cerr << "Failed to load font! TTF_Error: " << TTF_GetError() << std::endl;
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        TTF_Quit();
+        SDL_Quit();
+        return 1;
+    }
 
     // Material list
     color black(0.0, 0.0, 0.0);
@@ -353,7 +371,7 @@ int main(int argc, char* argv[]) {
         }
 
         if (renderWingedEdge) {
-            RenderWingedEdgeWireframe(renderer, meshCollection, camera, destination_rect, WEimguiInterface, renderWingedEdgeArrows);
+            RenderWingedEdgeWireframe(renderer, meshCollection, camera, destination_rect, WEimguiInterface, font, renderWingedEdgeArrows, renderWingedEdgeText);
         }
 
         // Render ImGui
@@ -368,6 +386,8 @@ int main(int argc, char* argv[]) {
     ImGui::DestroyContext();
 
     Cleanup_SDL(window, renderer, texture);
+
+    TTF_CloseFont(font);
 
     return 0;
 }
