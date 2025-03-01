@@ -140,7 +140,7 @@
     <LibraryPath>C:\Users\abner\Documents\Visual Studio 2022\External_Libraries\SDL2\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>C:\Users\abner\Documents\Visual Studio 2022\External_Libraries\SDL2\include;$(IncludePath)</IncludePath>
+    <IncludePath>C:\Users\abner\source\repos\qbRaytracing\RayTracer\SDL2;C:\Users\abner\Documents\Visual Studio 2022\External_Libraries\SDL2\include;$(IncludePath)</IncludePath>
     <LibraryPath>C:\Users\abner\Documents\Visual Studio 2022\External_Libraries\SDL2\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -209,7 +209,8 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>SDL2.lib;SDL2main.lib;SDL2test.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>SDL2.lib;SDL2main.lib;SDL2test.lib;SDL2_ttf.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Users\abner\source\repos\qbRaytracing\RayTracer\SDL2\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
