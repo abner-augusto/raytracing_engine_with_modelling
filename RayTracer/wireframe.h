@@ -172,13 +172,22 @@ void RenderWingedEdgeWireframe(SDL_Renderer* renderer,
     bool renderText = true) {
 
     const auto& selectedEdges = imguiInterface.getSelectedEdgeLoop();
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
     for (size_t i = 0; i < meshCollection.getMeshCount(); i++) {
         const WingedEdge* mesh = meshCollection.getMesh(i);
         if (!mesh) continue;
 
-        // Render edges
+        // Determine which faces are front-facing (visible) versus back-facing.
+        std::unordered_map<const Face*, bool> faceVisibility;
+        for (const auto& face : mesh->faces) {
+            vec3 faceNormal = face->normal();
+            vec3 viewDir = camera.get_origin() - face->vertices[0]->pos;
+            double dotProduct = dot(faceNormal, viewDir.normalized());
+            faceVisibility[face.get()] = (dotProduct > 0);
+        }
+
+        // Render edges with transparency based on face visibility.
         for (const auto& edgePtr : mesh->edges) {
             if (!edgePtr) continue;
 
@@ -186,35 +195,64 @@ void RenderWingedEdgeWireframe(SDL_Renderer* renderer,
             auto p2 = project(edgePtr->destination->pos, camera, viewport);
 
             if (p1 && p2) {
-                // Check if the current edge is part of the selected edge loop.
-                if (!selectedEdges.empty() &&
-                    std::find(selectedEdges.begin(), selectedEdges.end(), edgePtr) != selectedEdges.end()) {
+                Uint8 alpha = 255; // full opacity by default
 
-                    SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255); // Green for selected loop edges
+                // If the edge belongs to any back-facing face, lower opacity.
+                auto leftFace = edgePtr->leftFace.lock();
+                auto rightFace = edgePtr->rightFace.lock();
+                if ((leftFace && !faceVisibility[leftFace.get()]) ||
+                    (rightFace && !faceVisibility[rightFace.get()])) {
+                    alpha = 50;
+                }
+
+                // Determine if this edge is selected.
+                bool isSelected = (!selectedEdges.empty() &&
+                    std::find(selectedEdges.begin(), selectedEdges.end(), edgePtr) != selectedEdges.end());
+
+                if (isSelected) {
+                    SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+
+                    // Create a thicker line by drawing multiple lines with small offsets
+                    int lineThickness = 3; // Adjust for desired thickness
+
+                    // Draw the main line
                     SDL_RenderDrawLine(renderer, p1->first, p1->second, p2->first, p2->second);
 
-                    if (renderText) {
-                        std::string edgeLabel = "e" + std::to_string(edgePtr->index);
-                        int midX = (p1->first + p2->first) / 2;
-                        int midY = (p1->second + p2->second) / 2;
-                        SDL_Color green = { 0, 255, 0, 255 };
-                        SDL_Surface* textSurface = TTF_RenderText_Solid(font, edgeLabel.c_str(), green);
-                        if (textSurface) {
-                            SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
-                            SDL_Rect textRect = { midX, midY, textSurface->w, textSurface->h };
-                            SDL_RenderCopy(renderer, textTexture, nullptr, &textRect);
-                            SDL_FreeSurface(textSurface);
-                            SDL_DestroyTexture(textTexture);
+                    // Calculate perpendicular vector for offsets
+                    float dx = static_cast<float>(p2->first - p1->first);
+                    float dy = static_cast<float>(p2->second - p1->second);
+                    float len = sqrt(dx * dx + dy * dy);
+
+                    if (len > 0) { // Avoid division by zero
+                        // Perpendicular unit vector
+                        float perpX = -dy / len;
+                        float perpY = dx / len;
+
+                        // Draw offset lines to create thickness
+                        for (int offset = 1; offset <= lineThickness; ++offset) {
+                            // Upper offset line
+                            int x1_offset = p1->first + static_cast<int>(perpX * offset);
+                            int y1_offset = p1->second + static_cast<int>(perpY * offset);
+                            int x2_offset = p2->first + static_cast<int>(perpX * offset);
+                            int y2_offset = p2->second + static_cast<int>(perpY * offset);
+                            SDL_RenderDrawLine(renderer, x1_offset, y1_offset, x2_offset, y2_offset);
+
+                            // Lower offset line
+                            x1_offset = p1->first - static_cast<int>(perpX * offset);
+                            y1_offset = p1->second - static_cast<int>(perpY * offset);
+                            x2_offset = p2->first - static_cast<int>(perpX * offset);
+                            y2_offset = p2->second - static_cast<int>(perpY * offset);
+                            SDL_RenderDrawLine(renderer, x1_offset, y1_offset, x2_offset, y2_offset);
                         }
                     }
                 }
                 else {
-                    // Regular edge rendering (white).
-                    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+                    // Render non-selected edge in white with computed transparency.
+                    SDL_SetRenderDrawColor(renderer, 255, 255, 255, alpha);
                     SDL_RenderDrawLine(renderer, p1->first, p1->second, p2->first, p2->second);
                 }
 
-                // Arrow Rendering (only if renderArrow is true).
+                // Render arrowhead (if enabled) using the same alpha value.
                 if (renderArrow) {
                     float arrowFactor = 0.75f;
                     int tipX = p1->first + static_cast<int>(arrowFactor * (p2->first - p1->first));
@@ -223,47 +261,98 @@ void RenderWingedEdgeWireframe(SDL_Renderer* renderer,
                     float dx = static_cast<float>(p2->first - p1->first);
                     float dy = static_cast<float>(p2->second - p1->second);
                     float len = sqrt(dx * dx + dy * dy);
-                    if (len > 0) { // Avoid division by zero.
+                    if (len > 0) { // avoid division by zero
                         float udx = dx / len;
                         float udy = dy / len;
-                        float perpX = -udy;  // Perpendicular vector.
+                        float perpX = -udy;
                         float perpY = udx;
-
-                        float arrowHeadLength = 10.0f; // Length of the arrowhead wings.
-                        float arrowHeadAngle = pi / 6;   // Angle of the arrowhead wings.
+                        float arrowHeadLength = 10.0f;
+                        float arrowHeadAngle = 3.14159f / 6;  // approximately 30 degrees
 
                         float cosAngle = cos(arrowHeadAngle);
                         float sinAngle = sin(arrowHeadAngle);
 
-                        // Calculate the coordinates of the arrowhead wings.
                         float leftWingX = tipX - arrowHeadLength * (udx * cosAngle + perpX * sinAngle);
                         float leftWingY = tipY - arrowHeadLength * (udy * cosAngle + perpY * sinAngle);
                         float rightWingX = tipX - arrowHeadLength * (udx * cosAngle - perpX * sinAngle);
                         float rightWingY = tipY - arrowHeadLength * (udy * cosAngle - perpY * sinAngle);
 
-                        // Draw the arrowhead wings.
-                        SDL_RenderDrawLine(renderer, tipX, tipY, static_cast<int>(leftWingX), static_cast<int>(leftWingY));
-                        SDL_RenderDrawLine(renderer, tipX, tipY, static_cast<int>(rightWingX), static_cast<int>(rightWingY));
+                        if (isSelected) {
+                            // For selected edges, draw arrowheads in green and thicker.
+                            SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+                            SDL_RenderDrawLine(renderer, tipX, tipY, static_cast<int>(leftWingX), static_cast<int>(leftWingY));
+                            SDL_RenderDrawLine(renderer, tipX, tipY, static_cast<int>(rightWingX), static_cast<int>(rightWingY));
+
+                            // Thicken the arrowheads using offsets (using same thickness as edge)
+                            int arrowThickness = 3;
+                            for (int offset = 1; offset <= arrowThickness; ++offset) {
+                                // Calculate offset positions using the same perpendicular vector.
+                                int tipX_offset = tipX + static_cast<int>(perpX * offset);
+                                int tipY_offset = tipY + static_cast<int>(perpY * offset);
+                                int leftWingX_offset = static_cast<int>(leftWingX) + static_cast<int>(perpX * offset);
+                                int leftWingY_offset = static_cast<int>(leftWingY) + static_cast<int>(perpY * offset);
+                                SDL_RenderDrawLine(renderer, tipX_offset, tipY_offset, leftWingX_offset, leftWingY_offset);
+
+                                tipX_offset = tipX - static_cast<int>(perpX * offset);
+                                tipY_offset = tipY - static_cast<int>(perpY * offset);
+                                leftWingX_offset = static_cast<int>(leftWingX) - static_cast<int>(perpX * offset);
+                                leftWingY_offset = static_cast<int>(leftWingY) - static_cast<int>(perpY * offset);
+                                SDL_RenderDrawLine(renderer, tipX_offset, tipY_offset, leftWingX_offset, leftWingY_offset);
+
+                                tipX_offset = tipX + static_cast<int>(perpX * offset);
+                                tipY_offset = tipY + static_cast<int>(perpY * offset);
+                                int rightWingX_offset = static_cast<int>(rightWingX) + static_cast<int>(perpX * offset);
+                                int rightWingY_offset = static_cast<int>(rightWingY) + static_cast<int>(perpY * offset);
+                                SDL_RenderDrawLine(renderer, tipX_offset, tipY_offset, rightWingX_offset, rightWingY_offset);
+
+                                tipX_offset = tipX - static_cast<int>(perpX * offset);
+                                tipY_offset = tipY - static_cast<int>(perpY * offset);
+                                rightWingX_offset = static_cast<int>(rightWingX) - static_cast<int>(perpX * offset);
+                                rightWingY_offset = static_cast<int>(rightWingY) - static_cast<int>(perpY * offset);
+                                SDL_RenderDrawLine(renderer, tipX_offset, tipY_offset, rightWingX_offset, rightWingY_offset);
+                            }
+                        }
+                        else {
+                            // For non-selected edges, draw arrowheads in white with computed transparency.
+                            SDL_SetRenderDrawColor(renderer, 255, 255, 255, alpha);
+                            SDL_RenderDrawLine(renderer, tipX, tipY, static_cast<int>(leftWingX), static_cast<int>(leftWingY));
+                            SDL_RenderDrawLine(renderer, tipX, tipY, static_cast<int>(rightWingX), static_cast<int>(rightWingY));
+                        }
                     }
                 }
             }
         }
 
-        // Render vertices
-        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255); // Red for vertices
+        // Render vertices with transparency based on incident face visibility.
         for (const auto& vertex : mesh->vertices) {
             auto projected = project(vertex->pos, camera, viewport);
             if (projected) {
-                // Draw a small filled rectangle for each vertex.
-                SDL_Rect pointRect = { projected->first - 2, projected->second - 2, 9, 9 }; // Centered 9x9 square
+                Uint8 alpha = 255;
+                bool isVisible = false;
+                for (const auto& face : mesh->faces) {
+                    if (std::find(face->vertices.begin(), face->vertices.end(), vertex.get()) != face->vertices.end()) {
+                        if (faceVisibility[face.get()]) {
+                            isVisible = true;
+                            break;
+                        }
+                    }
+                }
+                if (!isVisible) {
+                    alpha = 50;
+                }
+
+                // Draw the vertex as a filled rectangle.
+                SDL_Rect pointRect = { projected->first - 2, projected->second - 2, 9, 9 };
+                SDL_SetRenderDrawColor(renderer, 255, 0, 0, alpha);
                 SDL_RenderFillRect(renderer, &pointRect);
 
                 if (renderText) {
                     std::string vertexLabel = "v" + std::to_string(vertex->index);
-                    SDL_Surface* textSurface = TTF_RenderText_Solid(font, vertexLabel.c_str(), { 255, 0, 0, 255 }); // Red text
+                    SDL_Color red = { 255, 0, 0, alpha };
+                    SDL_Surface* textSurface = TTF_RenderText_Solid(font, vertexLabel.c_str(), red);
                     if (textSurface) {
                         SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
-                        SDL_Rect textRect = { projected->first + 10, projected->second - 10, textSurface->w, textSurface->h }; // Offset text
+                        SDL_Rect textRect = { projected->first + 10, projected->second - 10, textSurface->w, textSurface->h };
                         SDL_RenderCopy(renderer, textTexture, nullptr, &textRect);
                         SDL_FreeSurface(textSurface);
                         SDL_DestroyTexture(textTexture);
@@ -272,26 +361,25 @@ void RenderWingedEdgeWireframe(SDL_Renderer* renderer,
             }
         }
 
-        // --- Render face indices at the centroid of each face ---
+        // Render face labels at each face's centroid with alpha based on face visibility.
         for (const auto& face : mesh->faces) {
-            // Use face->vertices directly, no need for a getVertices() method.
-            if (face->vertices.empty()) continue; // Skip faces with no vertices
+            if (face->vertices.empty())
+                continue;
 
-            // Generalized centroid calculation
             vec3 centroid = vec3(0.0, 0.0, 0.0);
             for (const auto& v : face->vertices) {
                 centroid += v->pos;
             }
-            centroid /= static_cast<float>(face->vertices.size()); // Average
+            centroid /= static_cast<float>(face->vertices.size());
 
             auto projCentroid = project(centroid, camera, viewport);
             if (projCentroid && renderText) {
                 std::string faceLabel = "f" + std::to_string(face->index);
-                SDL_Color faceColor = { 255, 255, 0, 255 };  // Yellow
+                Uint8 faceAlpha = faceVisibility[face.get()] ? 255 : 50;
+                SDL_Color faceColor = { 255, 255, 0, faceAlpha };
                 SDL_Surface* textSurface = TTF_RenderText_Solid(font, faceLabel.c_str(), faceColor);
                 if (textSurface) {
                     SDL_Texture* textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
-                    // Position the text at the projected centroid.
                     SDL_Rect textRect = { projCentroid->first, projCentroid->second, textSurface->w, textSurface->h };
                     SDL_RenderCopy(renderer, textTexture, nullptr, &textRect);
                     SDL_FreeSurface(textSurface);
