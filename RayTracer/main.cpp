@@ -172,27 +172,37 @@ int main(int argc, char* argv[]) {
         std::cerr << "Error: " << e.what() << "\n";
     }
 
+    // -------------------------
+    //        WINGED EDGE
+    // -------------------------
+
     MeshCollection meshCollection;
 
+    // Create Box
+    std::unique_ptr<WingedEdge> box = PrimitiveFactory::createBox(vec3(1.0, 0.0, 0.0), vec3(1.5, 0.5, -0.5));
+    meshCollection.addMesh(std::move(box), "Box");
+    ObjectID boxID = meshCollection.addMeshToScene(world, "Box", (mat(blue, 1.0, 1.0, 50, 0.0)));
 
-    std::unique_ptr<WingedEdge> tetrahedron = PrimitiveFactory::createTetrahedron();
-    meshCollection.addMesh(std::move(tetrahedron), "Tetrahedron");
+    // Create Sphere
+    std::unique_ptr<WingedEdge> sphere = PrimitiveFactory::createSphere(vec3(2, 0.25, -1), 0.5, 6, 12);
+    meshCollection.addMesh(std::move(sphere), "Sphere");
+    ObjectID sphereID = meshCollection.addMeshToScene(world, "Sphere", (mat(red, 1.0, 1.0, 50, 0.0)));
 
-    const WingedEdge* tetraMesh = meshCollection.getMeshByName("Tetrahedron");
-    if (tetraMesh) {
-        std::shared_ptr<Mesh> triangleMesh = tetraMesh->toMesh(mat(blue, 1.0, 1.0, 50, 0.0));
-        ObjectID tetraID = world.add(triangleMesh);
-    }
-
+    // Debug Info
     meshCollection.printInfo();
     meshCollection.traverseMeshes();
+
+    // Interface instance
     WingedEdgeImGui WEimguiInterface(&meshCollection);
+
+    // -------------------------
+    //     WINGED EDGE END
+    // -------------------------
 
     //Light
     world.add_directional_light(vec3(-0.6, -0.5, -0.5), 0.4, color(1, 0.95, 0.8));
     world.add_point_light(point3(0, 1, 0.5), 1.0, color(1, 1, 1));
     //world.add_spot_light(point3(0, 0.7, -1.0), vec3(0,0.043,-1.0), 6.5, color(0,0.1,1), 30, 45);
-
 
     // Camera
     double camera_fov = 60;
