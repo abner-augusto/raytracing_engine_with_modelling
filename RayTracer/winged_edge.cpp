@@ -1,62 +1,55 @@
-#include "winged_edge.h"
-#include "vec3.h"
-#include "mesh.h"
 #include <iostream>
 #include <stdexcept>
 #include <memory>
 #include <vector>
 #include <unordered_map>
+#include "vec3.h"
+#include "mesh.h"
+#include "winged_edge.h"
 
-//-------------------------------------------------------------------
-// Face Methods
-//-------------------------------------------------------------------
-
-std::vector<Edge*> Face::getBoundary() const {
-    return boundaryEdges;
-}
-
-std::vector<Vertex*> Face::getVertices() const {
-    return vertices; // Directly return the stored order.
-}
+/*-------------------------------------------------------------------
+  Face Methods
+-------------------------------------------------------------------*/
 
 vec3 Face::normal() const {
-    auto verts = getVertices();
-    if (verts.size() < 3)
-        return vec3(0, 0, 0);
-    vec3 v0 = verts[0]->pos;
-    vec3 v1 = verts[1]->pos;
-    vec3 v2 = verts[2]->pos;
-    return unit_vector(cross(v1 - v0, v2 - v0));
+    if (!normalCached) {
+        if (vertices.size() < 3)
+            cachedNormal = vec3(0, 0, 0);
+        else {
+            vec3 v0 = vertices[0]->pos;
+            vec3 v1 = vertices[1]->pos;
+            vec3 v2 = vertices[2]->pos;
+            cachedNormal = unit_vector(cross(v1 - v0, v2 - v0));
+        }
+        normalCached = true;
+    }
+    return cachedNormal;
 }
 
+/*-------------------------------------------------------------------
+  WingedEdge Methods
+-------------------------------------------------------------------*/
 
-
-//-------------------------------------------------------------------
-// WingedEdge Methods
-//-------------------------------------------------------------------
-
-// Find an existing edge between v1 and v2 or create a new one.
-std::shared_ptr<Edge> WingedEdge::findOrCreateEdge(Vertex* v1, Vertex* v2) {
-    EdgeKey key(v1->index, v2->index);
+std::shared_ptr<Edge> WingedEdge::findOrCreateEdge(Vertex* vertex1, Vertex* vertex2) {
+    EdgeKey key(vertex1->index, vertex2->index);
     auto it = edgeLookup.find(key);
     if (it != edgeLookup.end()) {
         return it->second;
     }
-    auto newEdge = std::make_shared<Edge>(v1, v2);
+    auto newEdge = std::make_shared<Edge>(vertex1, vertex2);
     newEdge->index = static_cast<int>(edges.size());
     edges.push_back(newEdge);
-    edgeLookup[key] = newEdge;
+    edgeLookup.emplace(key, newEdge);
 
-    // Set the incident edge pointers if not already assigned
-    if (v1->incidentEdge == nullptr)
-        v1->incidentEdge = newEdge.get();
-    if (v2->incidentEdge == nullptr)
-        v2->incidentEdge = newEdge.get();
+    // Set the incident edge pointers if not already assigned.
+    if (vertex1->incidentEdge == nullptr)
+        vertex1->incidentEdge = newEdge.get();
+    if (vertex2->incidentEdge == nullptr)
+        vertex2->incidentEdge = newEdge.get();
 
     return newEdge;
 }
 
-// Create a face given an ordered boundary (list of vertices).
 std::shared_ptr<Face> WingedEdge::createFace(const std::vector<Vertex*>& boundary) {
     if (boundary.size() < 3)
         throw std::invalid_argument("A face must have at least 3 vertices.");
@@ -67,20 +60,19 @@ std::shared_ptr<Face> WingedEdge::createFace(const std::vector<Vertex*>& boundar
 
     // Store the ordered vertices directly.
     newFace->vertices = boundary;
-
     newFace->boundaryEdges.clear();
 
     size_t n = boundary.size();
     for (size_t i = 0; i < n; i++) {
-        Vertex* v1 = boundary[i];
-        Vertex* v2 = boundary[(i + 1) % n];
-        auto edge = findOrCreateEdge(v1, v2);
+        Vertex* vertex1 = boundary[i];
+        Vertex* vertex2 = boundary[(i + 1) % n];
+        auto edge = findOrCreateEdge(vertex1, vertex2);
 
         // Assign the face to the edge.
-        if (edge->l_face.expired())
-            edge->l_face = newFace;
-        else if (edge->r_face.expired())
-            edge->r_face = newFace;
+        if (edge->leftFace.expired())
+            edge->leftFace = newFace;
+        else if (edge->rightFace.expired())
+            edge->rightFace = newFace;
         else
             throw std::runtime_error("Edge already has two adjacent faces.");
 
@@ -91,51 +83,44 @@ std::shared_ptr<Face> WingedEdge::createFace(const std::vector<Vertex*>& boundar
     if (!newFace->boundaryEdges.empty())
         newFace->edge = newFace->boundaryEdges[0];
 
-    setupWingedEdgePointers();
+    // Note: setupWingedEdgePointers() call has been removed from here.
     return newFace;
 }
 
-// Setup the wing pointers for all edges based on the face boundaries.
 void WingedEdge::setupWingedEdgePointers() {
     // Reset all wing pointers.
     for (auto& e : edges) {
-        e->ccw_l_edge = nullptr;
-        e->cw_l_edge = nullptr;
-        e->ccw_r_edge = nullptr;
-        e->cw_r_edge = nullptr;
+        e->counterClockwiseLeftEdge = nullptr;
+        e->clockwiseLeftEdge = nullptr;
+        e->counterClockwiseRightEdge = nullptr;
+        e->clockwiseRightEdge = nullptr;
     }
 
-    // For each face, traverse its boundary (using getBoundary) and set pointers.
+    // For each face, traverse its boundary (accessed directly via boundaryEdges) and set pointers.
     for (auto& f : faces) {
-        auto boundary = f->getBoundary();
+        auto& boundary = f->boundaryEdges;
         size_t n = boundary.size();
         for (size_t i = 0; i < n; i++) {
             Edge* current = boundary[i];
             Edge* next = boundary[(i + 1) % n];
 
-            // Determine orientation: if f is the left face of the current edge,
-            // then assign next as the clockwise edge for the left side.
-            if (current->l_face.lock().get() == f.get()) {
-                current->cw_l_edge = next;
-            }
-            else if (current->r_face.lock().get() == f.get()) {
-                current->cw_r_edge = next;
-            }
+            // Set the clockwise pointer based on face assignment.
+            if (current->leftFace.lock().get() == f.get())
+                current->clockwiseLeftEdge = next;
+            else if (current->rightFace.lock().get() == f.get())
+                current->clockwiseRightEdge = next;
 
-            // For the previous edge pointer: find the previous edge in the boundary.
+            // Set the counterclockwise pointer.
             Edge* prev = boundary[(i + n - 1) % n];
-            if (current->l_face.lock().get() == f.get()) {
-                current->ccw_l_edge = prev;
-            }
-            else if (current->r_face.lock().get() == f.get()) {
-                current->ccw_r_edge = prev;
-            }
+            if (current->leftFace.lock().get() == f.get())
+                current->counterClockwiseLeftEdge = prev;
+            else if (current->rightFace.lock().get() == f.get())
+                current->counterClockwiseRightEdge = prev;
         }
     }
 }
 
-// Print mesh information.
-void WingedEdge::printInfo() {
+void WingedEdge::printInfo() const {
     std::cout << "WingedEdge Mesh Information:" << std::endl;
 
     // Print vertices.
@@ -161,9 +146,8 @@ void WingedEdge::printInfo() {
     std::cout << "Faces: " << faces.size() << std::endl;
     for (const auto& f : faces) {
         std::cout << "  f" << f->index << ": ";
-        auto boundary = f->getBoundary();
         std::cout << "Boundary edges = ";
-        for (Edge* e : boundary) {
+        for (Edge* e : f->boundaryEdges) {
             std::cout << "e" << e->index << " ";
         }
         vec3 n = f->normal();
@@ -171,12 +155,11 @@ void WingedEdge::printInfo() {
     }
 }
 
-// Traverse the mesh by printing the vertices around each face.
-void WingedEdge::traverseMesh() {
+void WingedEdge::traverseMesh() const {
     std::cout << "\nMesh Traversal:" << std::endl;
     for (const auto& f : faces) {
         std::cout << "Face " << f->index << " vertices: ";
-        auto verts = f->getVertices();  // Use the face's getVertices() method
+        const auto& verts = f->vertices;
         for (size_t i = 0; i < verts.size(); i++) {
             std::cout << "(" << verts[i]->pos.x() << ", " << verts[i]->pos.y() << ", " << verts[i]->pos.z() << ")";
             if (i < verts.size() - 1)
@@ -186,8 +169,6 @@ void WingedEdge::traverseMesh() {
     }
 }
 
-
-// Convert the WingedEdge mesh to a Mesh object.
 std::shared_ptr<Mesh> WingedEdge::toMesh(const mat& material) const {
     auto mesh = std::make_shared<Mesh>();
 
@@ -195,7 +176,7 @@ std::shared_ptr<Mesh> WingedEdge::toMesh(const mat& material) const {
     std::cout << "Total Faces: " << faces.size() << std::endl;
 
     for (const auto& face : faces) {
-        auto verts = face->getVertices();
+        const auto& verts = face->vertices;
         std::cout << "Processing Face " << face->index << " with " << verts.size() << " vertices..." << std::endl;
 
         if (verts.size() == 3) {
@@ -223,10 +204,10 @@ std::shared_ptr<Mesh> WingedEdge::toMesh(const mat& material) const {
     return mesh;
 }
 
+/*-------------------------------------------------------------------
+  PrimitiveFactory Implementation
+-------------------------------------------------------------------*/
 
-//-------------------------------------------------------------------
-// PrimitiveFactory Implementation
-//-------------------------------------------------------------------
 std::unique_ptr<WingedEdge> PrimitiveFactory::createTetrahedron() {
     auto mesh = std::make_unique<WingedEdge>();
 
@@ -248,18 +229,148 @@ std::unique_ptr<WingedEdge> PrimitiveFactory::createTetrahedron() {
     mesh->createFace({ mesh->vertices[1].get(), mesh->vertices[3].get(), mesh->vertices[2].get() });
     mesh->createFace({ mesh->vertices[2].get(), mesh->vertices[3].get(), mesh->vertices[0].get() });
 
+    // Update wing pointers after all faces are created.
     mesh->setupWingedEdgePointers();
     return mesh;
 }
 
-//-------------------------------------------------------------------
-// MeshCollection Implementation
-//-------------------------------------------------------------------
-void MeshCollection::addMesh(std::unique_ptr<WingedEdge> mesh, const std::string& name) {
+std::unique_ptr<WingedEdge> PrimitiveFactory::createBox(const vec3& vmin, const vec3& vmax) {
+    auto mesh = std::make_unique<WingedEdge>();
+
+    // Create the 8 vertices of the box.
+    mesh->vertices.push_back(std::make_unique<Vertex>(vec3(vmin.x(), vmin.y(), vmin.z()), 0)); // v0
+    mesh->vertices.push_back(std::make_unique<Vertex>(vec3(vmax.x(), vmin.y(), vmin.z()), 1)); // v1
+    mesh->vertices.push_back(std::make_unique<Vertex>(vec3(vmax.x(), vmax.y(), vmin.z()), 2)); // v2
+    mesh->vertices.push_back(std::make_unique<Vertex>(vec3(vmin.x(), vmax.y(), vmin.z()), 3)); // v3
+    mesh->vertices.push_back(std::make_unique<Vertex>(vec3(vmin.x(), vmin.y(), vmax.z()), 4)); // v4
+    mesh->vertices.push_back(std::make_unique<Vertex>(vec3(vmax.x(), vmin.y(), vmax.z()), 5)); // v5
+    mesh->vertices.push_back(std::make_unique<Vertex>(vec3(vmax.x(), vmax.y(), vmax.z()), 6)); // v6
+    mesh->vertices.push_back(std::make_unique<Vertex>(vec3(vmin.x(), vmax.y(), vmax.z()), 7)); // v7
+
+    // Bottom face (v0,v1,v2,v3) split into two triangles:
+    mesh->createFace({ mesh->vertices[0].get(), mesh->vertices[1].get(), mesh->vertices[2].get() });
+    mesh->createFace({ mesh->vertices[0].get(), mesh->vertices[2].get(), mesh->vertices[3].get() });
+
+    // Top face (v4,v5,v6,v7):
+    mesh->createFace({ mesh->vertices[4].get(), mesh->vertices[5].get(), mesh->vertices[6].get() });
+    mesh->createFace({ mesh->vertices[4].get(), mesh->vertices[6].get(), mesh->vertices[7].get() });
+
+    // Front face (v0,v1,v5,v4):
+    mesh->createFace({ mesh->vertices[0].get(), mesh->vertices[1].get(), mesh->vertices[5].get() });
+    mesh->createFace({ mesh->vertices[0].get(), mesh->vertices[5].get(), mesh->vertices[4].get() });
+
+    // Back face (v3,v2,v6,v7):
+    mesh->createFace({ mesh->vertices[3].get(), mesh->vertices[2].get(), mesh->vertices[6].get() });
+    mesh->createFace({ mesh->vertices[3].get(), mesh->vertices[6].get(), mesh->vertices[7].get() });
+
+    // Left face (v0,v3,v7,v4):
+    mesh->createFace({ mesh->vertices[0].get(), mesh->vertices[3].get(), mesh->vertices[7].get() });
+    mesh->createFace({ mesh->vertices[0].get(), mesh->vertices[7].get(), mesh->vertices[4].get() });
+
+    // Right face (v1,v2,v6,v5):
+    mesh->createFace({ mesh->vertices[1].get(), mesh->vertices[2].get(), mesh->vertices[6].get() });
+    mesh->createFace({ mesh->vertices[1].get(), mesh->vertices[6].get(), mesh->vertices[5].get() });
+
+    mesh->setupWingedEdgePointers();
+    return mesh;
+}
+
+std::unique_ptr<WingedEdge> PrimitiveFactory::createSphere(const vec3& center, float radius, int latDivisions, int longDivisions) {
+    auto mesh = std::make_unique<WingedEdge>();
+    int index = 0;
+
+    // Create the north pole vertex.
+    mesh->vertices.push_back(std::make_unique<Vertex>(vec3(center.x(), center.y() + radius, center.z()), index++)); // North pole
+
+    // Create vertices for intermediate latitude rings.
+    std::vector<std::vector<int>> vertexIndices;
+    for (int i = 1; i < latDivisions; i++) {
+        float phi = pi * i / latDivisions;  // polar angle from north pole to south pole.
+        std::vector<int> ring;
+        for (int j = 0; j < longDivisions; j++) {
+            float theta = 2.0f * pi * j / longDivisions;  // azimuthal angle.
+            float x = center.x() + radius * sin(phi) * cos(theta);
+            float y = center.y() + radius * cos(phi);
+            float z = center.z() + radius * sin(phi) * sin(theta);
+            mesh->vertices.push_back(std::make_unique<Vertex>(vec3(x, y, z), index));
+            ring.push_back(index);
+            index++;
+        }
+        vertexIndices.push_back(ring);
+    }
+
+    // Create the south pole vertex.
+    int southPoleIndex = index;
+    mesh->vertices.push_back(std::make_unique<Vertex>(vec3(center.x(), center.y() - radius, center.z()), index++));
+
+    // Top cap: connect north pole to first ring.
+    for (int j = 0; j < longDivisions; j++) {
+        int next = (j + 1) % longDivisions;
+        mesh->createFace({
+            mesh->vertices[0].get(),  // north pole
+            mesh->vertices[vertexIndices[0][next]].get(),
+            mesh->vertices[vertexIndices[0][j]].get()
+            });
+    }
+
+    // Middle bands: build quads split into two triangles.
+    for (size_t i = 0; i < vertexIndices.size() - 1; i++) {
+        for (int j = 0; j < longDivisions; j++) {
+            int next = (j + 1) % longDivisions;
+            int current1 = vertexIndices[i][j];
+            int current2 = vertexIndices[i][next];
+            int next1 = vertexIndices[i + 1][j];
+            int next2 = vertexIndices[i + 1][next];
+
+            // First triangle: (current1, current2, next1)
+            mesh->createFace({
+                mesh->vertices[current1].get(),
+                mesh->vertices[current2].get(),
+                mesh->vertices[next1].get()
+                });
+            // Second triangle: (current2, next2, next1)
+            mesh->createFace({
+                mesh->vertices[current2].get(),
+                mesh->vertices[next2].get(),
+                mesh->vertices[next1].get()
+                });
+        }
+    }
+
+    // Bottom cap: connect last ring to south pole.
+    int lastRing = vertexIndices.size() - 1;
+    for (int j = 0; j < longDivisions; j++) {
+        int next = (j + 1) % longDivisions;
+        mesh->createFace({
+            mesh->vertices[vertexIndices[lastRing][j]].get(),
+            mesh->vertices[vertexIndices[lastRing][next]].get(),
+            mesh->vertices[southPoleIndex].get()
+            });
+    }
+
+    mesh->setupWingedEdgePointers();
+    return mesh;
+}
+
+/*-------------------------------------------------------------------
+  MeshCollection Implementation
+-------------------------------------------------------------------*/
+
+void MeshCollection::addMesh(std::unique_ptr<WingedEdge> mesh, const std::string& name, bool autoRename) {
     if (!name.empty()) {
-        if (nameToIndexMap_.count(name) > 0)
-            throw std::invalid_argument("Mesh with name '" + name + "' already exists.");
-        nameToIndexMap_[name] = meshes_.size();
+        std::string finalName = name;
+        if (nameToIndexMap_.count(finalName) > 0) {
+            if (autoRename) {
+                int count = 1;
+                while (nameToIndexMap_.count(finalName + "_" + std::to_string(count)) > 0)
+                    count++;
+                finalName = finalName + "_" + std::to_string(count);
+            }
+            else {
+                throw std::invalid_argument("Mesh with name '" + finalName + "' already exists.");
+            }
+        }
+        nameToIndexMap_[finalName] = meshes_.size();
     }
     meshes_.push_back(std::move(mesh));
 }
@@ -347,4 +458,36 @@ std::string MeshCollection::getMeshName(const WingedEdge* mesh) const {
         }
     }
     return "";  // Return an empty string if the mesh is unnamed.
+}
+
+// Helper to add a mesh rendering to the world.
+ObjectID MeshCollection::addMeshToScene(SceneManager& world, const std::string& meshName, const mat& material) {
+    const WingedEdge* mesh = getMeshByName(meshName);
+    if (!mesh)
+        throw std::runtime_error("Mesh with name '" + meshName + "' not found.");
+
+    // Convert the WingedEdge to a renderable triangle mesh.
+    std::shared_ptr<Mesh> renderMesh = mesh->toMesh(material);
+    ObjectID id = world.add(renderMesh);
+    // Store the mapping from mesh name to world ObjectID.
+    meshToWorldID_[meshName] = id;
+    return id;
+}
+
+// Helper to remove a mesh rendering from the world.
+void MeshCollection::removeMeshFromScene(SceneManager& world, const std::string& meshName) {
+    auto it = meshToWorldID_.find(meshName);
+    if (it != meshToWorldID_.end()) {
+        world.remove(it->second);
+        meshToWorldID_.erase(it);
+    }
+    else {
+        std::cerr << "Mesh '" << meshName << "' is not present in the world." << std::endl;
+    }
+}
+
+// Helper to update a mesh rendering in the world.
+ObjectID MeshCollection::updateMeshRendering(SceneManager& world, const std::string& meshName, const mat& material) {
+    removeMeshFromScene(world, meshName);  // Remove any existing rendering.
+    return addMeshToScene(world, meshName, material);  // Add the updated rendering.
 }

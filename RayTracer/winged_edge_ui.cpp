@@ -22,13 +22,13 @@ std::string WingedEdgeImGui::getEdgeDisplayString(const Edge* e) {
 std::string WingedEdgeImGui::getFaceDisplayString(const Face* f) {
     if (!f) return "nullptr";
     std::string result = std::format("f{}: ", f->index);
-    auto boundary = f->getBoundary();
-    for (size_t i = 0; i < boundary.size(); i++) {
-        result += std::format("e{}", boundary[i]->index);
-        if (i < boundary.size() - 1)
+    // Use the boundaryEdges vector directly, no need for getBoundary()
+    for (size_t i = 0; i < f->boundaryEdges.size(); i++) {
+        result += std::format("e{}", f->boundaryEdges[i]->index);
+        if (i < f->boundaryEdges.size() - 1)
             result += ", ";
     }
-    vec3 normal = f->normal();
+    vec3 normal = f->normal();  // Call the normal() method
     result += std::format(" | Normal: ({:.2f},{:.2f},{:.2f})",
         normal.x(), normal.y(), normal.z());
     return result;
@@ -38,7 +38,7 @@ std::string WingedEdgeImGui::getFaceDisplayString(const Face* f) {
 // Constructor
 //-------------------------------------------------------------------
 WingedEdgeImGui::WingedEdgeImGui(MeshCollection* collection)
-    : meshCollection(collection), selectedMeshIndex(-1),
+    : meshCollection(collection), selectedMeshIndex(-1),  // Initialize to -1 (no selection)
     selectedEdgeIndex(-1), selectedFaceIndex(-1), selectedVertexIndex(-1),
     showEdgeDetails(false), showFaceDetails(false)
 {
@@ -54,7 +54,8 @@ void WingedEdgeImGui::render() {
     renderMeshList();
     ImGui::End();
 
-    if (selectedMeshIndex >= 0 && selectedMeshIndex < meshCollection->getMeshCount()) {
+    // Check for valid selectedMeshIndex *before* accessing the mesh.
+    if (selectedMeshIndex >= 0 && selectedMeshIndex < static_cast<int>(meshCollection->getMeshCount())) {
         renderMeshDetails();
     }
 }
@@ -81,6 +82,7 @@ void WingedEdgeImGui::renderMeshList() {
                 mesh->vertices.size(), mesh->edges.size(), mesh->faces.size());
             if (ImGui::Selectable(meshName.c_str(), selectedMeshIndex == static_cast<int>(i))) {
                 selectedMeshIndex = static_cast<int>(i);
+                // Reset selections when a new mesh is selected.
                 selectedEdgeIndex = -1;
                 selectedFaceIndex = -1;
                 selectedVertexIndex = -1;
@@ -97,11 +99,14 @@ void WingedEdgeImGui::renderMeshList() {
             "Tetrahedron_" + std::to_string(meshCollection->getMeshCount()));
     }
     ImGui::SameLine();
+    // Check mesh count *before* checking the index.
     if (meshCollection->getMeshCount() > 0 && ImGui::Button("Remove Selected") && selectedMeshIndex >= 0) {
         meshCollection->removeMesh(selectedMeshIndex);
-        if (selectedMeshIndex >= meshCollection->getMeshCount()) {
-            selectedMeshIndex = meshCollection->getMeshCount() - 1;
+        // Adjust selectedMeshIndex if we removed the last element.
+        if (selectedMeshIndex >= static_cast<int>(meshCollection->getMeshCount())) {
+            selectedMeshIndex = static_cast<int>(meshCollection->getMeshCount()) - 1;
         }
+        // Reset sub-selections.
         selectedEdgeIndex = -1;
         selectedFaceIndex = -1;
         selectedVertexIndex = -1;
@@ -114,7 +119,10 @@ void WingedEdgeImGui::renderMeshList() {
 // Mesh Details Rendering
 //-------------------------------------------------------------------
 void WingedEdgeImGui::renderMeshDetails() {
+    // Get a *non-const* pointer, as we might modify the mesh later.
     WingedEdge* mesh = meshCollection->getMesh(selectedMeshIndex);
+    if (!mesh) return; // Important: Check if mesh is valid.
+
     std::string title = "Mesh Details";
     std::string meshName = meshCollection->getMeshName(mesh);
     if (!meshName.empty()) {
@@ -129,6 +137,7 @@ void WingedEdgeImGui::renderMeshDetails() {
         if (ImGui::BeginTabItem("Edges")) {
             renderEdgesTab(mesh);
             ImGui::Separator();
+            // Check for valid selectedEdgeIndex *before* accessing.
             if (selectedEdgeIndex >= 0 && selectedEdgeIndex < static_cast<int>(mesh->edges.size())) {
                 Edge* e = mesh->edges[selectedEdgeIndex].get();
                 std::string headerText = std::format("Edge Details (e{})", e->index);
@@ -148,6 +157,7 @@ void WingedEdgeImGui::renderMeshDetails() {
         if (ImGui::BeginTabItem("Faces")) {
             renderFacesTab(mesh);
             ImGui::Separator();
+            // Check for valid selectedFaceIndex *before* accessing.
             if (selectedFaceIndex >= 0 && selectedFaceIndex < static_cast<int>(mesh->faces.size())) {
                 Face* f = mesh->faces[selectedFaceIndex].get();
                 std::string headerText = std::format("Face Details (f{})", f->index);
@@ -173,12 +183,13 @@ void WingedEdgeImGui::renderMeshDetails() {
 // Vertices Tab (with new incident pointer details)
 //-------------------------------------------------------------------
 
-void WingedEdgeImGui::renderVerticesTab(WingedEdge* mesh) {
+void WingedEdgeImGui::renderVerticesTab(const WingedEdge* mesh) {
     ImGui::Text("Vertices (%zu)", mesh->vertices.size());
     ImGui::Separator();
 
     ImGui::BeginChild("VerticesList", ImVec2(0, 120), true);
     for (const auto& vertex : mesh->vertices) {
+        // Use ->index, not .index
         std::string vertexStr = std::format("v{}: ({:.4f}, {:.4f}, {:.4f})",
             vertex->index, vertex->pos.x(), vertex->pos.y(), vertex->pos.z());
 
@@ -189,15 +200,16 @@ void WingedEdgeImGui::renderVerticesTab(WingedEdge* mesh) {
     ImGui::EndChild();
 
     // Display details for the selected vertex.
-    for (const auto& vertex : mesh->vertices) {
-        if (vertex->index == selectedVertexIndex) {
+    // Iterate and check index; don't assume selectedVertexIndex is in bounds.
+    for (const auto& vertex : mesh->vertices)
+    {
+        if (vertex->index == selectedVertexIndex)
+        {
             ImGui::Separator();
             ImGui::Text("Vertex Details:");
-
-            // Fix: Use std::format properly before passing the string to ImGui::Text
-            std::string positionText = std::format("Position: ({:.4f}, {:.4f}, {:.4f})",
-                vertex->pos.x(), vertex->pos.y(), vertex->pos.z());
+            std::string positionText = std::format("Position: ({:.4f}, {:.4f}, {:.4f})", vertex->pos.x(), vertex->pos.y(), vertex->pos.z());
             ImGui::Text("%s", positionText.c_str());
+
 
             if (vertex->incidentEdge) {
                 std::string edgeStr = getEdgeDisplayString(vertex->incidentEdge);
@@ -214,47 +226,47 @@ void WingedEdgeImGui::renderVerticesTab(WingedEdge* mesh) {
 //-------------------------------------------------------------------
 // Edges Tab
 //-------------------------------------------------------------------
-void WingedEdgeImGui::renderEdgesTab(WingedEdge* mesh) {
+void WingedEdgeImGui::renderEdgesTab(WingedEdge* mesh) { // Non-const pointer
     ImGui::Text("Edges (%zu)", mesh->edges.size());
     ImGui::Separator();
 
     ImGui::BeginChild("EdgesList", ImVec2(0, 120), true);
     for (size_t i = 0; i < mesh->edges.size(); i++) {
         const auto& e = mesh->edges[i];
-        std::string edgeStr = getEdgeDisplayString(e.get());
+        std::string edgeStr = getEdgeDisplayString(e.get());  // Use get() for raw pointer
         if (ImGui::Selectable(edgeStr.c_str(), selectedEdgeIndex == static_cast<int>(i))) {
             selectedEdgeIndex = static_cast<int>(i);
-            selectedEdgeLoopEdges.clear();
-            selectedEdgeLoopEdges.push_back(mesh->edges[selectedEdgeIndex]);
+            selectedEdgeLoopEdges.clear();  // Clear previous loop selection.
+            selectedEdgeLoopEdges.push_back(mesh->edges[selectedEdgeIndex]); // Add selected edge
             showEdgeDetails = true;
         }
     }
     ImGui::EndChild();
 
     if (ImGui::Button("Full Edge Loop")) {
-        selectLinkedEdgeLoop(mesh, false);
+        selectLinkedEdgeLoop(mesh, false); // Now takes WingedEdge*
     }
     ImGui::SameLine();
     if (ImGui::Button("Clockwise")) {
-        selectLinkedEdgeLoop(mesh, true);
+        selectLinkedEdgeLoop(mesh, true);  // Now takes WingedEdge*
     }
     ImGui::SameLine();
     if (ImGui::Button("Counterclockwise")) {
-        selectLinkedEdgeLoopCounterclockwise(mesh);
+        selectLinkedEdgeLoopCounterclockwise(mesh); // Now takes WingedEdge*
     }
 }
 
 //-------------------------------------------------------------------
 // Faces Tab
 //-------------------------------------------------------------------
-void WingedEdgeImGui::renderFacesTab(WingedEdge* mesh) {
+void WingedEdgeImGui::renderFacesTab(const WingedEdge* mesh) {
     ImGui::Text("Faces (%zu)", mesh->faces.size());
     ImGui::Separator();
 
     ImGui::BeginChild("FacesList", ImVec2(0, 120), true);
     for (size_t i = 0; i < mesh->faces.size(); i++) {
         const auto& f = mesh->faces[i];
-        std::string faceStr = getFaceDisplayString(f.get());
+        std::string faceStr = getFaceDisplayString(f.get()); // Use get()
         if (ImGui::Selectable(faceStr.c_str(), selectedFaceIndex == static_cast<int>(i))) {
             selectedFaceIndex = static_cast<int>(i);
             showFaceDetails = true;
@@ -266,7 +278,9 @@ void WingedEdgeImGui::renderFacesTab(WingedEdge* mesh) {
 //-------------------------------------------------------------------
 // Edge Details Rendering
 //-------------------------------------------------------------------
-void WingedEdgeImGui::renderEdgeDetails(WingedEdge* mesh) {
+void WingedEdgeImGui::renderEdgeDetails(const WingedEdge* mesh) {
+    // Always check for valid index before accessing.
+    if (selectedEdgeIndex < 0 || selectedEdgeIndex >= static_cast<int>(mesh->edges.size())) return;
     Edge* e = mesh->edges[selectedEdgeIndex].get();
 
     ImGui::Indent();
@@ -286,7 +300,7 @@ void WingedEdgeImGui::renderEdgeDetails(WingedEdge* mesh) {
     ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(150, 220, 255, 255));
     if (ImGui::TreeNode("CCW Left Edge")) {
         ImGui::PopStyleColor();
-        ImGui::Text("%s", getEdgeDisplayString(e->ccw_l_edge).c_str());
+        ImGui::Text("%s", getEdgeDisplayString(e->counterClockwiseLeftEdge).c_str()); // Correct member name
         ImGui::TreePop();
     }
     else {
@@ -296,7 +310,7 @@ void WingedEdgeImGui::renderEdgeDetails(WingedEdge* mesh) {
     ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(150, 220, 255, 255));
     if (ImGui::TreeNode("CCW Right Edge")) {
         ImGui::PopStyleColor();
-        ImGui::Text("%s", getEdgeDisplayString(e->ccw_r_edge).c_str());
+        ImGui::Text("%s", getEdgeDisplayString(e->counterClockwiseRightEdge).c_str()); // Correct member name
         ImGui::TreePop();
     }
     else {
@@ -306,7 +320,7 @@ void WingedEdgeImGui::renderEdgeDetails(WingedEdge* mesh) {
     ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 200, 150, 255));
     if (ImGui::TreeNode("CW Left Edge")) {
         ImGui::PopStyleColor();
-        ImGui::Text("%s", getEdgeDisplayString(e->cw_l_edge).c_str());
+        ImGui::Text("%s", getEdgeDisplayString(e->clockwiseLeftEdge).c_str()); // Correct member name
         ImGui::TreePop();
     }
     else {
@@ -316,7 +330,7 @@ void WingedEdgeImGui::renderEdgeDetails(WingedEdge* mesh) {
     ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 200, 150, 255));
     if (ImGui::TreeNode("CW Right Edge")) {
         ImGui::PopStyleColor();
-        ImGui::Text("%s", getEdgeDisplayString(e->cw_r_edge).c_str());
+        ImGui::Text("%s", getEdgeDisplayString(e->clockwiseRightEdge).c_str()); // Correct member name
         ImGui::TreePop();
     }
     else {
@@ -328,7 +342,8 @@ void WingedEdgeImGui::renderEdgeDetails(WingedEdge* mesh) {
     ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(150, 255, 150, 255));
     if (ImGui::TreeNode("Left Face")) {
         ImGui::PopStyleColor();
-        Face* lf = e->l_face.expired() ? nullptr : e->l_face.lock().get();
+        // Use weak_ptr::lock() to safely access the shared_ptr.
+        Face* lf = e->leftFace.expired() ? nullptr : e->leftFace.lock().get();
         ImGui::Text("%s", getFaceDisplayString(lf).c_str());
         ImGui::TreePop();
     }
@@ -338,7 +353,7 @@ void WingedEdgeImGui::renderEdgeDetails(WingedEdge* mesh) {
     ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(150, 255, 150, 255));
     if (ImGui::TreeNode("Right Face")) {
         ImGui::PopStyleColor();
-        Face* rf = e->r_face.expired() ? nullptr : e->r_face.lock().get();
+        Face* rf = e->rightFace.expired() ? nullptr : e->rightFace.lock().get();
         ImGui::Text("%s", getFaceDisplayString(rf).c_str());
         ImGui::TreePop();
     }
@@ -351,24 +366,27 @@ void WingedEdgeImGui::renderEdgeDetails(WingedEdge* mesh) {
 //-------------------------------------------------------------------
 // Face Details Rendering
 //-------------------------------------------------------------------
-void WingedEdgeImGui::renderFaceDetails(WingedEdge* mesh) {
+void WingedEdgeImGui::renderFaceDetails(const WingedEdge* mesh) {
+    // Always check index validity.
+    if (selectedFaceIndex < 0 || selectedFaceIndex >= static_cast<int>(mesh->faces.size())) return;
     Face* f = mesh->faces[selectedFaceIndex].get();
 
     ImGui::Indent();
-    vec3 normal = f->normal();
+    vec3 normal = f->normal(); // Call the normal() method.
     ImGui::Text("Normal: (%.4f, %.4f, %.4f)", normal.x(), normal.y(), normal.z());
     ImGui::Separator();
     ImGui::Text("Boundary Edges:");
-    auto boundary = f->getBoundary();
+    // Use f->boundaryEdges directly.
     ImGui::BeginChild("FaceEdgesList", ImVec2(0, 120), true);
-    for (size_t i = 0; i < boundary.size(); i++) {
-        Edge* e = boundary[i];
+    for (size_t i = 0; i < f->boundaryEdges.size(); i++) {
+        Edge* e = f->boundaryEdges[i];
         std::string edgeStr = std::format("{}. {}", i + 1, getEdgeDisplayString(e));
         if (ImGui::Selectable(edgeStr.c_str())) {
+            // Find the index of the selected edge within the mesh's edge list.
             for (size_t j = 0; j < mesh->edges.size(); j++) {
                 if (mesh->edges[j].get() == e) {
                     selectedEdgeIndex = static_cast<int>(j);
-                    break;
+                    break; // Important: Exit inner loop once found.
                 }
             }
         }
@@ -383,33 +401,35 @@ void WingedEdgeImGui::renderFaceDetails(WingedEdge* mesh) {
 void WingedEdgeImGui::updateSelection(WingedEdge* selectedMesh, std::shared_ptr<Edge> selectedEdge) {
     if (!selectedMesh || !selectedEdge)
         return;
+
+    // Find the mesh and edge indices.  Iterate; don't assume.
     for (size_t i = 0; i < meshCollection->getMeshCount(); i++) {
         if (meshCollection->getMesh(i) == selectedMesh) {
             selectedMeshIndex = i;
             for (size_t j = 0; j < selectedMesh->edges.size(); j++) {
                 if (selectedMesh->edges[j] == selectedEdge) {
                     selectedEdgeIndex = static_cast<int>(j);
-                    break;
+                    break;  // Exit inner loop when found.
                 }
             }
-            break;
+            break; // Exit outer loop when mesh is found.
         }
     }
 }
 
 std::shared_ptr<Edge> WingedEdgeImGui::getSelectedEdge() const {
-    if (selectedMeshIndex < meshCollection->getMeshCount()) {
+    // Check all conditions *before* accessing.
+    if (selectedMeshIndex >= 0 && selectedMeshIndex < static_cast<int>(meshCollection->getMeshCount())) {
         WingedEdge* mesh = meshCollection->getMesh(selectedMeshIndex);
         if (selectedEdgeIndex >= 0 && selectedEdgeIndex < static_cast<int>(mesh->edges.size())) {
             return mesh->edges[selectedEdgeIndex];
         }
     }
-    return nullptr;
+    return nullptr; // Return nullptr if not found.
 }
-
 void WingedEdgeImGui::selectLinkedEdgeLoop(WingedEdge* mesh, bool clockwiseOnly) {
-    if (selectedEdgeIndex < 0 || selectedEdgeIndex >= static_cast<int>(mesh->edges.size()))
-        return;
+    if (!mesh || selectedEdgeIndex < 0 || selectedEdgeIndex >= static_cast<int>(mesh->edges.size()))
+        return; // Check for valid mesh and index.
 
     selectedEdgeLoopEdges.clear();
     auto startEdge = mesh->edges[selectedEdgeIndex];
@@ -418,91 +438,104 @@ void WingedEdgeImGui::selectLinkedEdgeLoop(WingedEdge* mesh, bool clockwiseOnly)
     std::unordered_set<int> visitedEdges;
     visitedEdges.insert(startEdge->index);
 
-    Edge* currentRaw = startEdge.get();
+    Edge* currentRaw = startEdge.get(); // Use raw pointer for traversal
     std::ostringstream logStream;
     logStream << "e" << startEdge->index;
 
-    // Traverse clockwise using the cw_r_edge pointer.
-    while (currentRaw->cw_r_edge && currentRaw->cw_r_edge != startEdge.get()) {
-        if (visitedEdges.count(currentRaw->cw_r_edge->index) > 0)
-            break;
+    // Traverse clockwise using the clockwiseRightEdge pointer.
+    while (currentRaw->clockwiseRightEdge && currentRaw->clockwiseRightEdge != startEdge.get()) {
+        if (visitedEdges.count(currentRaw->clockwiseRightEdge->index) > 0)
+            break;  // Prevent infinite loops.
         auto it = std::find_if(mesh->edges.begin(), mesh->edges.end(),
             [currentRaw](const std::shared_ptr<Edge>& e) {
-                return e.get() == currentRaw->cw_r_edge;
+                return e.get() == currentRaw->clockwiseRightEdge;
             });
         if (it != mesh->edges.end()) {
             selectedEdgeLoopEdges.push_back(*it);
             visitedEdges.insert((*it)->index);
-            currentRaw = currentRaw->cw_r_edge;
+            currentRaw = currentRaw->clockwiseRightEdge; // Move to the next edge.
             logStream << "->e" << (*it)->index;
         }
         else {
-            break;
+            break; // Stop if edge not found in the mesh's edge list.
         }
     }
 
     if (!clockwiseOnly) {
-        visitedEdges.clear();
+        // Traverse counter-clockwise (if not clockwiseOnly)
+        visitedEdges.clear(); // Reset visited edges for the other direction.
         visitedEdges.insert(startEdge->index);
         currentRaw = startEdge.get();
-        std::vector<std::shared_ptr<Edge>> reverseEdges;
-        std::ostringstream reverseLogStream;
-        while (currentRaw->ccw_l_edge && currentRaw->ccw_l_edge != startEdge.get()) {
-            if (visitedEdges.count(currentRaw->ccw_l_edge->index) > 0)
-                break;
+        std::vector<std::shared_ptr<Edge>> reverseEdges; // Store edges for reversal.
+        std::ostringstream reverseLogStream; // Separate log stream for counter-clockwise.
+
+        while (currentRaw->counterClockwiseLeftEdge && currentRaw->counterClockwiseLeftEdge != startEdge.get())
+        {
+            if (visitedEdges.count(currentRaw->counterClockwiseLeftEdge->index) > 0)
+                break;  // Prevent infinite loops.
+
             auto it = std::find_if(mesh->edges.begin(), mesh->edges.end(),
-                [currentRaw](const std::shared_ptr<Edge>& e) {
-                    return e.get() == currentRaw->ccw_l_edge;
+                [currentRaw](const std::shared_ptr<Edge>& e)
+                {
+                    return e.get() == currentRaw->counterClockwiseLeftEdge;
                 });
-            if (it != mesh->edges.end()) {
+            if (it != mesh->edges.end())
+            {
                 reverseEdges.push_back(*it);
                 visitedEdges.insert((*it)->index);
-                currentRaw = currentRaw->ccw_l_edge;
+                currentRaw = currentRaw->counterClockwiseLeftEdge;  //Move to next edge.
                 reverseLogStream << "e" << (*it)->index << "->";
             }
-            else {
-                break;
+            else
+            {
+                break; // Stop if edge not found in the mesh's edge list
             }
         }
-        std::reverse(reverseEdges.begin(), reverseEdges.end());
-        selectedEdgeLoopEdges.insert(selectedEdgeLoopEdges.begin(), reverseEdges.begin(), reverseEdges.end());
+
+        std::reverse(reverseEdges.begin(), reverseEdges.end()); // Reverse the counter-clockwise edges.
+        selectedEdgeLoopEdges.insert(selectedEdgeLoopEdges.begin(), reverseEdges.begin(), reverseEdges.end());// Add to the beginning.
         std::cout << "Edge Loop: " << reverseLogStream.str() << logStream.str() << std::endl;
     }
-    else {
+    else
+    {
         std::cout << "Edge Loop (Clockwise Only): " << logStream.str() << std::endl;
+
     }
 }
 
 void WingedEdgeImGui::selectLinkedEdgeLoopCounterclockwise(WingedEdge* mesh) {
-    if (selectedEdgeIndex < 0 || selectedEdgeIndex >= static_cast<int>(mesh->edges.size()))
+    if (!mesh || selectedEdgeIndex < 0 || selectedEdgeIndex >= static_cast<int>(mesh->edges.size())) //validate inputs
         return;
 
     selectedEdgeLoopEdges.clear();
-    auto startEdge = mesh->edges[selectedEdgeIndex];
+    auto startEdge = mesh->edges[selectedEdgeIndex]; //get our starting edge
     selectedEdgeLoopEdges.push_back(startEdge);
 
-    std::unordered_set<int> visitedEdges;
+    std::unordered_set<int> visitedEdges;  //keep track of visited edges to prevent loops
     visitedEdges.insert(startEdge->index);
 
-    Edge* currentRaw = startEdge.get();
-    std::ostringstream logStream;
+    Edge* currentRaw = startEdge.get(); //use a raw pointer to simplify traversal
+    std::ostringstream logStream; //log the traversal to the console
     logStream << "e" << startEdge->index;
 
-    while (currentRaw->ccw_l_edge && currentRaw->ccw_l_edge != startEdge.get()) {
-        if (visitedEdges.count(currentRaw->ccw_l_edge->index) > 0)
-            break;
+    //traverse counter clockwise
+    while (currentRaw->counterClockwiseLeftEdge && currentRaw->counterClockwiseLeftEdge != startEdge.get()) {
+        if (visitedEdges.count(currentRaw->counterClockwiseLeftEdge->index) > 0)
+            break;  // Prevent infinite loops.
+
+        // Find shared pointer in the vector
         auto it = std::find_if(mesh->edges.begin(), mesh->edges.end(),
             [currentRaw](const std::shared_ptr<Edge>& e) {
-                return e.get() == currentRaw->ccw_l_edge;
+                return e.get() == currentRaw->counterClockwiseLeftEdge;
             });
         if (it != mesh->edges.end()) {
             selectedEdgeLoopEdges.push_back(*it);
             visitedEdges.insert((*it)->index);
-            currentRaw = currentRaw->ccw_l_edge;
-            logStream << "->e" << (*it)->index;
+            currentRaw = currentRaw->counterClockwiseLeftEdge; //advance to next edge
+            logStream << "->e" << (*it)->index; //add edge index to log
         }
         else {
-            break;
+            break; // Stop if edge not found in the mesh's edge list
         }
     }
     std::cout << "Edge Loop (Counterclockwise Only): " << logStream.str() << std::endl;
