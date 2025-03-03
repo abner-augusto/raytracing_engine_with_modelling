@@ -172,21 +172,21 @@ void WingedEdge::traverseMesh() const {
 std::shared_ptr<Mesh> WingedEdge::toMesh(const mat& material) const {
     auto mesh = std::make_shared<Mesh>();
 
-    std::cout << "Converting WingedEdge to Mesh..." << std::endl;
-    std::cout << "Total Faces: " << faces.size() << std::endl;
+    //std::cout << "Converting WingedEdge to Mesh..." << std::endl;
+    //std::cout << "Total Faces: " << faces.size() << std::endl;
 
     for (const auto& face : faces) {
         const auto& verts = face->vertices;
-        std::cout << "Processing Face " << face->index << " with " << verts.size() << " vertices..." << std::endl;
+        //std::cout << "Processing Face " << face->index << " with " << verts.size() << " vertices..." << std::endl;
 
         if (verts.size() == 3) {
             vec3 v0 = verts[0]->pos;
             vec3 v1 = verts[1]->pos;
             vec3 v2 = verts[2]->pos;
 
-            std::cout << "  v0: (" << v0.x() << ", " << v0.y() << ", " << v0.z() << ")\n"
-                << "  v1: (" << v1.x() << ", " << v1.y() << ", " << v1.z() << ")\n"
-                << "  v2: (" << v2.x() << ", " << v2.y() << ", " << v2.z() << ")\n";
+            //std::cout << "  v0: (" << v0.x() << ", " << v0.y() << ", " << v0.z() << ")\n"
+            //    << "  v1: (" << v1.x() << ", " << v1.y() << ", " << v1.z() << ")\n"
+            //    << "  v2: (" << v2.x() << ", " << v2.y() << ", " << v2.z() << ")\n";
 
             auto tri = std::make_shared<triangle>(v0, v1, v2, material);
             mesh->add_triangle(tri);
@@ -197,9 +197,9 @@ std::shared_ptr<Mesh> WingedEdge::toMesh(const mat& material) const {
         }
     }
 
-    std::cout << "Building BVH for the Mesh..." << std::endl;
+    //std::cout << "Building BVH for the Mesh..." << std::endl;
     mesh->buildBVH();
-    std::cout << "Conversion complete." << std::endl;
+    //std::cout << "Conversion complete." << std::endl;
 
     return mesh;
 }
@@ -289,9 +289,9 @@ std::unique_ptr<WingedEdge> PrimitiveFactory::createSphere(const vec3& center, f
         std::vector<int> ring;
         for (int j = 0; j < longDivisions; j++) {
             float theta = 2.0f * pi * j / longDivisions;  // azimuthal angle.
-            float x = center.x() + radius * sin(phi) * cos(theta);
-            float y = center.y() + radius * cos(phi);
-            float z = center.z() + radius * sin(phi) * sin(theta);
+            double x = center.x() + radius * sin(phi) * cos(theta);
+            double y = center.y() + radius * cos(phi);
+            double z = center.z() + radius * sin(phi) * sin(theta);
             mesh->vertices.push_back(std::make_unique<Vertex>(vec3(x, y, z), index));
             ring.push_back(index);
             index++;
@@ -338,7 +338,7 @@ std::unique_ptr<WingedEdge> PrimitiveFactory::createSphere(const vec3& center, f
     }
 
     // Bottom cap: connect last ring to south pole.
-    int lastRing = vertexIndices.size() - 1;
+    size_t lastRing = vertexIndices.size() - 1;
     for (int j = 0; j < longDivisions; j++) {
         int next = (j + 1) % longDivisions;
         mesh->createFace({

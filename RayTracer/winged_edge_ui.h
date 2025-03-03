@@ -128,6 +128,8 @@ public:
      * @param mesh Pointer to the selected WingedEdge mesh.
      */
     void selectLinkedEdgeLoopCounterclockwise(WingedEdge* mesh);
+
+    void selectEdgeChainByVertex(WingedEdge* mesh);
 };
 
 #endif // WINGED_EDGE_UI_H

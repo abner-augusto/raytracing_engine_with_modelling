@@ -247,12 +247,16 @@ void WingedEdgeImGui::renderEdgesTab(WingedEdge* mesh) { // Non-const pointer
         selectLinkedEdgeLoop(mesh, false); // Now takes WingedEdge*
     }
     ImGui::SameLine();
-    if (ImGui::Button("Clockwise")) {
+    if (ImGui::Button("CW")) {
         selectLinkedEdgeLoop(mesh, true);  // Now takes WingedEdge*
     }
     ImGui::SameLine();
-    if (ImGui::Button("Counterclockwise")) {
+    if (ImGui::Button("CCW")) {
         selectLinkedEdgeLoopCounterclockwise(mesh); // Now takes WingedEdge*
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("By Vertex")) {
+        selectEdgeChainByVertex(mesh); // New function for vertex-based edge selection.
     }
 }
 
@@ -539,4 +543,56 @@ void WingedEdgeImGui::selectLinkedEdgeLoopCounterclockwise(WingedEdge* mesh) {
         }
     }
     std::cout << "Edge Loop (Counterclockwise Only): " << logStream.str() << std::endl;
+}
+
+void WingedEdgeImGui::selectEdgeChainByVertex(WingedEdge* mesh) {
+    if (!mesh || selectedEdgeIndex < 0 || selectedEdgeIndex >= static_cast<int>(mesh->edges.size()))
+        return; // Validate mesh and index.
+
+    selectedEdgeLoopEdges.clear();
+    auto startEdge = mesh->edges[selectedEdgeIndex];
+    selectedEdgeLoopEdges.push_back(startEdge);
+
+    std::unordered_set<int> visitedEdges;
+    visitedEdges.insert(startEdge->index);
+
+    Edge* currentRaw = startEdge.get(); // Begin traversal from the selected edge.
+    std::ostringstream logStream;
+    logStream << "e" << startEdge->index;
+
+    bool closedLoop = false;
+
+    // Continue searching for an edge whose origin equals the destination of the current edge.
+    while (true) {
+        bool foundNext = false;
+        // Iterate through all edges in the mesh.
+        for (const auto& edge : mesh->edges) {
+            // Check if the current edge's destination matches this edge's origin.
+            if (edge->origin == currentRaw->destination) {
+                // If this edge is the starting edge, we've closed the loop.
+                if (edge->index == startEdge->index) {
+                    logStream << "->e" << edge->index << " (loop closed)";
+                    closedLoop = true;
+                    foundNext = false;
+                    break;
+                }
+                // Only add edges that haven't been visited yet.
+                if (visitedEdges.find(edge->index) == visitedEdges.end()) {
+                    selectedEdgeLoopEdges.push_back(edge);
+                    visitedEdges.insert(edge->index);
+                    currentRaw = edge.get();
+                    logStream << "->e" << edge->index;
+                    foundNext = true;
+                    break;
+                }
+            }
+        }
+        if (!foundNext)
+            break;
+    }
+
+    if (closedLoop)
+        std::cout << "Edge Chain (Closed Loop): " << logStream.str() << std::endl;
+    else
+        std::cout << "Edge Chain: " << logStream.str() << std::endl;
 }
