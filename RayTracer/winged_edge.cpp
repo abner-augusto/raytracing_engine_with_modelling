@@ -19,7 +19,15 @@ vec3 Face::normal() const {
             vec3 v0 = vertices[0]->pos;
             vec3 v1 = vertices[1]->pos;
             vec3 v2 = vertices[2]->pos;
-            cachedNormal = unit_vector(cross(v1 - v0, v2 - v0));
+            vec3 cross_product = cross(v1 - v0, v2 - v0);
+
+            // Check for near-zero cross product.
+            if (cross_product.length_squared() < 1e-12) { // Or another suitable small value
+                cachedNormal = vec3(0, 0, 0); // Or some default normal, or throw an exception.
+            }
+            else {
+                cachedNormal = unit_vector(cross_product);
+            }
         }
         normalCached = true;
     }
@@ -173,14 +181,14 @@ std::shared_ptr<Mesh> WingedEdge::toMesh(const mat& material) const {
     auto mesh = std::make_shared<Mesh>();
 
     // Map from WingedEdge vertex pointer to a unique index in the Mesh vertex list.
-    std::unordered_map<const Vertex*, int> vertexMap;
+    std::unordered_map<const Vertex*, size_t> vertexMap;
     std::vector<vec3> positions;
 
     // First pass: Register every unique vertex from every face.
     for (const auto& face : faces) {
         for (const auto& v : face->vertices) {
             if (vertexMap.find(v) == vertexMap.end()) {
-                int index = positions.size();
+                size_t index = positions.size();
                 vertexMap[v] = index;
                 positions.push_back(v->pos);
             }
@@ -189,29 +197,25 @@ std::shared_ptr<Mesh> WingedEdge::toMesh(const mat& material) const {
 
     // Second pass: Process each face and create triangles.
     for (const auto& face : faces) {
-        // Log face vertex indices for debugging.
-        for (const auto& v : face->vertices) {
-            std::cout << v->index << " ";
-        }
-        std::cout << std::endl;
-
         const auto& verts = face->vertices;
-        if (verts.size() == 3) {
-            int i0 = vertexMap.at(verts[0]);
-            int i1 = vertexMap.at(verts[1]);
-            int i2 = vertexMap.at(verts[2]);
+        if (verts.size() >= 3) { // Handles faces with 3 or more vertices.
+            // Triangulate the face (fan triangulation).
+            for (size_t i = 1; i < verts.size() - 1; ++i) {
+                size_t i0 = vertexMap.at(verts[0]);  // First vertex of the face.
+                size_t i1 = vertexMap.at(verts[i]);    // Current vertex.
+                size_t i2 = vertexMap.at(verts[i + 1]);// Next vertex.
 
-            vec3 v0 = positions[i0];
-            vec3 v1 = positions[i1];
-            vec3 v2 = positions[i2];
+                vec3 v0 = positions[i0];
+                vec3 v1 = positions[i1];
+                vec3 v2 = positions[i2];
 
-            // Use the face's cached normal and pass it to the triangle constructor.
-            auto tri = std::make_shared<triangle>(v0, v1, v2, face->normal(), material);
-            mesh->add_triangle(tri);
+                // Create a triangle using the cached normal from the Face.
+                auto tri = std::make_shared<triangle>(v0, v1, v2, face->normal(), material);
+                mesh->add_triangle(tri);
+            }
         }
         else {
-            std::cerr << "Warning: Face " << face->index << " is not a triangle ("
-                << verts.size() << " vertices found). Skipping." << std::endl;
+            std::cerr << "Warning: Face " << face->index << " has fewer than 3 vertices. Skipping." << std::endl;
         }
     }
 
@@ -241,7 +245,6 @@ void PrimitiveFactory::makeFan(WingedEdge& mesh, Vertex* center, const std::vect
         }
     }
 }
-
 
 void PrimitiveFactory::makeQuadStrip(WingedEdge& mesh,
     const std::vector<Vertex*>& ring1,
@@ -451,9 +454,9 @@ std::unique_ptr<WingedEdge> PrimitiveFactory::createSphere(const vec3& center, f
 std::unique_ptr<WingedEdge> PrimitiveFactory::createCylinder(const vec3& center, float radius, float height, int radialDivisions, int heightDivisions) {
     auto mesh = std::make_unique<WingedEdge>();
     int index = 0;
-    float halfHeight = height / 2.0f;
-    float bottomY = center.y() - halfHeight;
-    float topY = center.y() + halfHeight;
+    double halfHeight = height / 2.0;
+    double bottomY = center.y() - halfHeight;
+    double topY = center.y() + halfHeight;
 
     // Compute the number of horizontal rings.
     int numRings = heightDivisions + 1;
@@ -461,13 +464,13 @@ std::unique_ptr<WingedEdge> PrimitiveFactory::createCylinder(const vec3& center,
 
     // Create rings of vertices along the height.
     for (int r = 0; r < numRings; r++) {
-        float t = static_cast<float>(r) / heightDivisions;
-        float y = bottomY + t * height;
+        double t = static_cast<double>(r) / heightDivisions;
+        double y = bottomY + t * height;
         rings[r].resize(radialDivisions);
         for (int i = 0; i < radialDivisions; i++) {
-            float angle = 2.0f * pi * i / radialDivisions;
-            float x = center.x() + radius * std::cos(angle);
-            float z = center.z() + radius * std::sin(angle);
+            double angle = 2.0 * pi * i / radialDivisions;
+            double x = center.x() + radius * std::cos(angle);
+            double z = center.z() + radius * std::sin(angle);
             mesh->vertices.push_back(std::make_unique<Vertex>(vec3(x, y, z), index));
             rings[r][i] = mesh->vertices.back().get();
             index++;
@@ -476,17 +479,17 @@ std::unique_ptr<WingedEdge> PrimitiveFactory::createCylinder(const vec3& center,
 
     // Build the lateral surface using quad strips.
     for (int r = 0; r < heightDivisions; r++) {
-        makeQuadStrip(*mesh, rings[r], rings[r + 1]);
+        makeQuadStrip(*mesh, rings[r], rings[static_cast<std::vector<std::vector<Vertex*, std::allocator<Vertex*>>, std::allocator<std::vector<Vertex*, std::allocator<Vertex*>>>>::size_type>(r) + 1]);
     }
 
     // Build the bottom cap.
-    mesh->vertices.push_back(std::make_unique<Vertex>(vec3(center.x(), bottomY, center.z()), index));
+    mesh->vertices.push_back(std::make_unique<Vertex>(vec3(center.x(), bottomY + 0.001, center.z()), index));
     Vertex* bottomCenter = mesh->vertices.back().get();
     index++;
     makeFan(*mesh, bottomCenter, rings[0], true); // **Reverse for bottom cap**
 
     // Build the top cap.
-    mesh->vertices.push_back(std::make_unique<Vertex>(vec3(center.x(), topY, center.z()), index));
+    mesh->vertices.push_back(std::make_unique<Vertex>(vec3(center.x(), topY + 0.001, center.z()), index));
     Vertex* topCenter = mesh->vertices.back().get();
     index++;
     makeFan(*mesh, topCenter, rings[numRings - 1], false); // **Natural order for top cap**
