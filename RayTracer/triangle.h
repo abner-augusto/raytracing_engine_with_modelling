@@ -184,6 +184,7 @@ public:
     }
 
     bool is_point_inside(const point3& p) const override {
+        const double epsilon = 1e-7;
         // Calculate edges
         vec3 edge0 = v1 - v0;
         vec3 edge1 = v2 - v1;
@@ -203,7 +204,7 @@ public:
         vec3 normal = cross(edge0, edge1);
 
         // Check if all cross products have the same orientation as the normal
-        if (dot(normal, c0) >= 0 && dot(normal, c1) >= 0 && dot(normal, c2) >= 0) {
+        if (dot(normal, c0) >= -epsilon && dot(normal, c1) >= -epsilon && dot(normal, c2) >= -epsilon) {
             return true;
         }
         return false;
