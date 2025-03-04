@@ -10,22 +10,55 @@
 
 class triangle : public hittable {
 public:
-    // Constructor with UV coordinates
+    // New constructor: pass vertices and an explicit normal (without UVs)
+    triangle(const point3& _v0, const point3& _v1, const point3& _v2,
+        const vec3& _normal, const mat& m)
+        : v0(_v0), v1(_v1), v2(_v2),
+        u0(0.0), v0_uv(0.0),   // default UVs
+        u1(1.0), v1_uv(0.0),
+        u2(0.0), v2_uv(1.0),
+        material(m),
+        useCustomNormal(true),
+        customNormal(unit_vector(_normal))
+    {
+    }
+
+    // New constructor: pass vertices, UV coordinates, and an explicit normal
+    triangle(const point3& _v0, const point3& _v1, const point3& _v2,
+        const vec3& _normal,
+        double _u0, double _v0_uv, double _u1, double _v1_uv, double _u2, double _v2_uv,
+        const mat& m)
+        : v0(_v0), v1(_v1), v2(_v2),
+        u0(_u0), v0_uv(_v0_uv),
+        u1(_u1), v1_uv(_v1_uv),
+        u2(_u2), v2_uv(_v2_uv),
+        material(m),
+        useCustomNormal(true),
+        customNormal(unit_vector(_normal))
+    {
+    }
+
+    // Existing constructors (without custom normals)
+    triangle(const point3& _v0, const point3& _v1, const point3& _v2, const mat& m)
+        : v0(_v0), v1(_v1), v2(_v2),
+        u0(0.0), v0_uv(0.0),
+        u1(1.0), v1_uv(0.0),
+        u2(0.0), v2_uv(1.0),
+        material(m),
+        useCustomNormal(false)
+    {
+    }
+
     triangle(const point3& _v0, const point3& _v1, const point3& _v2,
         double _u0, double _v0_uv, double _u1, double _v1_uv, double _u2, double _v2_uv,
         const mat& m)
         : v0(_v0), v1(_v1), v2(_v2),
-        u0(_u0), v0_uv(_v0_uv), u1(_u1), v1_uv(_v1_uv), u2(_u2), v2_uv(_v2_uv),
-        material(m) {
-    }
-
-    // Overload without UVs for backward compatibility
-    triangle(const point3& _v0, const point3& _v1, const point3& _v2, const mat& m)
-        : v0(_v0), v1(_v1), v2(_v2),
-        u0(0.0), v0_uv(0.0),   // (0,0)
-        u1(1.0), v1_uv(0.0),   // (1,0)
-        u2(0.0), v2_uv(1.0),   // (0,1)
-        material(m) {
+        u0(_u0), v0_uv(_v0_uv),
+        u1(_u1), v1_uv(_v1_uv),
+        u2(_u2), v2_uv(_v2_uv),
+        material(m),
+        useCustomNormal(false)
+    {
     }
 
     bool hit(const ray& r, interval ray_t, hit_record& rec) const override {
@@ -44,7 +77,7 @@ public:
 
         // If the determinant is near zero, the ray is parallel to the triangle
         if (std::fabs(determinant) < epsilon) {
-            return false; // No hit
+            return false;
         }
 
         const double invDet = 1.0 / determinant; // Inverse of the determinant
@@ -59,7 +92,7 @@ public:
 
         // Check if u is within the valid range
         if (!valid_barycentric.contains(u_bary)) {
-            return false; // No hit
+            return false;
         }
 
         // Calculate barycentric coordinate v
@@ -68,12 +101,12 @@ public:
 
         // Check if v is within the valid range
         if (!valid_barycentric.contains(v_bary)) {
-            return false; // No hit
+            return false;
         }
 
         // Check if u + v is less than or equal to 1
         if (!valid_barycentric.contains(u_bary + v_bary)) {
-            return false; // No hit
+            return false;
         }
 
         // Calculate the intersection point t
@@ -81,18 +114,23 @@ public:
 
         // Check if the intersection point is within the ray's valid time interval
         if (!biased_ray_t.contains(t)) {
-            return false; // No hit
+            return false;
         }
 
-        // Calculate the triangle's normal
-        const vec3 normal = unit_vector(cross(edge01, edge02));
+        // Use custom normal if provided; otherwise, compute it from edges.
+        vec3 normal;
+        if (useCustomNormal) {
+            normal = customNormal;
+        }
+        else {
+            normal = unit_vector(cross(edge01, edge02));
+        }
 
-        // Fill the hit record with information about the intersection
+        // Fill the hit record with intersection information
         rec.t = t;
-        rec.p = r.at(t); // Calculate the hit point
+        rec.p = r.at(t); // Compute the hit point
         rec.normal = normal; // Set the surface normal
         rec.material = &material; // Set the material of the triangle
-        rec.hit_object = this;
 
         // Calculate texture coordinates using barycentric coordinates
         const double w = 1.0 - u_bary - v_bary;  // Third barycentric coordinate
@@ -211,6 +249,9 @@ private:
     double u1, v1_uv;          // UV coordinates for v1
     double u2, v2_uv;          // UV coordinates for v2
     mat material;
+    // New members for handling an explicit normal:
+    bool useCustomNormal = false;
+    vec3 customNormal;
 };
 
 #endif
