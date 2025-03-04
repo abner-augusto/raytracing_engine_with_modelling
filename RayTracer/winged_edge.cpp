@@ -172,23 +172,41 @@ void WingedEdge::traverseMesh() const {
 std::shared_ptr<Mesh> WingedEdge::toMesh(const mat& material) const {
     auto mesh = std::make_shared<Mesh>();
 
-    //std::cout << "Converting WingedEdge to Mesh..." << std::endl;
-    //std::cout << "Total Faces: " << faces.size() << std::endl;
+    // Map from WingedEdge vertex pointer to a unique index in the Mesh vertex list.
+    std::unordered_map<const Vertex*, int> vertexMap;
+    std::vector<vec3> positions;
 
+    // First pass: Register every unique vertex from every face.
     for (const auto& face : faces) {
+        for (const auto& v : face->vertices) {
+            if (vertexMap.find(v) == vertexMap.end()) {
+                int index = positions.size();
+                vertexMap[v] = index;
+                positions.push_back(v->pos);
+            }
+        }
+    }
+
+    // Second pass: Process each face and create triangles.
+    for (const auto& face : faces) {
+        // Log face vertex indices for debugging.
+        for (const auto& v : face->vertices) {
+            std::cout << v->index << " ";
+        }
+        std::cout << std::endl;
+
         const auto& verts = face->vertices;
-        //std::cout << "Processing Face " << face->index << " with " << verts.size() << " vertices..." << std::endl;
-
         if (verts.size() == 3) {
-            vec3 v0 = verts[0]->pos;
-            vec3 v1 = verts[1]->pos;
-            vec3 v2 = verts[2]->pos;
+            int i0 = vertexMap.at(verts[0]);
+            int i1 = vertexMap.at(verts[1]);
+            int i2 = vertexMap.at(verts[2]);
 
-            //std::cout << "  v0: (" << v0.x() << ", " << v0.y() << ", " << v0.z() << ")\n"
-            //    << "  v1: (" << v1.x() << ", " << v1.y() << ", " << v1.z() << ")\n"
-            //    << "  v2: (" << v2.x() << ", " << v2.y() << ", " << v2.z() << ")\n";
+            vec3 v0 = positions[i0];
+            vec3 v1 = positions[i1];
+            vec3 v2 = positions[i2];
 
-            auto tri = std::make_shared<triangle>(v0, v1, v2, material);
+            // Use the face's cached normal and pass it to the triangle constructor.
+            auto tri = std::make_shared<triangle>(v0, v1, v2, face->normal(), material);
             mesh->add_triangle(tri);
         }
         else {
@@ -197,10 +215,7 @@ std::shared_ptr<Mesh> WingedEdge::toMesh(const mat& material) const {
         }
     }
 
-    //std::cout << "Building BVH for the Mesh..." << std::endl;
     mesh->buildBVH();
-    //std::cout << "Conversion complete." << std::endl;
-
     return mesh;
 }
 
@@ -208,6 +223,64 @@ std::shared_ptr<Mesh> WingedEdge::toMesh(const mat& material) const {
   PrimitiveFactory Implementation
 -------------------------------------------------------------------*/
 
+//Helpers
+void PrimitiveFactory::makeFan(WingedEdge& mesh, Vertex* center, const std::vector<Vertex*>& ring, bool reverse)
+{
+    int n = static_cast<int>(ring.size());
+    if (n < 3) return;
+
+    for (int i = 0; i < n; i++)
+    {
+        int next = (i + 1) % n;
+        if (reverse) {
+            // Reverse the triangle order to flip the normal.
+            mesh.createFace({ center, ring[i], ring[next] });
+        }
+        else {
+            mesh.createFace({ center, ring[next], ring[i] });
+        }
+    }
+}
+
+
+void PrimitiveFactory::makeQuadStrip(WingedEdge& mesh,
+    const std::vector<Vertex*>& ring1,
+    const std::vector<Vertex*>& ring2)
+{
+    if (ring1.size() != ring2.size()) {
+        throw std::runtime_error("makeQuadStrip: rings must have the same size");
+    }
+    int n = static_cast<int>(ring1.size());
+    for (int i = 0; i < n; i++)
+    {
+        int next = (i + 1) % n;
+        // Build two triangles per quad:
+        // Triangle 1: bottom (ring1[i]), top (ring2[i]), top next (ring2[next])
+        mesh.createFace({ ring1[i], ring2[i], ring2[next] });
+        // Triangle 2: bottom (ring1[i]), top next (ring2[next]), bottom next (ring1[next])
+        mesh.createFace({ ring1[i], ring2[next], ring1[next] });
+    }
+}
+
+void PrimitiveFactory::makeQuadAsTriangles(WingedEdge& mesh,
+    Vertex* v0,
+    Vertex* v1,
+    Vertex* v2,
+    Vertex* v3,
+    bool reverse)
+{
+    if (reverse) {
+        // Reverse ordering flips the face normal.
+        mesh.createFace({ v0, v3, v2 });
+        mesh.createFace({ v0, v2, v1 });
+    }
+    else {
+        mesh.createFace({ v0, v1, v2 });
+        mesh.createFace({ v0, v2, v3 });
+    }
+}
+
+// Primitives
 std::unique_ptr<WingedEdge> PrimitiveFactory::createTetrahedron() {
     auto mesh = std::make_unique<WingedEdge>();
 
@@ -247,29 +320,52 @@ std::unique_ptr<WingedEdge> PrimitiveFactory::createBox(const vec3& vmin, const 
     mesh->vertices.push_back(std::make_unique<Vertex>(vec3(vmax.x(), vmax.y(), vmax.z()), 6)); // v6
     mesh->vertices.push_back(std::make_unique<Vertex>(vec3(vmin.x(), vmax.y(), vmax.z()), 7)); // v7
 
-    // Bottom face (v0,v1,v2,v3) split into two triangles:
-    mesh->createFace({ mesh->vertices[0].get(), mesh->vertices[1].get(), mesh->vertices[2].get() });
-    mesh->createFace({ mesh->vertices[0].get(), mesh->vertices[2].get(), mesh->vertices[3].get() });
+    // Front face: v0, v1, v2, v3
+    makeQuadAsTriangles(*mesh,
+        mesh->vertices[0].get(),
+        mesh->vertices[1].get(),
+        mesh->vertices[2].get(),
+        mesh->vertices[3].get(),
+        false);
 
-    // Top face (v4,v5,v6,v7):
-    mesh->createFace({ mesh->vertices[4].get(), mesh->vertices[5].get(), mesh->vertices[6].get() });
-    mesh->createFace({ mesh->vertices[4].get(), mesh->vertices[6].get(), mesh->vertices[7].get() });
+    // Back face: v4, v5, v6, v7
+    makeQuadAsTriangles(*mesh,
+        mesh->vertices[4].get(),
+        mesh->vertices[5].get(),
+        mesh->vertices[6].get(),
+        mesh->vertices[7].get(),
+        true);
 
-    // Front face (v0,v1,v5,v4):
-    mesh->createFace({ mesh->vertices[0].get(), mesh->vertices[1].get(), mesh->vertices[5].get() });
-    mesh->createFace({ mesh->vertices[0].get(), mesh->vertices[5].get(), mesh->vertices[4].get() });
+    // Bottom face: v0, v1, v5, v4
+    makeQuadAsTriangles(*mesh,
+        mesh->vertices[0].get(),
+        mesh->vertices[1].get(),
+        mesh->vertices[5].get(),
+        mesh->vertices[4].get(),
+        true);
 
-    // Back face (v3,v2,v6,v7):
-    mesh->createFace({ mesh->vertices[3].get(), mesh->vertices[2].get(), mesh->vertices[6].get() });
-    mesh->createFace({ mesh->vertices[3].get(), mesh->vertices[6].get(), mesh->vertices[7].get() });
+    // Top face: v3, v2, v6, v7
+    makeQuadAsTriangles(*mesh,
+        mesh->vertices[3].get(),
+        mesh->vertices[2].get(),
+        mesh->vertices[6].get(),
+        mesh->vertices[7].get(),
+        false);
 
-    // Left face (v0,v3,v7,v4):
-    mesh->createFace({ mesh->vertices[0].get(), mesh->vertices[3].get(), mesh->vertices[7].get() });
-    mesh->createFace({ mesh->vertices[0].get(), mesh->vertices[7].get(), mesh->vertices[4].get() });
+    // Left face: v0, v3, v7, v4
+    makeQuadAsTriangles(*mesh,
+        mesh->vertices[0].get(),
+        mesh->vertices[3].get(),
+        mesh->vertices[7].get(),
+        mesh->vertices[4].get());
 
-    // Right face (v1,v2,v6,v5):
-    mesh->createFace({ mesh->vertices[1].get(), mesh->vertices[2].get(), mesh->vertices[6].get() });
-    mesh->createFace({ mesh->vertices[1].get(), mesh->vertices[6].get(), mesh->vertices[5].get() });
+    // Right face: v1, v2, v6, v5
+    makeQuadAsTriangles(*mesh,
+        mesh->vertices[1].get(),
+        mesh->vertices[2].get(),
+        mesh->vertices[6].get(),
+        mesh->vertices[5].get(),
+        true);
 
     mesh->setupWingedEdgePointers();
     return mesh;
@@ -347,6 +443,53 @@ std::unique_ptr<WingedEdge> PrimitiveFactory::createSphere(const vec3& center, f
             mesh->vertices[southPoleIndex].get()
             });
     }
+
+    mesh->setupWingedEdgePointers();
+    return mesh;
+}
+
+std::unique_ptr<WingedEdge> PrimitiveFactory::createCylinder(const vec3& center, float radius, float height, int radialDivisions, int heightDivisions) {
+    auto mesh = std::make_unique<WingedEdge>();
+    int index = 0;
+    float halfHeight = height / 2.0f;
+    float bottomY = center.y() - halfHeight;
+    float topY = center.y() + halfHeight;
+
+    // Compute the number of horizontal rings.
+    int numRings = heightDivisions + 1;
+    std::vector<std::vector<Vertex*>> rings(numRings);
+
+    // Create rings of vertices along the height.
+    for (int r = 0; r < numRings; r++) {
+        float t = static_cast<float>(r) / heightDivisions;
+        float y = bottomY + t * height;
+        rings[r].resize(radialDivisions);
+        for (int i = 0; i < radialDivisions; i++) {
+            float angle = 2.0f * pi * i / radialDivisions;
+            float x = center.x() + radius * std::cos(angle);
+            float z = center.z() + radius * std::sin(angle);
+            mesh->vertices.push_back(std::make_unique<Vertex>(vec3(x, y, z), index));
+            rings[r][i] = mesh->vertices.back().get();
+            index++;
+        }
+    }
+
+    // Build the lateral surface using quad strips.
+    for (int r = 0; r < heightDivisions; r++) {
+        makeQuadStrip(*mesh, rings[r], rings[r + 1]);
+    }
+
+    // Build the bottom cap.
+    mesh->vertices.push_back(std::make_unique<Vertex>(vec3(center.x(), bottomY, center.z()), index));
+    Vertex* bottomCenter = mesh->vertices.back().get();
+    index++;
+    makeFan(*mesh, bottomCenter, rings[0], true); // **Reverse for bottom cap**
+
+    // Build the top cap.
+    mesh->vertices.push_back(std::make_unique<Vertex>(vec3(center.x(), topY, center.z()), index));
+    Vertex* topCenter = mesh->vertices.back().get();
+    index++;
+    makeFan(*mesh, topCenter, rings[numRings - 1], false); // **Natural order for top cap**
 
     mesh->setupWingedEdgePointers();
     return mesh;

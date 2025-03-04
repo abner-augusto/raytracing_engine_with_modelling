@@ -200,6 +200,56 @@ public:
      * @return Unique pointer to the WingedEdge mesh.
      */
     static std::unique_ptr<WingedEdge> createSphere(const vec3& center, float radius, int latDivisions = 12, int longDivisions = 24);
+
+    static std::unique_ptr<WingedEdge> createCylinder(const vec3& center, float radius, float height, int radialDivisions = 24, int heightDivisions = 1);
+
+private:
+    /**
+     * @brief Splits a four-vertex polygon (quad) into two CCW triangles.
+     *
+     *        v0 ---- v1
+     *         |      |
+     *         |      |
+     *        v3 ---- v2
+     *
+     * By default, the "loop" is [v0, v1, v2, v3], which is assumed to be CCW
+     * when viewed from the outside. The two triangles become:
+     *   - (v0, v1, v2)
+     *   - (v0, v2, v3)
+     *
+     * @param mesh The WingedEdge mesh where new faces are added.
+     * @param v0   Quad vertex 0.
+     * @param v1   Quad vertex 1.
+     * @param v2   Quad vertex 2.
+     * @param v3   Quad vertex 3.
+     */
+    static void makeQuadAsTriangles(WingedEdge& mesh, Vertex* v0, Vertex* v1, Vertex* v2, Vertex* v3, bool reverse = false);
+
+    /**
+     * @brief Creates a set of quads (two triangles each) between two rings of vertices.
+     *
+     * ring1[i] connects to ring2[i] and ring2[next], ring1[next], etc.
+     * For a typical cylinder side, ring1 might be the lower ring, ring2 the upper ring,
+     * both in CCW order (viewed from outside).
+     *
+     * @param mesh   The WingedEdge mesh where new faces are added.
+     * @param ring1  First ring of vertices (e.g. bottom row).
+     * @param ring2  Second ring of vertices (e.g. next row up).
+     */
+    static void makeQuadStrip(WingedEdge& mesh, const std::vector<Vertex*>& ring1, const std::vector<Vertex*>& ring2);
+
+    /**
+     * @brief Creates a fan of triangles from a center vertex and a loop of vertices.
+     *
+     * The orientation is determined by the order of the ring.
+     * For a top cap (looking down from above), ensure the ring is CCW
+     * so the normal is upward under the right-hand rule.
+     *
+     * @param mesh    The WingedEdge mesh where new faces are added.
+     * @param center  The center vertex for the fan.
+     * @param ring    The loop of vertices forming the outer boundary.
+     */
+    static void makeFan(WingedEdge& mesh, Vertex* center, const std::vector<Vertex*>& ring, bool reverse = false);
 };
 
 /**
