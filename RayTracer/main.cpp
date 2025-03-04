@@ -68,7 +68,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    SDL_Window* window = CreateWindow(window_width, window_height, "Raytracer CG1 - Abner Augusto");
+    SDL_Window* window = CreateWindow(window_width, window_height, "Winged Edge Modeller - Abner Augusto");
     if (!window) {
         SDL_Quit();
         return -1;
@@ -178,8 +178,13 @@ int main(int argc, char* argv[]) {
 
     MeshCollection meshCollection;
 
+    // Create Tetrahedron
+    std::unique_ptr<WingedEdge> tetrahedron = PrimitiveFactory::createTetrahedron();
+    meshCollection.addMesh(std::move(tetrahedron), "Tetrahedron");
+    ObjectID tetrahedronID = meshCollection.addMeshToScene(world, "Tetrahedron", (mat(cyan, 1.0, 1.0, 50, 0.0)));
+
     // Create Box
-    std::unique_ptr<WingedEdge> box = PrimitiveFactory::createBox(vec3(1.0, 0.0, 0.0), vec3(1.5, 0.5, -0.5));
+    std::unique_ptr<WingedEdge> box = PrimitiveFactory::createBox(vec3(0.0, -0.25, -0.5), vec3(1.0, 0.75, -1.5));
     meshCollection.addMesh(std::move(box), "Box");
     ObjectID boxID = meshCollection.addMeshToScene(world, "Box", (mat(blue, 1.0, 1.0, 50, 0.0)));
 
@@ -188,9 +193,14 @@ int main(int argc, char* argv[]) {
     meshCollection.addMesh(std::move(sphere), "Sphere");
     ObjectID sphereID = meshCollection.addMeshToScene(world, "Sphere", (mat(red, 1.0, 1.0, 50, 0.0)));
 
+    // Create Cylinder
+    std::unique_ptr<WingedEdge> cylinder = PrimitiveFactory::createCylinder(vec3(3.5, 0.25, -1), 0.5, 1.0);
+    meshCollection.addMesh(std::move(cylinder), "Cylinder");
+    ObjectID cylinderID = meshCollection.addMeshToScene(world, "Cylinder", (mat(green, 1.0, 1.0, 50, 0.0)));
+
     // Debug Info
-    meshCollection.printInfo();
-    meshCollection.traverseMeshes();
+    //meshCollection.printInfo();
+    //meshCollection.traverseMeshes();
 
     // Interface instance
     WingedEdgeImGui WEimguiInterface(&meshCollection);
