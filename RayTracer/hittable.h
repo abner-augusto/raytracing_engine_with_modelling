@@ -60,6 +60,10 @@ public:
     virtual void set_material(const mat& material) {
         throw std::runtime_error("set_material not supported for this object.");
     }
+
+    virtual std::shared_ptr<hittable> clone() const {
+        throw std::runtime_error("Copy not supported for this object.");
+    }
 };
 
 #endif

@@ -39,6 +39,60 @@ bool renderWireframe = false;
 bool renderWorldAxes = true;
 std::optional<BoundingBox> highlighted_box = std::nullopt;
 
+// Helper function that spawns an array of a mesh.
+// Each copy is translated in the given direction by 'fixedDistance' meters per step.
+auto static spawnMeshArray(SceneManager& world, const std::string& meshPath, const std::string& mtlPath, int numCopies, float fixedDistance, const vec3& direction) {
+    for (int i = 0; i < numCopies; i++) {
+        // Load a new copy of the mesh
+        ObjectID meshID = add_mesh_to_scene(meshPath, world, mtlPath);
+        if (world.contains(meshID)) {
+            // Calculate translation based on direction vector
+            vec3 offset = direction * (fixedDistance * (i + 1));
+            Matrix4x4 translate = Matrix4x4::translation(offset);
+
+            // Apply transformation to place the mesh
+            world.transform_object(meshID, translate);
+        }
+    }
+}
+
+// Helper function that duplicates an existing object in the SceneManager
+// and translates each copy along a specified direction.
+auto static duplicateObjectArray(SceneManager& world, ObjectID originalID, int numCopies, float fixedDistance, const vec3& direction) {
+    if (!world.contains(originalID)) {
+        std::cerr << "Error: Original ObjectID " << originalID << " not found in SceneManager.\n";
+        return;
+    }
+
+    // Retrieve the original object
+    auto originalObject = world.get(originalID);
+    if (!originalObject) {
+        std::cerr << "Error: Failed to retrieve object with ID " << originalID << ".\n";
+        return;
+    }
+
+    for (int i = 0; i < numCopies; i++) {
+        // Clone the original object
+        std::shared_ptr<hittable> newObject = originalObject->clone();
+        if (!newObject) {
+            std::cerr << "Error: Cloning failed for object ID " << originalID << ".\n";
+            return;
+        }
+
+        // Add the new instance to the scene
+        ObjectID newID = world.add(newObject);
+
+        // Calculate translation offset
+        vec3 offset = direction * (fixedDistance * (i + 1));
+        Matrix4x4 translate = Matrix4x4::translation(offset);
+
+        // Apply transformation to the new instance
+        world.transform_object(newID, translate);
+    }
+}
+
+
+
 int main(int argc, char* argv[]) {
 
     // Image
@@ -114,6 +168,7 @@ int main(int argc, char* argv[]) {
     image_texture* grass_texture = new image_texture("textures/grass.jpg");
     image_texture* brick_texture = new image_texture("textures/brick.jpg");
     checker_texture checker(black, white, 15);
+    checker_texture ground(brown, white, 0.25);
     mat xadrez(&checker, 0.8, 1.0, 100.0, 0.25);
     mat sphere_mat(red, 0.8, 1.0, 150.0);
     mat sphere_mat2(green);
@@ -127,12 +182,12 @@ int main(int argc, char* argv[]) {
     // Create scenes
     std::vector<std::shared_ptr<hittable>> Scene1 = {
         std::make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), mat(grass_texture)),
-        make_shared<sphere>(point3(0, 0, -1), 0.45, mat(xadrez)),
-        make_shared<cylinder>(point3(-1.0, -0.25, -1), point3(-1.0, 0.35, -1), 0.3, mat(blue)),
-        make_shared<cone>(point3(1, -0.15, -1), point3(1, 0.5, -1.5), 0.3, mat(red)),
-        make_shared<torus>(point3(-2, 0, -1), 0.3, 0.1, vec3(0, 0.5, 0.5), mat(cyan)),
-        make_shared<SquarePyramid>(point3(1.8, -0.3, -1), 0.8, 0.5, mat(green)),
-        make_shared<box>(point3(2.6, 0, -1), 0.7, mat(brick_texture))
+        //make_shared<sphere>(point3(0, 0, -1), 0.45, mat(xadrez)),
+        //make_shared<cylinder>(point3(-1.0, -0.25, -1), point3(-1.0, 0.35, -1), 0.3, mat(blue)),
+        //make_shared<cone>(point3(1, -0.15, -1), point3(1, 0.5, -1.5), 0.3, mat(red)),
+        //make_shared<torus>(point3(-2, 0, -1), 0.3, 0.1, vec3(0, 0.5, 0.5), mat(cyan)),
+        //make_shared<SquarePyramid>(point3(1.8, -0.3, -1), 0.8, 0.5, mat(green)),
+        //make_shared<box>(point3(2.6, 0, -1), 0.7, mat(brick_texture))
     };
 
     std::vector<std::shared_ptr<hittable>> Scene2 = {
@@ -148,23 +203,50 @@ int main(int argc, char* argv[]) {
 
     //Mesh Object
 
-    MeshData mesh;
     try {
-        // Load an OBJ mesh and add it to the manager
-        ObjectID mesh_id = add_mesh_to_scene("models/sonic.obj", world, "models/sonic.mtl");
+        // Load other meshes as needed
+        ObjectID casa1 = add_mesh_to_scene("models/garanhuns.obj", world, "models/garanhuns.mtl");
 
-        // Apply transformation to all triangles in the mesh
-        if (world.contains(mesh_id)) {
+        //ObjectID totemID = add_mesh_to_scene("models/cenario/totem.obj", world, "models/cenario/totem.mtl");
 
-            Matrix4x4 translate = Matrix4x4::translation(vec3(0.0, 0, -3.0));
+        //if (world.contains(loopID)) {
+        //    Matrix4x4 loopTranslate = loopTranslate.translation(vec3(30, 0, 0));
+        //    world.transform_object(loopID, loopTranslate);
+        //}
 
-            world.transform_object(mesh_id, translate);
-        }
+        //duplicateObjectArray(world, totemID, 2, 10, vec3(-1, 0, 0));
+
+        //int numCopies = 10;      // Number of palm copies to spawn
+        //double distance = 15.0;   // Distance in meters between each palm
+
+        //for (int i = 0; i < numCopies; i++) {
+        //    // Add a new instance of the palm mesh
+        //    ObjectID palmID = add_mesh_to_scene("models/cenario/palm.obj", world, "models/cenario/palm.mtl");
+
+        //    if (world.contains(palmID)) {
+        //        // Alternate scale: if index is even, use 1.5; if odd, use 1.0.
+        //        double scaleFactor = (i % 2 == 0) ? 1.5 : 1.0;
+
+        //        // Create a translation matrix to place the palm 5 meters apart along the z-axis.
+        //        Matrix4x4 translate = Matrix4x4::translation(vec3(distance * (i + 1), 0.0, 0.0 ));
+
+        //        // Compute scaling around the center of the mesh's bounding box.
+        //        Matrix4x4 scale = scale.scaleAroundPoint(
+        //            world.get(palmID)->bounding_box().getCenter(),
+        //            scaleFactor, scaleFactor, scaleFactor
+        //        );
+
+        //        // Combine translation and scaling into a single transformation.
+        //        Matrix4x4 transform = translate * scale;
+
+        //        // Apply the transformation to the new palm instance.
+        //        world.transform_object(palmID, transform);
+        //    }
+        //}
     }
     catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << "\n";
     }
-
 
     // Build Atividade 6 Scene
     //SceneBuilder::buildAtividade6Scene(
@@ -180,9 +262,9 @@ int main(int argc, char* argv[]) {
     //);
 
     //Light
-    world.add_directional_light(vec3(-0.6, -0.5, -0.5), 0.4, color(1, 0.95, 0.8));
-    world.add_point_light(point3(0, 1, 0.5), 1.0, color(1, 1, 1));
-    world.add_spot_light(point3(0, 0.7, -1.0), vec3(0,0.043,-1.0), 6.5, color(0,0.1,1), 30, 45);
+    world.add_directional_light(vec3(-0.6, -0.5, -0.5), 1.0, color(1, 1, 1));
+    //world.add_point_light(point3(0, 1, 0.5), 1.0, color(1, 1, 1));
+    //world.add_spot_light(point3(0, 0.7, -1.0), vec3(0,0.043,-1.0), 6.5, color(0,0.1,1), 30, 45);
 
 
     // Camera
@@ -190,8 +272,9 @@ int main(int argc, char* argv[]) {
     double viewport_height = 2.0;
     auto viewport_width = aspect_ratio * viewport_height;
     auto samples_per_pixel = 5; 
-    point3 origin(2.2, 1.8, 2.1);
-    point3 look_at(1.0 , 0.05, -2.5);
+    float speed = 1.5f;
+    point3 origin(20.7,28.1, 70.0);
+    point3 look_at(21.1 , 27.83, 69.25);
     //point3 origin(0, 0, 2);
     //point3 look_at(0 , 0, -3);
 
@@ -230,7 +313,7 @@ int main(int argc, char* argv[]) {
 
         while (SDL_PollEvent(&event)) {
             ImGui_ImplSDL2_ProcessEvent(&event);
-            handle_event(event, running, window, aspect_ratio, camera, render_state, world, highlighted_box);
+            handle_event(event, running, window, aspect_ratio, camera, render_state, world, highlighted_box, speed);
         }
 
         // Start ImGui frame

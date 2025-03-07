@@ -234,6 +234,10 @@ public:
         return "Cone";
     }
 
+    std::shared_ptr<hittable> clone() const override {
+        return std::make_shared<cone>(*this);
+    }
+
 private:
     point3 base_center;
     point3 top_vertex;

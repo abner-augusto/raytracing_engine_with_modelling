@@ -206,6 +206,10 @@ public:
         return 'g';
     }
 
+    std::shared_ptr<hittable> clone() const override {
+        return std::make_shared<triangle>(*this);
+    }
+
 private:
     point3 v0, v1, v2;         // Vertices of the triangle
     double u0, v0_uv;          // UV coordinates for v0

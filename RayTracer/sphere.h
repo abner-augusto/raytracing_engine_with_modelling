@@ -184,6 +184,10 @@ public:
         return "Sphere";
     }
 
+    std::shared_ptr<hittable> clone() const override {
+        return std::make_shared<sphere>(*this);
+    }
+
 private:
     point3 center;
     double radius;

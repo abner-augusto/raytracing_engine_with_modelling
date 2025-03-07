@@ -240,6 +240,10 @@ public:
         return "Torus";
     }
 
+    std::shared_ptr<hittable> clone() const override {
+        return std::make_shared<torus>(*this);
+    }
+
 private:
     point3 center;
     double major_radius;

@@ -90,6 +90,10 @@ public:
         return material;
     }
 
+    std::shared_ptr<hittable> clone() const override {
+        return std::make_shared<plane>(*this);
+    }
+
 private:
     point3 point;  // A point on the plane
     vec3 normal;   // The plane's normal vector

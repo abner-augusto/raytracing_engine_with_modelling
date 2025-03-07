@@ -397,6 +397,10 @@ public:
         return "Cylinder";
     }
 
+    std::shared_ptr<hittable> clone() const override {
+        return std::make_shared<cylinder>(*this);
+    }
+
 private:
     void update_constants() {
         cylinder_axis = top_center - base_center;

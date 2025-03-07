@@ -130,6 +130,18 @@ public:
         return 'b';
     }
 
+    std::shared_ptr<hittable> clone() const override {
+        auto newMesh = std::make_shared<Mesh>();
+
+        // Deep copy all triangles (create new instances of each)
+        for (const auto& tri : triangles) {
+            newMesh->add_triangle(std::make_shared<triangle>(*tri)); // Create new triangle copies
+        }
+
+        newMesh->buildBVH(); // Rebuild BVH for the new mesh
+        return newMesh;
+    }
+
 private:
     std::vector<std::shared_ptr<triangle>> triangles;
     std::shared_ptr<BVHNode> root_bvh = nullptr;

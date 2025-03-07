@@ -148,11 +148,6 @@ public:
         return !out_intersections.empty();
     }
 
-
-    std::string get_type_name() const override {
-        return "Box";
-    }
-
     char test_bb(const BoundingBox& bb) const override {
         // Quick test - if the test box is completely outside our bounds in any dimension,
         // then it must be completely outside
@@ -188,6 +183,14 @@ public:
 
     BoundingBox bounding_box() const override {
         return BoundingBox(min_corner, max_corner);
+    }
+
+    std::string get_type_name() const override {
+        return "Box";
+    }
+
+    std::shared_ptr<hittable> clone() const override {
+        return std::make_shared<box_csg>(*this);
     }
 
 private:

@@ -326,6 +326,10 @@ public:
         return material;
     }
 
+    std::shared_ptr<hittable> clone() const override {
+        return std::make_shared<SquarePyramid>(*this);
+    }
+
     private:
         // Helper: Ray–triangle intersection using the Möller–Trumbore algorithm.
         // Returns true if the ray intersects the triangle (v0, v1, v2) within [t_min, t_max].

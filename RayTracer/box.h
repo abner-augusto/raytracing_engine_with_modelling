@@ -78,10 +78,6 @@ public:
         return box;
     }
 
-    std::string get_type_name() const override {
-        return "Box Mesh";
-    }
-
     // Getter for material
     mat get_material() const override {
         return material;
@@ -93,6 +89,14 @@ public:
         for (auto& tri : triangles) {
             tri->set_material(new_material);
         }
+    }
+
+    std::string get_type_name() const override {
+        return "Box Mesh";
+    }
+
+    std::shared_ptr<hittable> clone() const override {
+        return std::make_shared<box>(*this);
     }
 
 private:
