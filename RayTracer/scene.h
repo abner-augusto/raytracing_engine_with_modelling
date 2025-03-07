@@ -21,6 +21,37 @@ using std::make_shared;
 using ObjectID = size_t;
 
 class SceneManager : public hittable {
+private:
+
+    // ------------------------------------------------------------------
+    //                          Private Members
+    // ------------------------------------------------------------------
+    ObjectID next_id = 0;
+    std::unordered_map<ObjectID, shared_ptr<hittable>> objects;
+    std::vector<std::unique_ptr<Light>> lights;
+    std::unordered_set<ObjectID> used_ids; // Track all used IDs.
+    shared_ptr<BVHNode> root_bvh = nullptr;  // Root of the BVH tree.
+    std::unordered_map<ObjectID, Octree> octrees; // Maps each object ID to its corresponding octree.
+
+    // ------------------------------------------------------------------
+    //                        Private Helper Functions
+    // ------------------------------------------------------------------
+
+    bool defaultHitTraversal(const ray& r, interval ray_t, hit_record& rec) const {
+        hit_record temp_rec;
+        bool hit_anything = false;
+        auto closest_so_far = ray_t.max;
+        for (const auto& [id, object] : objects) {
+            if (object->hit(r, interval(ray_t.min, closest_so_far), temp_rec)) {
+                hit_anything = true;
+                closest_so_far = temp_rec.t;
+                rec = temp_rec;
+            }
+        }
+        return hit_anything;
+    }
+
+
 public:
     SceneManager() = default;
     SceneManager(const SceneManager&) = delete;
@@ -314,35 +345,10 @@ public:
         return combined_box;
     }
 
-private:
-
-    // ------------------------------------------------------------------
-    //                          Private Members
-    // ------------------------------------------------------------------
-    ObjectID next_id = 0;
-    std::unordered_map<ObjectID, shared_ptr<hittable>> objects;
-    std::vector<std::unique_ptr<Light>> lights;
-    std::unordered_set<ObjectID> used_ids; // Track all used IDs.
-    shared_ptr<BVHNode> root_bvh = nullptr;  // Root of the BVH tree.
-    std::unordered_map<ObjectID, Octree> octrees; // Maps each object ID to its corresponding octree.
-
-    // ------------------------------------------------------------------
-    //                        Private Helper Functions
-    // ------------------------------------------------------------------
-
-    bool defaultHitTraversal(const ray& r, interval ray_t, hit_record& rec) const {
-        hit_record temp_rec;
-        bool hit_anything = false;
-        auto closest_so_far = ray_t.max;
-        for (const auto& [id, object] : objects) {
-            if (object->hit(r, interval(ray_t.min, closest_so_far), temp_rec)) {
-                hit_anything = true;
-                closest_so_far = temp_rec.t;
-                rec = temp_rec;
-            }
-        }
-        return hit_anything;
+    std::shared_ptr<BVHNode> getBVH() const {
+        return root_bvh;
     }
+
 };
 
 #endif

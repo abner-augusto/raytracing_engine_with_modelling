@@ -142,6 +142,10 @@ public:
         return newMesh;
     }
 
+    std::shared_ptr<BVHNode> getBVH() const {
+        return root_bvh;
+    }
+
 private:
     std::vector<std::shared_ptr<triangle>> triangles;
     std::shared_ptr<BVHNode> root_bvh = nullptr;

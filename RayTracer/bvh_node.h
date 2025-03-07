@@ -120,6 +120,9 @@ private:
     }
 
 public:
+    std::shared_ptr<BVHNode> getLeft() const { return std::dynamic_pointer_cast<BVHNode>(left); }
+    std::shared_ptr<BVHNode> getRight() const { return std::dynamic_pointer_cast<BVHNode>(right); }
+
     BVHNode() : is_leaf(false) {}
 
     BVHNode(std::vector<std::shared_ptr<hittable>>& objects, size_t start, size_t end) : is_leaf(false) {
