@@ -151,6 +151,7 @@ public:
 
     /**
      * @brief Sets up the wing pointers for all edges based on the face boundaries.
+     * @brief Clears all pointers and redo all wing pointers in the vertex, edge and face.
      */
     void setupWingedEdgePointers();
 
@@ -192,6 +193,27 @@ public:
      */
     vec3 getCenter() const;
 
+    // Euler Operators
+
+    /**
+     * @brief Computes the Euler characteristic (V - E + F).
+     * @return The Euler characteristic.
+     */
+    int getEulerCharacteristic() const;
+
+    /**
+    * @brief Checks if the Euler characteristic is valid (equal to 2).
+    * @return True if the Euler characteristic is valid, false otherwise.
+    */
+    bool isEulerCharacteristicValid() const;
+
+    bool areVerticesInSameFace(Vertex* v1, Vertex* v2, Vertex* v3) const;
+
+    void _setWingPointers(Edge* edge, Face* face);
+
+    Vertex* MVE(Vertex* existingVertex, const vec3& newVertexPos);
+
+    void MEF(Vertex* v1, Vertex* v2, Vertex* v3);
 private:
     mutable vec3 centerCache;
     mutable bool centerCacheValid = false;

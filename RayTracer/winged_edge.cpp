@@ -77,13 +77,19 @@ std::shared_ptr<Face> WingedEdge::createFace(const std::vector<Vertex*>& boundar
         auto edge = findOrCreateEdge(vertex1, vertex2);
 
         // Assign the face to the edge.
+                // Use raw pointer comparison.
         if (edge->leftFace.expired())
             edge->leftFace = newFace;
         else if (edge->rightFace.expired())
             edge->rightFace = newFace;
         else
-            throw std::runtime_error("Edge already has two adjacent faces.");
-
+        {
+            // Check if faces are the same
+            if (edge->leftFace.lock().get() != newFace.get() && edge->rightFace.lock().get() != newFace.get())
+            {
+                throw std::runtime_error("Edge already has two adjacent faces.");
+            }
+        }
         newFace->boundaryEdges.push_back(edge.get());
     }
 
@@ -91,7 +97,6 @@ std::shared_ptr<Face> WingedEdge::createFace(const std::vector<Vertex*>& boundar
     if (!newFace->boundaryEdges.empty())
         newFace->edge = newFace->boundaryEdges[0];
 
-    // Note: setupWingedEdgePointers() call has been removed from here.
     return newFace;
 }
 
@@ -161,6 +166,10 @@ void WingedEdge::printInfo() const {
         vec3 n = f->normal();
         std::cout << " | Normal = (" << n.x() << ", " << n.y() << ", " << n.z() << ")" << std::endl;
     }
+
+     // Print Euler characteristic.
+    std::cout << "Euler Characteristic: " << getEulerCharacteristic() << std::endl;
+    std::cout << "Euler Characteristic Valid: " << (isEulerCharacteristicValid() ? "Yes" : "No") << std::endl;
 }
 
 void WingedEdge::traverseMesh() const {
@@ -254,6 +263,90 @@ vec3 WingedEdge::getCenter() const {
     return centerCache;
 }
 
+// Euler Operators Implementations:
+
+int WingedEdge::getEulerCharacteristic() const {
+    return static_cast<int>(vertices.size()) - static_cast<int>(edges.size()) + static_cast<int>(faces.size());
+}
+
+bool WingedEdge::isEulerCharacteristicValid() const {
+    return (getEulerCharacteristic() == 2);
+}
+
+bool WingedEdge::areVerticesInSameFace(Vertex* v1, Vertex* v2, Vertex* v3) const {
+    for (const auto& face : faces) {
+        const auto& verts = face->vertices;
+        if (verts.size() == 3) { // Assuming only triangular faces
+            bool foundV1 = false, foundV2 = false, foundV3 = false;
+            for (const auto& v : verts) {
+                if (v == v1) foundV1 = true;
+                if (v == v2) foundV2 = true;
+                if (v == v3) foundV3 = true;
+            }
+            if (foundV1 && foundV2 && foundV3) {
+                return true; // All three vertices found in the same face
+            }
+        }
+    }
+    return false; // No such face found
+}
+
+
+// Helper function to set wing pointers incrementally *within* Euler operators.
+void WingedEdge::_setWingPointers(Edge* edge, Face* face) {
+    if (!edge || !face) return;
+
+    // Find the position of 'edge' within the face's boundaryEdges.
+    auto it = std::find(face->boundaryEdges.begin(), face->boundaryEdges.end(), edge);
+    if (it == face->boundaryEdges.end()) {
+        return; // Edge not part of this face.
+    }
+
+    size_t i = std::distance(face->boundaryEdges.begin(), it);
+    size_t n = face->boundaryEdges.size();
+    Edge* next = face->boundaryEdges[(i + 1) % n];
+    Edge* prev = face->boundaryEdges[(i + n - 1) % n];
+
+    // Set pointers based on face orientation (left or right).
+    if (edge->leftFace.lock().get() == face) {
+        edge->clockwiseLeftEdge = next;
+        edge->counterClockwiseLeftEdge = prev;
+    }
+    else if (edge->rightFace.lock().get() == face) {
+        edge->clockwiseRightEdge = next;
+        edge->counterClockwiseRightEdge = prev;
+    }
+}
+
+
+Vertex* WingedEdge::MVE(Vertex* existingVertex, const vec3& newVertexPos) {
+    auto newVertex = std::make_unique<Vertex>(newVertexPos, static_cast<int>(vertices.size()));
+    Vertex* rawNewVertex = newVertex.get();
+    vertices.push_back(std::move(newVertex));
+
+    if (existingVertex) { // If existingVertex is nullptr, we're creating the first vertex.
+        findOrCreateEdge(existingVertex, rawNewVertex); // Edge creation is handled here.
+    }
+    return rawNewVertex; // Return the *raw* pointer.
+}
+
+void WingedEdge::MEF(Vertex* v1, Vertex* v2, Vertex* v3) {
+    if (v1 == v2 || v1 == v3 || v2 == v3)
+        throw std::runtime_error("MEF: Vertices must be distinct.");
+
+    // Check for pre-existing faces.
+    if (areVerticesInSameFace(v1, v2, v3))
+        throw std::runtime_error("MEF: Vertices already form a face.");
+
+    // Create the face and its edges.  Crucially, *all* connectivity is done here.
+    auto newFace = createFace({ v1, v2, v3 });
+
+    // Set the wing pointers *incrementally* for each edge of the new face.
+    for (Edge* edge : newFace->boundaryEdges) {
+        _setWingPointers(edge, newFace.get());
+    }
+}
+
 /*-------------------------------------------------------------------
   PrimitiveFactory Implementation
 -------------------------------------------------------------------*/
@@ -318,26 +411,20 @@ void PrimitiveFactory::makeQuadAsTriangles(WingedEdge& mesh,
 std::unique_ptr<WingedEdge> PrimitiveFactory::createTetrahedron() {
     auto mesh = std::make_unique<WingedEdge>();
 
-    vec3 v0(0.0, 0.0, 0.0);
-    vec3 v1(1.0, 0.0, 0.0);
-    vec3 v2(0.5, 0.0, 0.866025);
-    vec3 v3(0.5, 0.816496, 0.288675);
+    // 1. Create the first vertex (v0).
+    Vertex* v0 = mesh->MVE(nullptr, vec3(0.0, 0.0, 0.0));
 
-    mesh->vertices.push_back(std::make_unique<Vertex>(v0, 0));
-    mesh->vertices.push_back(std::make_unique<Vertex>(v1, 1));
-    mesh->vertices.push_back(std::make_unique<Vertex>(v2, 2));
-    mesh->vertices.push_back(std::make_unique<Vertex>(v3, 3));
+    // 2. Add vertices and edges to create the first triangle (base).
+    Vertex* v1 = mesh->MVE(v0, vec3(1.0, 0.0, 0.0));
+    Vertex* v2 = mesh->MVE(v1, vec3(0.5, 0.0, 0.866025));
+    mesh->MEF(v0, v1, v2);
 
-    // Create faces using the vertices.
-    // Base face (flat on the XZ plane):
-    mesh->createFace({ mesh->vertices[0].get(), mesh->vertices[1].get(), mesh->vertices[2].get() });
-    // Side faces:
-    mesh->createFace({ mesh->vertices[0].get(), mesh->vertices[3].get(), mesh->vertices[1].get() });
-    mesh->createFace({ mesh->vertices[1].get(), mesh->vertices[3].get(), mesh->vertices[2].get() });
-    mesh->createFace({ mesh->vertices[2].get(), mesh->vertices[3].get(), mesh->vertices[0].get() });
+    // 3. Add the apex vertex (v3) and connect it to the base.
+    Vertex* v3 = mesh->MVE(v0, vec3(0.5, 0.816496, 0.288675));
+    mesh->MEF(v0, v3, v1); // Connect v3 to v0 and v1.
+    mesh->MEF(v1, v3, v2); // Connect v3 to v1 and v2.
+    mesh->MEF(v2, v3, v0); // Connect v3 to v2 and v0.
 
-    // Update wing pointers after all faces are created.
-    mesh->setupWingedEdgePointers();
     return mesh;
 }
 
