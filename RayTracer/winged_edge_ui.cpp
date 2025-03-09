@@ -37,8 +37,8 @@ std::string WingedEdgeImGui::getFaceDisplayString(const Face* f) {
 //-------------------------------------------------------------------
 // Constructor
 //-------------------------------------------------------------------
-WingedEdgeImGui::WingedEdgeImGui(MeshCollection* collection)
-    : meshCollection(collection), selectedMeshIndex(-1),  // Initialize to -1 (no selection)
+WingedEdgeImGui::WingedEdgeImGui(MeshCollection* collection, SceneManager* world)
+    : meshCollection(collection), sceneManager(world),  selectedMeshIndex(-1),  // Initialize to -1 (no selection)
     selectedEdgeIndex(-1), selectedFaceIndex(-1), selectedVertexIndex(-1),
     showEdgeDetails(false), showFaceDetails(false)
 {
@@ -119,9 +119,9 @@ void WingedEdgeImGui::renderMeshList() {
 // Mesh Details Rendering
 //-------------------------------------------------------------------
 void WingedEdgeImGui::renderMeshDetails() {
-    // Get a *non-const* pointer, as we might modify the mesh later.
+    // Get a non-const pointer, as we might modify the mesh later.
     WingedEdge* mesh = meshCollection->getMesh(selectedMeshIndex);
-    if (!mesh) return; // Important: Check if mesh is valid.
+    if (!mesh) return; // Ensure the mesh is valid.
 
     std::string title = "Mesh Details";
     std::string meshName = meshCollection->getMeshName(mesh);
@@ -129,15 +129,22 @@ void WingedEdgeImGui::renderMeshDetails() {
         title += " - " + meshName;
     }
     ImGui::Begin(title.c_str());
+
     if (ImGui::BeginTabBar("MeshTabs")) {
+        // Vertices Tab
         if (ImGui::BeginTabItem("Vertices")) {
+            ImGui::PushID("VerticesTab");
             renderVerticesTab(mesh);
+            ImGui::PopID();
             ImGui::EndTabItem();
         }
+
+        // Edges Tab
         if (ImGui::BeginTabItem("Edges")) {
+            ImGui::PushID("EdgesTab");
             renderEdgesTab(mesh);
             ImGui::Separator();
-            // Check for valid selectedEdgeIndex *before* accessing.
+            // Check for valid selectedEdgeIndex before accessing.
             if (selectedEdgeIndex >= 0 && selectedEdgeIndex < static_cast<int>(mesh->edges.size())) {
                 Edge* e = mesh->edges[selectedEdgeIndex].get();
                 std::string headerText = std::format("Edge Details (e{})", e->index);
@@ -152,12 +159,16 @@ void WingedEdgeImGui::renderMeshDetails() {
                     ImGui::PopStyleColor(3);
                 }
             }
+            ImGui::PopID();
             ImGui::EndTabItem();
         }
+
+        // Faces Tab
         if (ImGui::BeginTabItem("Faces")) {
+            ImGui::PushID("FacesTab");
             renderFacesTab(mesh);
             ImGui::Separator();
-            // Check for valid selectedFaceIndex *before* accessing.
+            // Check for valid selectedFaceIndex before accessing.
             if (selectedFaceIndex >= 0 && selectedFaceIndex < static_cast<int>(mesh->faces.size())) {
                 Face* f = mesh->faces[selectedFaceIndex].get();
                 std::string headerText = std::format("Face Details (f{})", f->index);
@@ -172,8 +183,18 @@ void WingedEdgeImGui::renderMeshDetails() {
                     ImGui::PopStyleColor(3);
                 }
             }
+            ImGui::PopID();
             ImGui::EndTabItem();
         }
+
+        // Geometry Tab
+        if (ImGui::BeginTabItem("Geometry")) {
+            ImGui::PushID("GeometryTab");
+            ShowWingedEdgeGeometryTab(mesh);
+            ImGui::PopID();
+            ImGui::EndTabItem();
+        }
+
         ImGui::EndTabBar();
     }
     ImGui::End();
@@ -595,4 +616,155 @@ void WingedEdgeImGui::selectEdgeChainByVertex(WingedEdge* mesh) {
         std::cout << "Edge Chain (Closed Loop): " << logStream.str() << std::endl;
     else
         std::cout << "Edge Chain: " << logStream.str() << std::endl;
+}
+
+// Geometry Tab for Winged Edge Meshes
+void WingedEdgeImGui::ShowWingedEdgeGeometryTab(WingedEdge* mesh) {
+    if (!mesh) {
+        ImGui::Text("No mesh selected.");
+        return;
+    }
+
+    // Retrieve the mesh name and ensure it exists.
+    std::string meshName = meshCollection->getMeshName(mesh);
+    if (meshName.empty()) {
+        ImGui::Text("Mesh has no name assigned.");
+        return;
+    }
+
+    // Retrieve the ObjectID and material once from the SceneManager.
+    ObjectID objID = meshCollection->getObjectID(meshName);
+    mat material = sceneManager->get(objID)->get_material();
+
+    // Retrieve the cached center of the mesh.
+    vec3 center = mesh->getCenter();
+    ImGui::Text("Mesh Center: (%.2f, %.2f, %.2f)", center.x(), center.y(), center.z());
+    ImGui::Separator();
+
+    if (ImGui::BeginTabBar("TransformTabs")) {
+        // Translate Tab
+        if (ImGui::BeginTabItem("Translate")) {
+            static float translation[3] = { 0.0f, 0.0f, 0.0f };
+            ImGui::Text("Translate Mesh");
+            ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x * 0.8f);
+            ImGui::SliderFloat3("Translation", translation, -2.0f, 2.0f);
+            ImGui::PopItemWidth();
+
+            if (ImGui::Button("Apply Translation")) {
+                Matrix4x4 transform = Matrix4x4::translation(vec3(translation[0], translation[1], translation[2]));
+                mesh->transform(transform);
+                meshCollection->updateMeshRendering(*sceneManager, meshName, material);
+                translation[0] = translation[1] = translation[2] = 0.0f;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Reset Position")) {
+                Matrix4x4 resetTransform = Matrix4x4::translation(vec3(-center.x(), -center.y(), -center.z()));
+                mesh->transform(resetTransform);
+                meshCollection->updateMeshRendering(*sceneManager, meshName, material);
+            }
+            ImGui::EndTabItem();
+        }
+
+        // Rotate Tab
+        if (ImGui::BeginTabItem("Rotate")) {
+            static float rotationAxis[3] = { 0.0f, 1.0f, 0.0f };
+            static float rotationAngle = 0.0f;
+            static bool useCustomRotationPoint = false;
+            static float customRotationPoint[3] = { 0.0f, 0.0f, 0.0f };
+
+            ImGui::Text("Rotate Mesh");
+            ImGui::Checkbox("Use Custom Rotation Point", &useCustomRotationPoint);
+            if (useCustomRotationPoint) {
+                ImGui::Text("Custom Rotation Point:");
+                ImGui::SliderFloat3("Rotation Point", customRotationPoint, -10.0f, 10.0f);
+            }
+            ImGui::SliderFloat3("Rotation Axis", rotationAxis, -1.0f, 1.0f);
+            ImGui::SliderFloat("Angle (degrees)", &rotationAngle, -180.0f, 180.0f);
+
+            if (ImGui::Button("Apply Rotation")) {
+                vec3 axis(rotationAxis[0], rotationAxis[1], rotationAxis[2]);
+                if (axis.length_squared() > 0.0f) {
+                    axis = unit_vector(axis);
+                    point3 rotationPoint = useCustomRotationPoint ?
+                        point3(customRotationPoint[0], customRotationPoint[1], customRotationPoint[2]) :
+                        center;
+                    Matrix4x4 rotationMatrix = rotationMatrix.rotateAroundPoint(rotationPoint, axis, rotationAngle);
+                    mesh->transform(rotationMatrix);
+                    meshCollection->updateMeshRendering(*sceneManager, meshName, material);
+                }
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Reset Rotation")) {
+                rotationAxis[0] = 0.0f; rotationAxis[1] = 1.0f; rotationAxis[2] = 0.0f;
+                rotationAngle = 0.0f;
+            }
+            ImGui::EndTabItem();
+        }
+
+        // Scale Tab
+        if (ImGui::BeginTabItem("Scale")) {
+            static float scaleValues[3] = { 1.0f, 1.0f, 1.0f };
+            static bool uniformScale = false;
+            static float uniformScaleValue = 1.0f;
+
+            ImGui::Text("Scale Mesh");
+            ImGui::Checkbox("Uniform Scaling", &uniformScale);
+            if (uniformScale) {
+                ImGui::SliderFloat("Scale All Axes", &uniformScaleValue, 0.1f, 5.0f);
+                scaleValues[0] = scaleValues[1] = scaleValues[2] = uniformScaleValue;
+            }
+            else {
+                ImGui::SliderFloat3("Scale Axes", scaleValues, 0.1f, 5.0f);
+            }
+            if (ImGui::Button("Apply Scaling")) {
+                Matrix4x4 translateToOrigin = Matrix4x4::translation(vec3(-center.x(), -center.y(), -center.z()));
+                Matrix4x4 scaleMatrix = Matrix4x4::scaling(scaleValues[0], scaleValues[1], scaleValues[2]);
+                Matrix4x4 translateBack = Matrix4x4::translation(vec3(center.x(), center.y(), center.z()));
+                Matrix4x4 finalTransform = translateBack * scaleMatrix * translateToOrigin;
+                mesh->transform(finalTransform);
+                meshCollection->updateMeshRendering(*sceneManager, meshName, material);
+                scaleValues[0] = scaleValues[1] = scaleValues[2] = 1.0f;
+                uniformScaleValue = 1.0f;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Reset Scaling")) {
+                // Reset scaling functionality as needed.
+            }
+            ImGui::EndTabItem();
+        }
+
+        // Shear Tab
+        if (ImGui::BeginTabItem("Shear")) {
+            static float shearValues[3] = { 0.0f, 0.0f, 0.0f };
+            static bool useCustomShearPoint = false;
+            static float customShearPoint[3] = { 0.0f, 0.0f, 0.0f };
+
+            ImGui::Text("Shear Mesh");
+            ImGui::Checkbox("Use Custom Shearing Point", &useCustomShearPoint);
+            if (useCustomShearPoint) {
+                ImGui::Text("Custom Shearing Point:");
+                ImGui::SliderFloat3("Shearing Point", customShearPoint, -10.0f, 10.0f);
+            }
+            ImGui::SliderFloat3("Shear Factors", shearValues, -1.0f, 1.0f);
+
+            if (ImGui::Button("Apply Shear")) {
+                point3 shearingPoint = useCustomShearPoint ?
+                    point3(customShearPoint[0], customShearPoint[1], customShearPoint[2]) :
+                    center;
+                Matrix4x4 translateToOrigin = Matrix4x4::translation(vec3(-shearingPoint.x(), -shearingPoint.y(), -shearingPoint.z()));
+                Matrix4x4 shearMatrix = Matrix4x4::shearing(shearValues[0], shearValues[1], shearValues[2]);
+                Matrix4x4 translateBack = Matrix4x4::translation(vec3(shearingPoint.x(), shearingPoint.y(), shearingPoint.z()));
+                Matrix4x4 finalTransform = translateBack * shearMatrix * translateToOrigin;
+                mesh->transform(finalTransform);
+                meshCollection->updateMeshRendering(*sceneManager, meshName, material);
+                shearValues[0] = shearValues[1] = shearValues[2] = 0.0f;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Reset Shear")) {
+                // Reset shear functionality as needed.
+            }
+            ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
+    }
 }

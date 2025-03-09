@@ -12,6 +12,7 @@
 class WingedEdgeImGui {
 private:
     MeshCollection* meshCollection;  ///< Pointer to the mesh collection being managed.
+    SceneManager* sceneManager;
     size_t selectedMeshIndex = static_cast<size_t>(-1); ///< Index of the selected mesh.
     int selectedVertexIndex = -1;  ///< Index of the selected vertex.
     int selectedEdgeIndex = -1;    ///< Index of the selected edge.
@@ -88,7 +89,7 @@ public:
      * @brief Constructs the ImGui interface for managing WingedEdge meshes.
      * @param collection Pointer to the MeshCollection being managed.
      */
-    explicit WingedEdgeImGui(MeshCollection* collection);
+    explicit WingedEdgeImGui(MeshCollection* collection, SceneManager* world);
 
     /**
      * @brief Renders the ImGui UI for the WingedEdge mesh explorer.
@@ -130,6 +131,8 @@ public:
     void selectLinkedEdgeLoopCounterclockwise(WingedEdge* mesh);
 
     void selectEdgeChainByVertex(WingedEdge* mesh);
+
+    void ShowWingedEdgeGeometryTab(WingedEdge* mesh);
 };
 
 #endif // WINGED_EDGE_UI_H

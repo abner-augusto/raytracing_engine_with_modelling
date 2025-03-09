@@ -203,7 +203,7 @@ int main(int argc, char* argv[]) {
     //meshCollection.traverseMeshes();
 
     // Interface instance
-    WingedEdgeImGui WEimguiInterface(&meshCollection);
+    WingedEdgeImGui WEimguiInterface(&meshCollection, &world);
 
     // -------------------------
     //     WINGED EDGE END
