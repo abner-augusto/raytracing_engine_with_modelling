@@ -170,6 +170,17 @@ public:
      * @return Shared pointer to the Mesh object.
      */
     std::shared_ptr<Mesh> toMesh(const mat& material = mat()) const;
+
+    /**
+     * @brief Applies a transformation to all vertices in the mesh.
+     *
+     * Each vertex position is updated by multiplying it with the given matrix.
+     * Additionally, the cached normals for all faces are invalidated to ensure
+     * correct recomputation on the next call.
+     *
+     * @param matrix The 4x4 transformation matrix.
+     */
+    void transform(const Matrix4x4& matrix);
 };
 
 /**
@@ -351,6 +362,16 @@ public:
      * @brief Traverses all meshes in the collection.
      */
     void traverseMeshes() const;
+
+    /**
+     * @brief Transforms a WingedEdge mesh and updates its rendering in the scene.
+     *
+     * @param name The name of the mesh to transform.
+     * @param matrix The transformation matrix to apply.
+     * @param world The scene manager to update the mesh rendering.
+     */
+    void transformMesh(const std::string& name, const Matrix4x4& matrix, SceneManager& world, const mat& material);
+
 
 private:
     std::vector<std::unique_ptr<WingedEdge>> meshes_;

@@ -223,6 +223,18 @@ std::shared_ptr<Mesh> WingedEdge::toMesh(const mat& material) const {
     return mesh;
 }
 
+void WingedEdge::transform(const Matrix4x4& matrix) {
+    // Update each vertex position.
+    for (auto& vertexPtr : vertices) {
+        vertexPtr->pos = matrix.transform_point(vertexPtr->pos);
+    }
+
+    // Invalidate cached normals in all faces.
+    for (auto& facePtr : faces) {
+        facePtr->invalidateCache();
+    }
+}
+
 /*-------------------------------------------------------------------
   PrimitiveFactory Implementation
 -------------------------------------------------------------------*/
@@ -636,4 +648,20 @@ void MeshCollection::removeMeshFromScene(SceneManager& world, const std::string&
 ObjectID MeshCollection::updateMeshRendering(SceneManager& world, const std::string& meshName, const mat& material) {
     removeMeshFromScene(world, meshName);  // Remove any existing rendering.
     return addMeshToScene(world, meshName, material);  // Add the updated rendering.
+}
+
+void MeshCollection::transformMesh(const std::string& name, const Matrix4x4& matrix, SceneManager& world, const mat& material) {
+    // Retrieve the mesh by name
+    WingedEdge* mesh = getMeshByName(name);
+
+    if (!mesh) {
+        std::cerr << "Error: Mesh '" << name << "' not found in collection." << std::endl;
+        return;
+    }
+
+    // Apply the transformation to the mesh
+    mesh->transform(matrix);
+
+    // Update the rendering in the scene
+    updateMeshRendering(world, name, material);
 }
