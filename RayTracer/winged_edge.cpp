@@ -684,3 +684,10 @@ void MeshCollection::transformMesh(const std::string& name, const Matrix4x4& mat
     // Update the rendering in the scene
     updateMeshRendering(world, name, material);
 }
+
+ObjectID MeshCollection::getObjectID(const std::string& meshName) const {
+    auto it = meshToWorldID_.find(meshName);
+    if (it != meshToWorldID_.end())
+        return it->second;
+    throw std::runtime_error("Mesh '" + meshName + "' is not present in the world.");
+}

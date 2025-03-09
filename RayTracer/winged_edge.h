@@ -386,6 +386,7 @@ public:
      */
     void transformMesh(const std::string& name, const Matrix4x4& matrix, SceneManager& world, const mat& material);
 
+    ObjectID getObjectID(const std::string& meshName) const;
 
 private:
     std::vector<std::unique_ptr<WingedEdge>> meshes_;
