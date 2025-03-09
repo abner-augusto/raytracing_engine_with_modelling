@@ -181,6 +181,20 @@ public:
      * @param matrix The 4x4 transformation matrix.
      */
     void transform(const Matrix4x4& matrix);
+
+    /**
+     * @brief Computes and returns the center of the mesh.
+     *
+     * The center is computed as the average of all vertex positions.
+     * The value is cached until the mesh is modified.
+     *
+     * @return The center point as a vec3.
+     */
+    vec3 getCenter() const;
+
+private:
+    mutable vec3 centerCache;
+    mutable bool centerCacheValid = false;
 };
 
 /**

@@ -228,11 +228,30 @@ void WingedEdge::transform(const Matrix4x4& matrix) {
     for (auto& vertexPtr : vertices) {
         vertexPtr->pos = matrix.transform_point(vertexPtr->pos);
     }
+    // Invalidate Cached Value of Center
+    centerCacheValid = false;
 
     // Invalidate cached normals in all faces.
     for (auto& facePtr : faces) {
         facePtr->invalidateCache();
     }
+}
+
+vec3 WingedEdge::getCenter() const {
+    if (!centerCacheValid) {
+        vec3 center(0, 0, 0);
+        if (!vertices.empty()) {
+            for (const auto& vertex : vertices) {
+                center += vertex->pos;
+            }
+            centerCache = center / static_cast<float>(vertices.size());
+        }
+        else {
+            centerCache = vec3(0, 0, 0);
+        }
+        centerCacheValid = true;
+    }
+    return centerCache;
 }
 
 /*-------------------------------------------------------------------
