@@ -239,6 +239,14 @@ public:
     static std::unique_ptr<WingedEdge> createBox(const vec3& vmin, const vec3& vmax);
 
     /**
+     * @brief Creates a box mesh given minimum and maximum vertices.
+     * @param vmin The minimum vertex (corner).
+     * @param vmax The maximum vertex (corner).
+     * @return Unique pointer to the WingedEdge mesh.
+     */
+    static std::unique_ptr<WingedEdge> createBoxEuler(const vec3& vmin, const vec3& vmax);
+
+    /**
      * @brief Creates a sphere mesh.
      * @param center Center of the sphere.
      * @param radius Radius of the sphere.

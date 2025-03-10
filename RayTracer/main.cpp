@@ -184,7 +184,7 @@ int main(int argc, char* argv[]) {
     ObjectID tetrahedronID = meshCollection.addMeshToScene(world, "Tetrahedron", (mat(cyan, 1.0, 1.0, 50, 0.0)));
 
     // Create Box
-    std::unique_ptr<WingedEdge> box = PrimitiveFactory::createBox(vec3(0.0, -0.25, -0.5), vec3(1.0, 0.75, -1.5));
+    std::unique_ptr<WingedEdge> box = PrimitiveFactory::createBoxEuler(vec3(0.0, -0.25, -0.5), vec3(1.0, 0.75, -1.5));
     meshCollection.addMesh(std::move(box), "Box");
     ObjectID boxID = meshCollection.addMeshToScene(world, "Box", (mat(blue, 1.0, 1.0, 50, 0.0)));
 

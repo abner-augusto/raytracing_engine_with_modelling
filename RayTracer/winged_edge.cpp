@@ -319,7 +319,7 @@ void WingedEdge::_setWingPointers(Edge* edge, Face* face) {
 }
 
 
-Vertex* WingedEdge::MVE(Vertex* existingVertex, const vec3& newVertexPos) {
+Vertex* WingedEdge::MEV(Vertex* existingVertex, const vec3& newVertexPos) {
     auto newVertex = std::make_unique<Vertex>(newVertexPos, static_cast<int>(vertices.size()));
     Vertex* rawNewVertex = newVertex.get();
     vertices.push_back(std::move(newVertex));
@@ -412,15 +412,15 @@ std::unique_ptr<WingedEdge> PrimitiveFactory::createTetrahedron() {
     auto mesh = std::make_unique<WingedEdge>();
 
     // 1. Create the first vertex (v0).
-    Vertex* v0 = mesh->MVE(nullptr, vec3(0.0, 0.0, 0.0));
+    Vertex* v0 = mesh->MEV(nullptr, vec3(0.0, 0.0, 0.0));
 
     // 2. Add vertices and edges to create the first triangle (base).
-    Vertex* v1 = mesh->MVE(v0, vec3(1.0, 0.0, 0.0));
-    Vertex* v2 = mesh->MVE(v1, vec3(0.5, 0.0, 0.866025));
+    Vertex* v1 = mesh->MEV(v0, vec3(1.0, 0.0, 0.0));
+    Vertex* v2 = mesh->MEV(v1, vec3(0.5, 0.0, 0.866025));
     mesh->MEF(v0, v1, v2);
 
     // 3. Add the apex vertex (v3) and connect it to the base.
-    Vertex* v3 = mesh->MVE(v0, vec3(0.5, 0.816496, 0.288675));
+    Vertex* v3 = mesh->MEV(v0, vec3(0.5, 0.816496, 0.288675));
     mesh->MEF(v0, v3, v1); // Connect v3 to v0 and v1.
     mesh->MEF(v1, v3, v2); // Connect v3 to v1 and v2.
     mesh->MEF(v2, v3, v0); // Connect v3 to v2 and v0.
@@ -489,6 +489,51 @@ std::unique_ptr<WingedEdge> PrimitiveFactory::createBox(const vec3& vmin, const 
         true);
 
     mesh->setupWingedEdgePointers();
+    return mesh;
+}
+
+std::unique_ptr<WingedEdge> PrimitiveFactory::createBoxEuler(const vec3& vmin, const vec3& vmax)
+{
+    auto mesh = std::make_unique<WingedEdge>();
+
+    // 1. Create the first vertex (v0).
+    Vertex* v0 = mesh->MEV(nullptr, vec3(vmin.x(), vmin.y(), vmin.z()));
+
+    // 2. Create the other vertices of the front face, ensuring correct connectivity.
+    Vertex* v1 = mesh->MEV(v0, vec3(vmax.x(), vmin.y(), vmin.z()));
+    Vertex* v2 = mesh->MEV(v1, vec3(vmax.x(), vmax.y(), vmin.z()));
+    Vertex* v3 = mesh->MEV(v2, vec3(vmin.x(), vmax.y(), vmin.z()));
+
+    // 3. Front face: v0, v1, v2, v3 (Original: same winding)
+    mesh->MEF(v0, v1, v2);
+    mesh->MEF(v0, v2, v3);
+
+    // 4. Create the back vertices.
+    Vertex* v4 = mesh->MEV(v0, vec3(vmin.x(), vmin.y(), vmax.z()));
+    Vertex* v5 = mesh->MEV(v1, vec3(vmax.x(), vmin.y(), vmax.z()));
+    Vertex* v6 = mesh->MEV(v2, vec3(vmax.x(), vmax.y(), vmax.z()));
+    Vertex* v7 = mesh->MEV(v3, vec3(vmin.x(), vmax.y(), vmax.z()));
+
+    // 5. Back face: v4, v5, v6, v7 (Original: reversed winding)
+    mesh->MEF(v4, v6, v5);
+    mesh->MEF(v4, v7, v6);
+
+    // 6. Bottom face: v0, v1, v5, v4 (Original: reversed winding)
+    mesh->MEF(v0, v5, v1);
+    mesh->MEF(v0, v4, v5);
+
+    // 7. Top face: v3, v2, v6, v7 (Original: same winding)
+    mesh->MEF(v3, v2, v6);
+    mesh->MEF(v3, v6, v7);
+
+    // 8. Left face: v0, v3, v7, v4 (Original: same winding)
+    mesh->MEF(v0, v3, v7);
+    mesh->MEF(v0, v7, v4);
+
+    // 9. Right face: v1, v2, v6, v5 (Original: reversed winding)
+    mesh->MEF(v1, v6, v2);
+    mesh->MEF(v1, v5, v6);
+
     return mesh;
 }
 
