@@ -172,7 +172,6 @@ void RenderWingedEdgeWireframe(SDL_Renderer* renderer,
     bool renderText = true) {
 
     const auto& selectedEdges = imguiInterface.getSelectedEdgeLoop();
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
     for (size_t i = 0; i < meshCollection.getMeshCount(); i++) {
         const WingedEdge* mesh = meshCollection.getMesh(i);
@@ -200,7 +199,7 @@ void RenderWingedEdgeWireframe(SDL_Renderer* renderer,
                 // If the edge belongs to any back-facing face, lower opacity.
                 auto leftFace = edgePtr->leftFace.lock();
                 auto rightFace = edgePtr->rightFace.lock();
-                if ((leftFace && !faceVisibility[leftFace.get()]) ||
+                if ((leftFace && !faceVisibility[leftFace.get()]) &&
                     (rightFace && !faceVisibility[rightFace.get()])) {
                     alpha = 50;
                 }
@@ -210,6 +209,8 @@ void RenderWingedEdgeWireframe(SDL_Renderer* renderer,
                     std::find(selectedEdges.begin(), selectedEdges.end(), edgePtr) != selectedEdges.end());
 
                 if (isSelected) {
+                    // No blend mode for selected edges
+                    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
                     SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
 
                     // Create a thicker line by drawing multiple lines with small offsets
@@ -247,12 +248,19 @@ void RenderWingedEdgeWireframe(SDL_Renderer* renderer,
                     }
                 }
                 else {
-                    // Render non-selected edge in white with computed transparency.
+                    // Render non-selected edge:  blend if transparent, no-blend if opaque.
+                    if (alpha == 255) {
+                        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+                    }
+                    else {
+                        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+                    }
                     SDL_SetRenderDrawColor(renderer, 255, 255, 255, alpha);
                     SDL_RenderDrawLine(renderer, p1->first, p1->second, p2->first, p2->second);
                 }
 
-                // Render arrowhead (if enabled) using the same alpha value.
+
+                // Render arrowhead (if enabled).
                 if (renderArrow) {
                     float arrowFactor = 0.75f;
                     int tipX = p1->first + static_cast<int>(arrowFactor * (p2->first - p1->first));
@@ -313,7 +321,7 @@ void RenderWingedEdgeWireframe(SDL_Renderer* renderer,
                             }
                         }
                         else {
-                            // For non-selected edges, draw arrowheads in white with computed transparency.
+                            // For non-selected edges, draw arrowheads.  Use the same blend mode as the edge.
                             SDL_SetRenderDrawColor(renderer, 255, 255, 255, alpha);
                             SDL_RenderDrawLine(renderer, tipX, tipY, static_cast<int>(leftWingX), static_cast<int>(leftWingY));
                             SDL_RenderDrawLine(renderer, tipX, tipY, static_cast<int>(rightWingX), static_cast<int>(rightWingY));
@@ -339,6 +347,13 @@ void RenderWingedEdgeWireframe(SDL_Renderer* renderer,
                 }
                 if (!isVisible) {
                     alpha = 50;
+                }
+                // Set Blend mode for vertex based on visibility
+                if (alpha == 255) {
+                    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+                }
+                else {
+                    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
                 }
 
                 // Draw the vertex as a filled rectangle.
@@ -376,6 +391,13 @@ void RenderWingedEdgeWireframe(SDL_Renderer* renderer,
             if (projCentroid && renderText) {
                 std::string faceLabel = "f" + std::to_string(face->index);
                 Uint8 faceAlpha = faceVisibility[face.get()] ? 255 : 50;
+                // Set Blend mode for face based on visibility
+                if (faceAlpha == 255) {
+                    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+                }
+                else {
+                    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+                }
                 SDL_Color faceColor = { 255, 255, 0, faceAlpha };
                 SDL_Surface* textSurface = TTF_RenderText_Solid(font, faceLabel.c_str(), faceColor);
                 if (textSurface) {
