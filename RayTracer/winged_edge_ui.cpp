@@ -97,13 +97,21 @@ void WingedEdgeImGui::renderMeshList() {
     }
     ImGui::EndChild();
 
-    if (ImGui::Button("Add Tetrahedron")) {
-        auto newMesh = PrimitiveFactory::createTetrahedron();
-        meshCollection->addMesh(std::move(newMesh),
-            "Tetrahedron_" + std::to_string(meshCollection->getMeshCount()));
+    // Check mesh count *before* checking the index.
+    if (meshCollection->getMeshCount() > 0 && ImGui::Button("Remove Selected") && selectedMeshIndex >= 0) {
+        meshCollection->removeMesh(selectedMeshIndex);
+        // Adjust selectedMeshIndex if we removed the last element.
+        if (selectedMeshIndex >= static_cast<int>(meshCollection->getMeshCount())) {
+            selectedMeshIndex = static_cast<int>(meshCollection->getMeshCount()) - 1;
+        }
+        // Reset sub-selections.
+        selectedEdgeIndex = -1;
+        selectedFaceIndex = -1;
+        selectedVertexIndex = -1;
+        showEdgeDetails = false;
+        showFaceDetails = false;
     }
     ImGui::SameLine();
-
     // Animate Create Box Button
     if (ImGui::Button("Animate Create Box")) {
         // Reset the mesh collection and start the animation.
@@ -118,20 +126,23 @@ void WingedEdgeImGui::renderMeshList() {
         selectedMeshIndex = 0;  // Select the newly created mesh.
 
     }
-    ImGui::SameLine();
-    // Check mesh count *before* checking the index.
-    if (meshCollection->getMeshCount() > 0 && ImGui::Button("Remove Selected") && selectedMeshIndex >= 0) {
-        meshCollection->removeMesh(selectedMeshIndex);
-        // Adjust selectedMeshIndex if we removed the last element.
-        if (selectedMeshIndex >= static_cast<int>(meshCollection->getMeshCount())) {
-            selectedMeshIndex = static_cast<int>(meshCollection->getMeshCount()) - 1;
+
+    if (ImGui::Button("Print Mesh Info")) {
+        if (selectedMeshIndex >= 0 && selectedMeshIndex < meshCollection->getMeshCount()) {
+            const WingedEdge* mesh = meshCollection->getMesh(selectedMeshIndex);
+            if (mesh) {
+                mesh->printInfo();
+            }
         }
-        // Reset sub-selections.
-        selectedEdgeIndex = -1;
-        selectedFaceIndex = -1;
-        selectedVertexIndex = -1;
-        showEdgeDetails = false;
-        showFaceDetails = false;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Traverse Mesh")) {
+        if (selectedMeshIndex >= 0 && selectedMeshIndex < meshCollection->getMeshCount()) {
+            const WingedEdge* mesh = meshCollection->getMesh(selectedMeshIndex);
+            if (mesh) {
+                mesh->traverseMesh();
+            }
+        }
     }
 }
 
@@ -827,16 +838,16 @@ void WingedEdgeImGui::animateCreateBox()
 
     switch (animationStep) {
     case 0: // Create v0
-        mesh->MVE(nullptr, vec3(vmin.x(), vmin.y(), vmin.z()));
+        mesh->MEV(nullptr, vec3(vmin.x(), vmin.y(), vmin.z()));
         break;
     case 1: // Create v1
-        mesh->MVE(mesh->vertices[0].get(), vec3(vmax.x(), vmin.y(), vmin.z()));
+        mesh->MEV(mesh->vertices[0].get(), vec3(vmax.x(), vmin.y(), vmin.z()));
         break;
     case 2: // Create v2
-        mesh->MVE(mesh->vertices[1].get(), vec3(vmax.x(), vmax.y(), vmin.z()));
+        mesh->MEV(mesh->vertices[1].get(), vec3(vmax.x(), vmax.y(), vmin.z()));
         break;
     case 3: // Create v3
-        mesh->MVE(mesh->vertices[2].get(), vec3(vmin.x(), vmax.y(), vmin.z()));
+        mesh->MEV(mesh->vertices[2].get(), vec3(vmin.x(), vmax.y(), vmin.z()));
         break;
     case 4: // Front face, part 1: v0, v1, v2
         mesh->MEF(mesh->vertices[0].get(), mesh->vertices[1].get(), mesh->vertices[2].get());
@@ -845,16 +856,16 @@ void WingedEdgeImGui::animateCreateBox()
         mesh->MEF(mesh->vertices[0].get(), mesh->vertices[2].get(), mesh->vertices[3].get());
         break;
     case 6: // Create v4
-        mesh->MVE(mesh->vertices[0].get(), vec3(vmin.x(), vmin.y(), vmax.z()));
+        mesh->MEV(mesh->vertices[0].get(), vec3(vmin.x(), vmin.y(), vmax.z()));
         break;
     case 7: // Create v5
-        mesh->MVE(mesh->vertices[1].get(), vec3(vmax.x(), vmin.y(), vmax.z()));
+        mesh->MEV(mesh->vertices[1].get(), vec3(vmax.x(), vmin.y(), vmax.z()));
         break;
     case 8: // Create v6
-        mesh->MVE(mesh->vertices[2].get(), vec3(vmax.x(), vmax.y(), vmax.z()));
+        mesh->MEV(mesh->vertices[2].get(), vec3(vmax.x(), vmax.y(), vmax.z()));
         break;
     case 9: // Create v7
-        mesh->MVE(mesh->vertices[3].get(), vec3(vmin.x(), vmax.y(), vmax.z()));
+        mesh->MEV(mesh->vertices[3].get(), vec3(vmin.x(), vmax.y(), vmax.z()));
         break;
     case 10: // Back face, part 1: v4, v6, v5  (Reversed)
         mesh->MEF(mesh->vertices[4].get(), mesh->vertices[6].get(), mesh->vertices[5].get());
