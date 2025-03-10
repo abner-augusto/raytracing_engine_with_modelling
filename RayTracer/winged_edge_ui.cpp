@@ -52,6 +52,10 @@ void WingedEdgeImGui::render() {
 
     ImGui::Begin("WingedEdge Mesh Explorer");
     renderMeshList();
+    // Animation logic
+    if (animationState == AnimationState::Playing) {
+        animateCreateBox();
+    }
     ImGui::End();
 
     // Check for valid selectedMeshIndex *before* accessing the mesh.
@@ -97,6 +101,22 @@ void WingedEdgeImGui::renderMeshList() {
         auto newMesh = PrimitiveFactory::createTetrahedron();
         meshCollection->addMesh(std::move(newMesh),
             "Tetrahedron_" + std::to_string(meshCollection->getMeshCount()));
+    }
+    ImGui::SameLine();
+
+    // Animate Create Box Button
+    if (ImGui::Button("Animate Create Box")) {
+        // Reset the mesh collection and start the animation.
+        meshCollection->clear(); // Clear any existing meshes
+        animationState = AnimationState::Playing;
+        animationStep = 0; // Start from the first step
+        animationStartTime = std::chrono::steady_clock::now(); // Capture start time
+
+        // Create an initial empty mesh.
+        auto newMesh = std::make_unique<WingedEdge>();
+        meshCollection->addMesh(std::move(newMesh), "AnimatedBox");
+        selectedMeshIndex = 0;  // Select the newly created mesh.
+
     }
     ImGui::SameLine();
     // Check mesh count *before* checking the index.
@@ -295,6 +315,15 @@ void WingedEdgeImGui::renderFacesTab(const WingedEdge* mesh) {
         if (ImGui::Selectable(faceStr.c_str(), selectedFaceIndex == static_cast<int>(i))) {
             selectedFaceIndex = static_cast<int>(i);
             showFaceDetails = true;
+            selectedEdgeLoopEdges.clear(); // Clear any previous selection
+            for (Edge* edge : f->boundaryEdges) {
+                auto it = std::find_if(mesh->edges.begin(), mesh->edges.end(),
+                    [edge](const std::shared_ptr<Edge>& e) { return e.get() == edge; });
+
+                if (it != mesh->edges.end()) {
+                    selectedEdgeLoopEdges.push_back(*it);
+                }
+            }
         }
     }
     ImGui::EndChild();
@@ -406,11 +435,14 @@ void WingedEdgeImGui::renderFaceDetails(const WingedEdge* mesh) {
     for (size_t i = 0; i < f->boundaryEdges.size(); i++) {
         Edge* e = f->boundaryEdges[i];
         std::string edgeStr = std::format("{}. {}", i + 1, getEdgeDisplayString(e));
-        if (ImGui::Selectable(edgeStr.c_str())) {
+        if (ImGui::Selectable(edgeStr.c_str(), selectedEdgeIndex == e->index)) {
             // Find the index of the selected edge within the mesh's edge list.
             for (size_t j = 0; j < mesh->edges.size(); j++) {
                 if (mesh->edges[j].get() == e) {
                     selectedEdgeIndex = static_cast<int>(j);
+                    selectedEdgeLoopEdges.clear(); // Clear any previous selection
+                    selectedEdgeLoopEdges.push_back(mesh->edges[j]); // Add the selected edge
+
                     break; // Important: Exit inner loop once found.
                 }
             }
@@ -767,4 +799,97 @@ void WingedEdgeImGui::ShowWingedEdgeGeometryTab(WingedEdge* mesh) {
         }
         ImGui::EndTabBar();
     }
+}
+
+void WingedEdgeImGui::animateCreateBox()
+{
+    if (!meshCollection) return;
+
+    // Get the mesh (it should be the first and only one during animation).
+    WingedEdge* mesh = meshCollection->getMesh(0); // Get the current (animated) mesh.
+    if (!mesh) {
+        animationState = AnimationState::Idle; // Stop if no mesh.
+        return;
+    }
+    // Define vertices positions
+    vec3 vmin(0.0, 0.0, 0.0); // Example values
+    vec3 vmax(1.0, 1.0, 1.0); // Example values
+    //Check if time elapsed is enough
+    auto currentTime = std::chrono::steady_clock::now();
+    auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - animationStartTime);
+
+    //Check if is enough time to run a new step
+    if (elapsedTime.count() < animationStepDelay) {
+        return; // Not enough time yet.
+    }
+    //Update timer
+    animationStartTime = currentTime;
+
+    switch (animationStep) {
+    case 0: // Create v0
+        mesh->MVE(nullptr, vec3(vmin.x(), vmin.y(), vmin.z()));
+        break;
+    case 1: // Create v1
+        mesh->MVE(mesh->vertices[0].get(), vec3(vmax.x(), vmin.y(), vmin.z()));
+        break;
+    case 2: // Create v2
+        mesh->MVE(mesh->vertices[1].get(), vec3(vmax.x(), vmax.y(), vmin.z()));
+        break;
+    case 3: // Create v3
+        mesh->MVE(mesh->vertices[2].get(), vec3(vmin.x(), vmax.y(), vmin.z()));
+        break;
+    case 4: // Front face, part 1: v0, v1, v2
+        mesh->MEF(mesh->vertices[0].get(), mesh->vertices[1].get(), mesh->vertices[2].get());
+        break;
+    case 5:  // Front face, part 2: v0, v2, v3
+        mesh->MEF(mesh->vertices[0].get(), mesh->vertices[2].get(), mesh->vertices[3].get());
+        break;
+    case 6: // Create v4
+        mesh->MVE(mesh->vertices[0].get(), vec3(vmin.x(), vmin.y(), vmax.z()));
+        break;
+    case 7: // Create v5
+        mesh->MVE(mesh->vertices[1].get(), vec3(vmax.x(), vmin.y(), vmax.z()));
+        break;
+    case 8: // Create v6
+        mesh->MVE(mesh->vertices[2].get(), vec3(vmax.x(), vmax.y(), vmax.z()));
+        break;
+    case 9: // Create v7
+        mesh->MVE(mesh->vertices[3].get(), vec3(vmin.x(), vmax.y(), vmax.z()));
+        break;
+    case 10: // Back face, part 1: v4, v6, v5  (Reversed)
+        mesh->MEF(mesh->vertices[4].get(), mesh->vertices[6].get(), mesh->vertices[5].get());
+        break;
+    case 11: // Back face, part 2: v4, v7, v6  (Reversed)
+        mesh->MEF(mesh->vertices[4].get(), mesh->vertices[7].get(), mesh->vertices[6].get());
+        break;
+    case 12: // Bottom face, part 1: v0, v5, v1 (Reversed)
+        mesh->MEF(mesh->vertices[0].get(), mesh->vertices[5].get(), mesh->vertices[1].get());
+        break;
+    case 13: // Bottom face, part 2: v0, v4, v5 (Reversed)
+        mesh->MEF(mesh->vertices[0].get(), mesh->vertices[4].get(), mesh->vertices[5].get());
+        break;
+    case 14: // Top face, part 1: v3, v2, v6
+        mesh->MEF(mesh->vertices[3].get(), mesh->vertices[2].get(), mesh->vertices[6].get());
+        break;
+    case 15: // Top face, part 2: v3, v6, v7
+        mesh->MEF(mesh->vertices[3].get(), mesh->vertices[6].get(), mesh->vertices[7].get());
+        break;
+    case 16: // Left face, part 1: v0, v3, v7
+        mesh->MEF(mesh->vertices[0].get(), mesh->vertices[3].get(), mesh->vertices[7].get());
+        break;
+    case 17: // Left face, part 2: v0, v7, v4
+        mesh->MEF(mesh->vertices[0].get(), mesh->vertices[7].get(), mesh->vertices[4].get());
+        break;
+    case 18: // Right face, part 1: v1, v6, v2 (Reversed)
+        mesh->MEF(mesh->vertices[1].get(), mesh->vertices[6].get(), mesh->vertices[2].get());
+        break;
+    case 19: // Right face, part 2: v1, v5, v6 (Reversed)
+        mesh->MEF(mesh->vertices[1].get(), mesh->vertices[5].get(), mesh->vertices[6].get());
+        break;
+
+    default:
+        animationState = AnimationState::Idle; // Animation finished
+        break;
+    }
+    animationStep++;
 }

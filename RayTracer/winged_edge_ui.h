@@ -5,6 +5,14 @@
 #include "winged_edge.h"
 #include <string>
 #include <vector>
+#include <chrono>
+#include <thread>
+
+
+enum class AnimationState {
+    Idle,
+    Playing,
+};
 
 /**
  * @brief Handles the ImGui interface for exploring and interacting with a WingedEdge mesh.
@@ -19,6 +27,11 @@ private:
     int selectedFaceIndex = -1;    ///< Index of the selected face.
     bool showEdgeDetails = false;  ///< Flag to show/hide edge details.
     bool showFaceDetails = false;  ///< Flag to show/hide face details.
+    AnimationState animationState;
+    int animationStep;
+    std::chrono::steady_clock::time_point animationStartTime;
+    int animationStepDelay = 250;
+
 
     //--------------------------------------------------------------------------
     // Helper Methods
@@ -81,6 +94,8 @@ private:
      * @param mesh Pointer to the selected WingedEdge mesh.
      */
     void renderFaceDetails(const WingedEdge* mesh);
+
+    void animateCreateBox();
 
 public:
     std::vector<std::shared_ptr<Edge>> selectedEdgeLoopEdges; ///< Stores the currently selected edge loop.
