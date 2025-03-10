@@ -211,7 +211,7 @@ public:
 
     void _setWingPointers(Edge* edge, Face* face);
 
-    Vertex* MVE(Vertex* existingVertex, const vec3& newVertexPos);
+    Vertex* MEV(Vertex* existingVertex, const vec3& newVertexPos);
 
     void MEF(Vertex* v1, Vertex* v2, Vertex* v3);
 private:
@@ -228,7 +228,7 @@ public:
      * @brief Creates a tetrahedron mesh.
      * @return Unique pointer to the WingedEdge mesh.
      */
-    static std::unique_ptr<WingedEdge> createTetrahedron();
+    static std::unique_ptr<WingedEdge> createTetrahedron(const vec3& center, double size);
 
     /**
      * @brief Creates a box mesh given minimum and maximum vertices.

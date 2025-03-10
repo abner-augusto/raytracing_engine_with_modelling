@@ -408,19 +408,25 @@ void PrimitiveFactory::makeQuadAsTriangles(WingedEdge& mesh,
 }
 
 // Primitives
-std::unique_ptr<WingedEdge> PrimitiveFactory::createTetrahedron() {
+std::unique_ptr<WingedEdge> PrimitiveFactory::createTetrahedron(const vec3& center, double size) {
     auto mesh = std::make_unique<WingedEdge>();
 
-    // 1. Create the first vertex (v0).
-    Vertex* v0 = mesh->MEV(nullptr, vec3(0.0, 0.0, 0.0));
+    // Define scaled tetrahedron vertices relative to the given center
+    double h = size * 0.816496;  // Height of the tetrahedron
+    double r = size * 0.5;       // Half of the base edge length
+    double z_offset = size * 0.866025; // Base triangle height
+    double y_apex = size * 0.816496;   // Height of the apex
 
-    // 2. Add vertices and edges to create the first triangle (base).
-    Vertex* v1 = mesh->MEV(v0, vec3(1.0, 0.0, 0.0));
-    Vertex* v2 = mesh->MEV(v1, vec3(0.5, 0.0, 0.866025));
+    // 1. Create the first vertex (v0) at the base.
+    Vertex* v0 = mesh->MEV(nullptr, center + vec3(-r, -r, 0.0));
+
+    // 2. Add vertices and edges to create the base triangle.
+    Vertex* v1 = mesh->MEV(v0, center + vec3(r, -r, 0.0));
+    Vertex* v2 = mesh->MEV(v1, center + vec3(0.0, -r, z_offset));
     mesh->MEF(v0, v1, v2);
 
     // 3. Add the apex vertex (v3) and connect it to the base.
-    Vertex* v3 = mesh->MEV(v0, vec3(0.5, 0.816496, 0.288675));
+    Vertex* v3 = mesh->MEV(v0, center + vec3(0.0, y_apex - r, z_offset / 3.0));
     mesh->MEF(v0, v3, v1); // Connect v3 to v0 and v1.
     mesh->MEF(v1, v3, v2); // Connect v3 to v1 and v2.
     mesh->MEF(v2, v3, v0); // Connect v3 to v2 and v0.
