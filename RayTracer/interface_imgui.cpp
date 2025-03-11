@@ -126,9 +126,6 @@ void draw_menu(RenderState& render_state, Camera& camera, SceneManager& world) {
             ImGui::PushItemWidth(200);
             if (ImGui::SliderFloat3("Origin", origin_array, -10.0f, 10.0f)) {
                 camera.set_origin(point3(origin_array[0], origin_array[1], origin_array[2]));
-                //if (isCameraSpace) {
-                //    world.transform(camera.world_to_camera_matrix);
-                //}
             }
 
             // Look At Target controls
@@ -140,9 +137,6 @@ void draw_menu(RenderState& render_state, Camera& camera, SceneManager& world) {
             };
             if (ImGui::SliderFloat3("Look At", target_array, -10.0f, 10.0f)) {
                 camera.set_look_at(point3(target_array[0], target_array[1], target_array[2]));
-                //if (isCameraSpace) {
-                //    world.transform(camera.world_to_camera_matrix);
-                //}
             }
 
             // FOV and Orthographic Scale
@@ -152,7 +146,7 @@ void draw_menu(RenderState& render_state, Camera& camera, SceneManager& world) {
             }
 
             float ortho_scale_float = static_cast<float>(camera.get_ortho_scale());
-            if (ImGui::SliderFloat("Ortho Scale", &ortho_scale_float, 0.5f, 5.0f)) {
+            if (ImGui::SliderFloat("Ortho Scale", &ortho_scale_float, 0.5f, 20.0f)) {
                 camera.set_ortho_scale(static_cast<double>(ortho_scale_float));
             }
             ImGui::PopItemWidth();
@@ -184,7 +178,31 @@ void draw_menu(RenderState& render_state, Camera& camera, SceneManager& world) {
                 }
             }
 
+            // New Background Color Controls
             ImGui::Separator();
+            ImGui::Text("Background Colors");
+
+            // BG Top color slider
+            float bg_top_array[3] = {
+                static_cast<float>(camera.get_BGtop().x()),
+                static_cast<float>(camera.get_BGtop().y()),
+                static_cast<float>(camera.get_BGtop().z())
+            };
+            if (ImGui::ColorEdit3("BG Top", bg_top_array)) {
+                camera.set_BGtop(color(bg_top_array[0], bg_top_array[1], bg_top_array[2]));
+            }
+
+            // BG Horizon color slider
+            float bg_horizon_array[3] = {
+                static_cast<float>(camera.get_BGhorizon().x()),
+                static_cast<float>(camera.get_BGhorizon().y()),
+                static_cast<float>(camera.get_BGhorizon().z())
+            };
+            if (ImGui::ColorEdit3("BG Horizon", bg_horizon_array)) {
+                camera.set_BGhorizon(color(bg_horizon_array[0], bg_horizon_array[1], bg_horizon_array[2]));
+            }
+            ImGui::Separator();
+
             if (ImGui::Button("Reset to Default")) {
                 if (isCameraSpace) {
                     camera.toggleCameraSpace();
@@ -195,13 +213,11 @@ void draw_menu(RenderState& render_state, Camera& camera, SceneManager& world) {
                 camera.set_look_at(point3(0, 0, -3));
                 camera.set_fov(60);
                 camera.set_ortho_scale(1);
-
             }
 
             ImGui::Separator();
             if (ImGui::Checkbox("Camera Space", &isCameraSpace)) {
                 camera.toggleCameraSpace();
-
                 if (camera.CameraSpaceStatus()) {
                     std::cout << "Switching to Camera Space: Applying World to Camera Transform.\n";
                     world.transform(camera.world_to_camera_matrix);
@@ -469,10 +485,26 @@ void ShowLightsUI(SceneManager& world) {
 
                 if (!dynamic_cast<DirectionalLight*>(light.get())) {
                     vec3 pos = light->get_position();
-                    double pos_min = -10.0, pos_max = 10.0;
-                    if (ImGui::SliderScalarN("Position", ImGuiDataType_Double, pos.e, 3, &pos_min, &pos_max, "%.3f")) {
+                    double pos_x_min = pos.e[0] - 2.0, pos_x_max = pos.e[0] + 2.0;
+                    double pos_y_min = pos.e[1] - 2.0, pos_y_max = pos.e[1] + 2.0;
+                    double pos_z_min = pos.e[2] - 2.0, pos_z_max = pos.e[2] + 2.0;
+
+                    ImGui::Text("Position");
+                    float sliderWidth = ImGui::GetContentRegionAvail().x / 3.0f - 4.0f;
+
+                    ImGui::PushItemWidth(sliderWidth);
+                    if (ImGui::SliderScalar("##X", ImGuiDataType_Double, &pos.e[0], &pos_x_min, &pos_x_max, "X: %.3f")) {
                         light->set_position(pos);
                     }
+                    ImGui::SameLine();
+                    if (ImGui::SliderScalar("##Y", ImGuiDataType_Double, &pos.e[1], &pos_y_min, &pos_y_max, "Y: %.3f")) {
+                        light->set_position(pos);
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::SliderScalar("##Z", ImGuiDataType_Double, &pos.e[2], &pos_z_min, &pos_z_max, "Z: %.3f")) {
+                        light->set_position(pos);
+                    }
+                    ImGui::PopItemWidth();
                 }
 
                 double intensity = light->get_intensity();
