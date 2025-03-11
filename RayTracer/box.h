@@ -11,24 +11,24 @@
 
 class box : public hittable {
 public:
-    // Constructor: specify min and max corners with UV scaling
-    box(const point3& _vmin, const point3& _vmax, const mat& _material, double uv_scale = 1.0)
-        : vmin(_vmin), vmax(_vmax), material(_material), uv_scale(uv_scale) {
+    // Constructor: specify min and max corners
+    box(const point3& _vmin, const point3& _vmax, const mat& _material, double u_scale = 1.0, double v_scale = 1.0)
+        : vmin(_vmin), vmax(_vmax), material(_material), u_scale(u_scale), v_scale(v_scale) {
         create_box_triangles();
     }
 
-    // Constructor: specify center and width (cube) with UV scaling
-    box(const point3& center, double width, const mat& _material, double uv_scale = 1.0)
-        : material(_material), uv_scale(uv_scale) {
+    // Constructor: specify center and width (cube) 
+    box(const point3& center, double width, const mat& _material, double u_scale = 1.0, double v_scale = 1.0)
+        : material(_material), u_scale(u_scale), v_scale(v_scale) {
         double half_width = width * 0.5;
         vmin = point3(center.x() - half_width, center.y() - half_width, center.z() - half_width);
         vmax = point3(center.x() + half_width, center.y() + half_width, center.z() + half_width);
         create_box_triangles();
     }
 
-    // Constructor: specify vmin and dimensions with UV scaling
-    box(const point3& _vmin, double width, double height, double depth, const mat& _material, double uv_scale = 1.0)
-        : vmin(_vmin), material(_material), uv_scale(uv_scale) {
+    // Constructor: specify vmin and dimensions
+    box(const point3& _vmin, double width, double height, double depth, const mat& _material, double u_scale = 1.0, double v_scale = 1.0)
+        : vmin(_vmin), material(_material), u_scale(u_scale), v_scale(v_scale) {
         vmax = point3(_vmin.x() + width, _vmin.y() + height, _vmin.z() + depth);
         create_box_triangles();
     }
@@ -103,7 +103,8 @@ private:
     point3 vmin;
     point3 vmax;
     mat material;
-    double uv_scale;
+    double u_scale;
+    double v_scale;
     std::vector<std::shared_ptr<triangle>> triangles;
 
     // Build 12 triangles for the box with consistent UV mapping and scaling
@@ -126,8 +127,8 @@ private:
         point3 H(x0, y1, z1);
 
         // Scale factor for UVs
-        double us = uv_scale;
-        double vs = uv_scale;
+        double us = u_scale;
+        double vs = v_scale;
 
         // Add 2 triangles per face with scaled UVs
         // Front face (+Z)
