@@ -275,6 +275,10 @@ public:
 
     void set_ortho_scale(double scale) { ortho_scale = scale; }
 
+    void set_BGtop(color bg_color) { bg_top = bg_color; }
+
+    void set_BGhorizon(color bg_color) { bg_horizon = bg_color; }
+
     void transform(const Matrix4x4& matrix) {
         origin = matrix.transform_point(origin);
         look_at = matrix.transform_point(look_at);
@@ -315,6 +319,8 @@ public:
     vec3 get_right() const { return right; }
     vec3 get_up() const { return up; }
     vec3 get_forward() const { return forward; }
+    color get_BGtop() const { return bg_top; }
+    color get_BGhorizon() const { return bg_horizon; }
     bool shadowStatus() const { return renderShadows; }
     bool CameraSpaceStatus() const { return isCameraSpace; }
 
@@ -323,7 +329,7 @@ private:
     color background_color(const ray& r) const {
         vec3 unit_direction = unit_vector(r.direction());
         auto t = 0.5 * (unit_direction.y() + 1.0);
-        return (1.0 - t) * color(1.0, 1.0, 1.0) + t * color(0.5, 0.7, 1.0);
+        return (1.0 - t) * bg_horizon + t * bg_top;
     }
 
     static inline color calculate_diffuse(const vec3& normal, const vec3& light_dir, const color& diffuse_color, double k_diffuse, const color& light_color, double light_intensity) {
@@ -526,6 +532,11 @@ private:
     vec3 forward;
 
     Uint32* pixels;
-};
+
+    // Background Colors
+    color bg_horizon = vec3(1, 1, 1); // white
+    color bg_top = vec3(0.5, 0.7, 1.0); // light blue
+
+;};
 
 #endif // CAMERA_H
