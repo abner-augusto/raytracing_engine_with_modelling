@@ -91,8 +91,6 @@ auto static duplicateObjectArray(SceneManager& world, ObjectID originalID, int n
     }
 }
 
-
-
 int main(int argc, char* argv[]) {
 
     // Image
@@ -181,18 +179,13 @@ int main(int argc, char* argv[]) {
 
     // Create scenes
     std::vector<std::shared_ptr<hittable>> Scene1 = {
-        std::make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), mat(grass_texture)),
-        //make_shared<sphere>(point3(0, 0, -1), 0.45, mat(xadrez)),
-        //make_shared<cylinder>(point3(-1.0, -0.25, -1), point3(-1.0, 0.35, -1), 0.3, mat(blue)),
-        //make_shared<cone>(point3(1, -0.15, -1), point3(1, 0.5, -1.5), 0.3, mat(red)),
-        //make_shared<torus>(point3(-2, 0, -1), 0.3, 0.1, vec3(0, 0.5, 0.5), mat(cyan)),
-        //make_shared<SquarePyramid>(point3(1.8, -0.3, -1), 0.8, 0.5, mat(green)),
-        //make_shared<box>(point3(2.6, 0, -1), 0.7, mat(brick_texture))
+        std::make_shared<plane>(point3(0, -0.3, 0), vec3(0, 1, 0), mat(grass_texture), 0.4),
+        make_shared<box>(point3(0, -0.5, -200), point3(240, -0.2, -50), mat(white))
     };
 
     std::vector<std::shared_ptr<hittable>> Scene2 = {
-    std::make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), mat(grass_texture)),
-    make_shared<torus>(point3(-2, 0, -1), 0.3, 0.1, vec3(0, 0.5, 0.5), mat(cyan)),
+        std::make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), mat(&ground)),
+        make_shared<torus>(point3(-2, 0, -1), 0.3, 0.1, vec3(0, 0.5, 0.5), mat(cyan)),
     };
 
     //Add all objects to the manager with their manually assigned IDs
@@ -204,10 +197,11 @@ int main(int argc, char* argv[]) {
     //Mesh Object
 
     try {
-        // Load other meshes as needed
-        ObjectID casa1 = add_mesh_to_scene("models/garanhuns.obj", world, "models/garanhuns.mtl");
+        ObjectID mesh = add_mesh_to_scene("models/garanhuns.obj", world, "models/garanhuns.mtl");
 
+        //ObjectID sonic = add_mesh_to_scene("models/sonic.obj", world, "models/sonic.mtl");
         //ObjectID totemID = add_mesh_to_scene("models/cenario/totem.obj", world, "models/cenario/totem.mtl");
+        //ObjectID loopID = add_mesh_to_scene("models/cenario/loop.obj", world, "models/cenario/loop.mtl");
 
         //if (world.contains(loopID)) {
         //    Matrix4x4 loopTranslate = loopTranslate.translation(vec3(30, 0, 0));
@@ -245,27 +239,23 @@ int main(int argc, char* argv[]) {
         //}
     }
     catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << "\n";
+        std::cerr << "Error loading model: " << e.what() << " - Skipping this model." << std::endl;
+        return {};
     }
 
-    // Build Atividade 6 Scene
-    //SceneBuilder::buildAtividade6Scene(
-    //    world,
-    //    mat(grass_texture),
-    //    mat(orange),
-    //    mat(white),
-    //    mat(brown),
-    //    mat(green),
-    //    mat(red),
-    //    mat(brick_texture),
-    //    mat(wood_texture)
-    //);
-
     //Light
-    world.add_directional_light(vec3(-0.6, -0.5, -0.5), 1.0, color(1, 1, 1));
-    //world.add_point_light(point3(0, 1, 0.5), 1.0, color(1, 1, 1));
-    //world.add_spot_light(point3(0, 0.7, -1.0), vec3(0,0.043,-1.0), 6.5, color(0,0.1,1), 30, 45);
+    world.add_directional_light(vec3(-0.6, -0.5, -0.5), 0.9, color(0.28, 0.43, 0.9));
 
+    world.add_point_light(point3(115.4, 4, -35), 1.0, color(1, 0.9, 0.9));
+    world.add_point_light(point3(117.4, 1.2, -50), 1.8, color(1, 0.69, 0.44));
+
+    // Left Spots
+    world.add_spot_light(point3(99.55, 0.0, -52.9), vec3(0,0.6,-0.8), 2.1, color(0.56, 0, 1), 20, 47);
+    world.add_spot_light(point3(88.55, 0.0, -52.9), vec3(0, 0.6, -0.8), 2.1, color(0.56, 1, 1), 20, 47);
+
+    // Right Spots
+    world.add_spot_light(point3(133.55, 0.0, -52.9), vec3(0, 0.6, -0.8), 2.1, color(0.56, 1, 1), 20, 47);
+    world.add_spot_light(point3(146.55, 0.0, -52.9), vec3(0, 0.6, -0.8), 2.1, color(0.56, 0, 1), 20, 47);
 
     // Camera
     double camera_fov = 60;
@@ -273,8 +263,8 @@ int main(int argc, char* argv[]) {
     auto viewport_width = aspect_ratio * viewport_height;
     auto samples_per_pixel = 5; 
     float speed = 1.5f;
-    point3 origin(20.7,28.1, 70.0);
-    point3 look_at(21.1 , 27.83, 69.25);
+    point3 origin(98,4.8, -17.0);
+    point3 look_at(100 , 5, -21);
     //point3 origin(0, 0, 2);
     //point3 look_at(0 , 0, -3);
 
@@ -292,6 +282,11 @@ int main(int argc, char* argv[]) {
         std::cout << "Calling World to Camera Transform" << ".\n";
         world.transform(camera.world_to_camera_matrix);
     }
+
+    //BG Color (custom for garanhuns)
+    camera.set_BGhorizon(color(0.95, 0.45, 0.25));
+    camera.set_BGtop(color(0.07, 0.27, 0.64));
+
 
     //Build a BVH Tree
     world.buildBVH();
@@ -440,7 +435,6 @@ int main(int argc, char* argv[]) {
         if (renderWireframe) {
             DrawOctreeWireframe(renderer, world, camera, destination_rect, highlighted_box);
         }
-
 
         // Render ImGui
         ImGui_ImplSDLRenderer2_RenderDrawData(ImGui::GetDrawData(), renderer);
