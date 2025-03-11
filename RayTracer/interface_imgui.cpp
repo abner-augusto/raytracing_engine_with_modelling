@@ -1087,6 +1087,56 @@ void ShowGeometryTab(SceneManager& world) {
             ImGui::EndTabItem();
         }
 
+        if (ImGui::BeginTabItem("Reflection")) {
+            static float reflectionNormal[3] = { 1.0f, 0.0f, 0.0f };
+            static bool useCustomReflectionPoint = false;
+            static float customReflectionPoint[3] = { 0.0f, 0.0f, 0.0f };
+            static bool customPointInitialized = false;
+
+            ImGui::Text("Reflection Transformation");
+
+            // Plane normal input
+            ImGui::Text("Plane Normal:");
+            ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x * 0.8f);
+            ImGui::SliderFloat3("Normal", reflectionNormal, -1.0f, 1.0f);
+
+            // Checkbox to toggle between default (object center) and custom reflection point
+            ImGui::Checkbox("Use Custom Reflection Point", &useCustomReflectionPoint);
+            if (useCustomReflectionPoint && !customPointInitialized) {
+                // Initialize custom point slider with the object's bounding box center (explicit cast to float)
+                customReflectionPoint[0] = static_cast<float>(center.x());
+                customReflectionPoint[1] = static_cast<float>(center.y());
+                customReflectionPoint[2] = static_cast<float>(center.z());
+                customPointInitialized = true;
+            }
+
+            else if (!useCustomReflectionPoint) {
+                customPointInitialized = false;
+            }
+
+            // Show custom reflection point slider if enabled
+            if (useCustomReflectionPoint) {
+                ImGui::Text("Custom Reflection Point:");
+                ImGui::SliderFloat3("Point", customReflectionPoint, -10.0f, 10.0f);
+            }
+            ImGui::PopItemWidth();
+
+            if (ImGui::Button("Apply Reflection")) {
+                // Use custom reflection point if enabled, otherwise default to the object's bounding box center
+                vec3 normal(reflectionNormal[0], reflectionNormal[1], reflectionNormal[2]);
+                point3 point = useCustomReflectionPoint ?
+                    point3(customReflectionPoint[0], customReflectionPoint[1], customReflectionPoint[2]) : center;
+
+                Matrix4x4 transform = transform.mirror(normal, point);
+                world.transform_object(selectedObjectID.value(), transform);
+                highlighted_box = world.get(selectedObjectID.value())->bounding_box();
+                world.buildBVH();
+            }
+
+            ImGui::EndTabItem();
+        }
+
+
         ImGui::EndTabBar();
     }
 }

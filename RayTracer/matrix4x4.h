@@ -203,7 +203,7 @@ public:
     }
 
     // Create a reflection matrix based on the world axis
-    static Matrix4x4 mirror(char plane) {
+    static Matrix4x4 mirror_simple(char plane) {
         Matrix4x4 mat;
 
         switch (plane) {
@@ -225,6 +225,50 @@ public:
 
         return mat;
     }
+
+    // Reflection matrix for an arbitrary plane defined by: ax + by + cz + d = 0
+    // 'planeNormal' is the plane's normal vector (not necessarily normalized)
+    // 'd' is the plane constant, defaulting to 0 for planes through the origin.
+    static Matrix4x4 reflection(const vec3& planeNormal, double d = 0.0) {
+        // Normalize the plane normal
+        vec3 n = unit_vector(planeNormal);
+        double a = n.x();
+        double b = n.y();
+        double c = n.z();
+
+        Matrix4x4 mat;
+        mat.m[0][0] = 1.0 - 2.0 * a * a;
+        mat.m[0][1] = -2.0 * a * b;
+        mat.m[0][2] = -2.0 * a * c;
+        mat.m[0][3] = -2.0 * a * d;
+
+        mat.m[1][0] = -2.0 * a * b;
+        mat.m[1][1] = 1.0 - 2.0 * b * b;
+        mat.m[1][2] = -2.0 * b * c;
+        mat.m[1][3] = -2.0 * b * d;
+
+        mat.m[2][0] = -2.0 * a * c;
+        mat.m[2][1] = -2.0 * b * c;
+        mat.m[2][2] = 1.0 - 2.0 * c * c;
+        mat.m[2][3] = -2.0 * c * d;
+
+        return mat;
+    }
+
+    // Reflection matrix for an arbitrary plane defined by a normal and a point on the plane
+    // 'planeNormal' is the plane's normal vector (not necessarily normalized)
+    // 'planePoint' is a point on the plane
+    static Matrix4x4 mirror(const vec3& planeNormal, const point3& planePoint) {
+        // Normalize the plane normal
+        vec3 n = unit_vector(planeNormal);
+
+        // Compute 'd' from the plane equation: ax + by + cz + d = 0
+        double d = -dot(n, planePoint);
+
+        // Use the existing mirror function with computed d
+        return reflection(n, d);
+    }
+
 
     // Create rotation matrix baed on quaternion
     static Matrix4x4 quaternion(const vec4& quaternion) {
