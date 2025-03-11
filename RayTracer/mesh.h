@@ -217,7 +217,7 @@ inline std::unordered_map<std::string, MaterialData> load_mtl(const std::string&
         }
         else if (prefix == "Rf") {
             iss >> mat.reflection;
-            std::cout << "Material: " << current_material << " | Reflection (Rf): " << mat.reflection << std::endl;
+            //std::cout << "Material: " << current_material << " | Reflection (Rf): " << mat.reflection << std::endl;
         }
     }
 
