@@ -89,8 +89,8 @@ void DrawOctreeWireframe(SDL_Renderer* renderer,
 
 void render_world_axes(SDL_Renderer* renderer, const Camera& camera, const SDL_Rect& viewport) {
     
-    double axis_length = 0.5;
-    double arrow_size = 0.1;
+    double axis_length = 1.5;
+    double arrow_size = 0.3;
 
     // Define axis endpoints in world space
     point3 origin(0, 0, 0);
