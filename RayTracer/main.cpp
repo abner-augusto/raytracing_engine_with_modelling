@@ -161,12 +161,13 @@ int main(int argc, char* argv[]) {
     color blue(0.0, 0.0, 1.0);
     color cyan(0.0, 1.0, 0.9);
     color brown(0.69, 0.49, 0.38);
+    color yellow(1, 1, 0);
 
     image_texture* wood_texture = new image_texture("textures/wood_floor.jpg");
     image_texture* grass_texture = new image_texture("textures/grass.jpg");
     image_texture* brick_texture = new image_texture("textures/brick.jpg");
     checker_texture checker(black, white, 15);
-    checker_texture ground(brown, white, 0.25);
+    checker_texture ground(color(0.43, 0.14, 0), color(0.86, 0.43, 0), 20);
     mat xadrez(&checker, 0.8, 1.0, 100.0, 0.25);
     mat sphere_mat(red, 0.8, 1.0, 150.0);
     mat sphere_mat2(green);
@@ -184,59 +185,99 @@ int main(int argc, char* argv[]) {
     };
 
     std::vector<std::shared_ptr<hittable>> Scene2 = {
-        std::make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), mat(&ground)),
-        make_shared<torus>(point3(-2, 0, -1), 0.3, 0.1, vec3(0, 0.5, 0.5), mat(cyan)),
+        std::make_shared<plane>(point3(0, 0, 0), vec3(0, 1, 0), mat(grass_texture), 0.2),
+        make_shared<box>(point3(-40, -0.5, -20), point3(-20, 15, -40), mat(&ground), 1.0, 0.9),
+        make_shared<box>(point3(-40.8, 15, -19.2), point3(-19.2, 18, -40.8), mat(color(0.29, 0.71, 0))),
+        make_shared<box>(point3(-15, -0.5, -20), point3(50, 5, -40), mat(&ground), 2, 0.2),
+        make_shared<box>(point3(-16, 5, -19.2), point3(51, 7, -39.2), mat(color(0.29, 0.71, 0))),
     };
 
     //Add all objects to the manager with their manually assigned IDs
-    for (const auto& obj : Scene1) {
+    for (const auto& obj : Scene2) {
         ObjectID id = world.add(obj);
         //std::cout << "Added object with ID " << id << ".\n";
     }
 
-    //Mesh Object
+    auto torusOBJ = make_shared<torus>(point3(0, 1, 1), 0.5, 0.15, vec3(0.45, 0.0, 0.5), mat(yellow, 0.9, 0.7, 100, 0.6));
+    ObjectID torus = world.add(torusOBJ);
+    duplicateObjectArray(world, torus, 4, 2, vec3(1, 0, 0));
+
+    //Mesh Objects
 
     try {
-        ObjectID mesh = add_mesh_to_scene("models/garanhuns.obj", world, "models/garanhuns.mtl");
+        //ObjectID mesh = add_mesh_to_scene("models/garanhuns.obj", world, "models/garanhuns.mtl");
 
-        //ObjectID sonic = add_mesh_to_scene("models/sonic.obj", world, "models/sonic.mtl");
-        //ObjectID totemID = add_mesh_to_scene("models/cenario/totem.obj", world, "models/cenario/totem.mtl");
-        //ObjectID loopID = add_mesh_to_scene("models/cenario/loop.obj", world, "models/cenario/loop.mtl");
+        ObjectID sonic = add_mesh_to_scene("models/sonic.obj", world, "models/sonic.mtl");
+        ObjectID totemID = add_mesh_to_scene("models/cenario/totem.obj", world, "models/cenario/totem.mtl");
+        ObjectID loopID = add_mesh_to_scene("models/cenario/loop.obj", world, "models/cenario/loop.mtl");
+        ObjectID palmID = add_mesh_to_scene("models/cenario/palm.obj", world, "models/cenario/palm.mtl");
 
-        //if (world.contains(loopID)) {
-        //    Matrix4x4 loopTranslate = loopTranslate.translation(vec3(30, 0, 0));
-        //    world.transform_object(loopID, loopTranslate);
-        //}
+        if (world.contains(loopID)) {
+            Matrix4x4 loopTranslate = loopTranslate.translation(vec3(0, 1, -6));
+            world.transform_object(loopID, loopTranslate);
+        }
 
-        //duplicateObjectArray(world, totemID, 2, 10, vec3(-1, 0, 0));
+        if (world.contains(palmID)) {
+            Matrix4x4 palmTranslate = palmTranslate.translation(vec3(-20, 0, -12));
+            world.transform_object(palmID, palmTranslate);
+        }
 
-        //int numCopies = 10;      // Number of palm copies to spawn
-        //double distance = 15.0;   // Distance in meters between each palm
+        if (world.contains(totemID)) {
+            Matrix4x4 totemTranslate = totemTranslate.translation(vec3(-10, 0, -1));
+            world.transform_object(totemID, totemTranslate);
+        }
 
-        //for (int i = 0; i < numCopies; i++) {
-        //    // Add a new instance of the palm mesh
-        //    ObjectID palmID = add_mesh_to_scene("models/cenario/palm.obj", world, "models/cenario/palm.mtl");
+        if (world.contains(sonic)) {
+            point3 sonicCenter = world.get(sonic)->bounding_box().getCenter();
+            Matrix4x4 sonicTranslate = sonicTranslate.translation(vec3(-2, 0.3, 1));
+            Matrix4x4 sonicRotate = sonicRotate.rotateAroundPoint(sonicCenter, vec3(0, 1, 0), 90);
+            Matrix4x4 sonicScale = sonicScale.scaleAroundPoint(sonicCenter, 1.2, 1.2, 1.2);
+            Matrix4x4 sonicTransform = sonicTranslate * sonicScale * sonicRotate;
+            world.transform_object(sonic, sonicTransform);
+        }
 
-        //    if (world.contains(palmID)) {
-        //        // Alternate scale: if index is even, use 1.5; if odd, use 1.0.
-        //        double scaleFactor = (i % 2 == 0) ? 1.5 : 1.0;
+        duplicateObjectArray(world, totemID, 1, 20, vec3(1, 0, 0));
 
-        //        // Create a translation matrix to place the palm 5 meters apart along the z-axis.
-        //        Matrix4x4 translate = Matrix4x4::translation(vec3(distance * (i + 1), 0.0, 0.0 ));
+        int numCopies = 4;      // Number of palm copies to spawn
+        double distance = 10.0; // Distance in meters between each palm
 
-        //        // Compute scaling around the center of the mesh's bounding box.
-        //        Matrix4x4 scale = scale.scaleAroundPoint(
-        //            world.get(palmID)->bounding_box().getCenter(),
-        //            scaleFactor, scaleFactor, scaleFactor
-        //        );
+        for (int i = 0; i < numCopies; i++) {
+            // Ensure the original object exists in the world
+            if (!world.contains(palmID)) {
+                std::cerr << "Error: Palm object with ID " << palmID << " not found in world." << std::endl;
+                break; // Exit loop if the object doesn't exist
+            }
 
-        //        // Combine translation and scaling into a single transformation.
-        //        Matrix4x4 transform = translate * scale;
+            // Clone the original palm object
+            auto originalObject = world.get(palmID);
+            auto newObject = originalObject->clone();
 
-        //        // Apply the transformation to the new palm instance.
-        //        world.transform_object(palmID, transform);
-        //    }
-        //}
+            // Alternate scale: if index is even, use 1.5; if odd, use 1.0.
+            double scaleFactor = (i % 2 == 0) ? 1.5 : 1.0;
+
+            // Create a translation matrix to place the new palm instance
+            Matrix4x4 translate = Matrix4x4::translation(vec3(distance * (i + 1), 0.0, 0.0));
+
+            // Compute scaling around the center of the mesh's bounding box
+            Matrix4x4 scale = scale.scaleAroundPoint(
+                originalObject->bounding_box().getCenter(),
+                scaleFactor, scaleFactor, scaleFactor
+            );
+
+            // Combine translation and scaling into a single transformation
+            Matrix4x4 transform = translate * scale;
+
+            // Add the cloned object to the world and apply transformation
+            ObjectID newPalmID = world.add(newObject); // Add new instance to world
+            world.transform_object(newPalmID, transform);
+        }
+
+        auto palm1 = world.get(palmID)->clone();
+        ObjectID palm1ID = world.add(palm1);
+        Matrix4x4 palmTranslate = palmTranslate.translation(vec3(5, 0, 10));
+        world.transform_object(palm1ID, palmTranslate);
+        duplicateObjectArray(world, palm1ID, 1, 30, vec3(1, 0, 0));
+
     }
     catch (const std::exception& e) {
         std::cerr << "Error loading model: " << e.what() << " - Skipping this model." << std::endl;
@@ -244,18 +285,19 @@ int main(int argc, char* argv[]) {
     }
 
     //Light
-    world.add_directional_light(vec3(-0.6, -0.5, -0.5), 0.9, color(0.28, 0.43, 0.9));
+    world.add_directional_light(vec3(-0.6, -0.38, -0.7), 1, color(1, 1, 1));
+    //world.add_directional_light(vec3(-0.6, -0.5, -0.5), 0.9, color(0.28, 0.43, 0.9));
 
-    world.add_point_light(point3(115.4, 4, -35), 1.0, color(1, 0.9, 0.9));
-    world.add_point_light(point3(117.4, 1.2, -50), 1.8, color(1, 0.69, 0.44));
+    //world.add_point_light(point3(115.4, 4, -35), 1.0, color(1, 0.9, 0.9));
+    //world.add_point_light(point3(117.4, 1.2, -50), 1.8, color(1, 0.69, 0.44));
 
-    // Left Spots
-    world.add_spot_light(point3(99.55, 0.0, -52.9), vec3(0,0.6,-0.8), 2.1, color(0.56, 0, 1), 20, 47);
-    world.add_spot_light(point3(88.55, 0.0, -52.9), vec3(0, 0.6, -0.8), 2.1, color(0.56, 1, 1), 20, 47);
+    //// Left Spots
+    //world.add_spot_light(point3(99.55, 0.0, -52.9), vec3(0,0.6,-0.8), 2.1, color(0.56, 0, 1), 20, 47);
+    //world.add_spot_light(point3(88.55, 0.0, -52.9), vec3(0, 0.6, -0.8), 2.1, color(0.56, 1, 1), 20, 47);
 
-    // Right Spots
-    world.add_spot_light(point3(133.55, 0.0, -52.9), vec3(0, 0.6, -0.8), 2.1, color(0.56, 1, 1), 20, 47);
-    world.add_spot_light(point3(146.55, 0.0, -52.9), vec3(0, 0.6, -0.8), 2.1, color(0.56, 0, 1), 20, 47);
+    //// Right Spots
+    //world.add_spot_light(point3(133.55, 0.0, -52.9), vec3(0, 0.6, -0.8), 2.1, color(0.56, 1, 1), 20, 47);
+    //world.add_spot_light(point3(146.55, 0.0, -52.9), vec3(0, 0.6, -0.8), 2.1, color(0.56, 0, 1), 20, 47);
 
     // Camera
     double camera_fov = 60;
@@ -263,10 +305,10 @@ int main(int argc, char* argv[]) {
     auto viewport_width = aspect_ratio * viewport_height;
     auto samples_per_pixel = 5; 
     float speed = 1.5f;
-    point3 origin(98,4.8, -17.0);
-    point3 look_at(100 , 5, -21);
-    //point3 origin(0, 0, 2);
-    //point3 look_at(0 , 0, -3);
+    //point3 origin(98,4.8, -17.0);
+    //point3 look_at(100 , 5, -21);
+    point3 origin(0, 2.7, 12.8);
+    point3 look_at(0 , 7, -5);
 
 
     Camera camera(
@@ -284,8 +326,8 @@ int main(int argc, char* argv[]) {
     }
 
     //BG Color (custom for garanhuns)
-    camera.set_BGhorizon(color(0.95, 0.45, 0.25));
-    camera.set_BGtop(color(0.07, 0.27, 0.64));
+    //camera.set_BGhorizon(color(0.95, 0.45, 0.25));
+    //camera.set_BGtop(color(0.07, 0.27, 0.64));
 
 
     //Build a BVH Tree
