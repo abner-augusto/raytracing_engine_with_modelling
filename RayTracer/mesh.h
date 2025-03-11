@@ -190,7 +190,7 @@ inline std::unordered_map<std::string, MaterialData> load_mtl(const std::string&
     if (!file.is_open()) throw std::runtime_error("Failed to open MTL file: " + filepath);
 
     std::string line, current_material;
-    MaterialData mat = { color(1,1,1), 1.0, 0.5, 50.0, 0.0 }; // Default values
+    MaterialData mat; // Default values
 
     while (std::getline(file, line)) {
         std::istringstream iss(line);
@@ -207,16 +207,24 @@ inline std::unordered_map<std::string, MaterialData> load_mtl(const std::string&
             mat.diffuse = color(r, g, b);
         }
         else if (prefix == "Ns") {
-            iss >> mat.shininess;
+            double ns_value;
+            iss >> ns_value;
+            mat.shininess = ns_value / 10.0;
         }
         else if (prefix == "Ks") {
             double r, g, b; iss >> r >> g >> b;
-            mat.k_specular = (r + g + b) / 2;
+            mat.k_specular = 1.0 - ((r + g + b) / 3.0);
+        }
+        else if (prefix == "Rf") {
+            iss >> mat.reflection;
+            std::cout << "Material: " << current_material << " | Reflection (Rf): " << mat.reflection << std::endl;
         }
     }
+
     if (!current_material.empty()) materials[current_material] = mat;
     return materials;
 }
+
 
 inline MeshData load_obj(const std::string& filepath, const std::unordered_map<std::string, MaterialData>& materials) {
     MeshData model;
