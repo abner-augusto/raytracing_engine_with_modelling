@@ -58,7 +58,7 @@ auto static spawnMeshArray(SceneManager& world, const std::string& meshPath, con
 
 // Helper function that duplicates an existing object in the SceneManager
 // and translates each copy along a specified direction.
-auto static duplicateObjectArray(SceneManager& world, ObjectID originalID, int numCopies, float fixedDistance, const vec3& direction) {
+auto static duplicateObjectArray(SceneManager& world, ObjectID originalID, int numCopies, float fixedDistance, const vec3& direction, bool applyRotation = false) {
     if (!world.contains(originalID)) {
         std::cerr << "Error: Original ObjectID " << originalID << " not found in SceneManager.\n";
         return;
@@ -86,10 +86,24 @@ auto static duplicateObjectArray(SceneManager& world, ObjectID originalID, int n
         vec3 offset = direction * (fixedDistance * (i + 1));
         Matrix4x4 translate = Matrix4x4::translation(offset);
 
+        // Apply optional rotation
+        Matrix4x4 rotate;
+        if (applyRotation) {
+            vec3 rotateDirection = vec3(0, 1, 0); // Example: Y-axis rotation
+            float angle = 10.0f; // Example: Rotation angle increment
+            rotate = rotate.rotateAroundPoint(world.get(newID)->bounding_box().getCenter(), rotateDirection, angle * (i + 5));
+        }
+        else {
+            Matrix4x4 rotate;
+        }
+
+        Matrix4x4 transform = translate * rotate;
+
         // Apply transformation to the new instance
-        world.transform_object(newID, translate);
+        world.transform_object(newID, transform);
     }
 }
+
 
 int main(int argc, char* argv[]) {
 
@@ -185,11 +199,15 @@ int main(int argc, char* argv[]) {
     };
 
     std::vector<std::shared_ptr<hittable>> Scene2 = {
-        std::make_shared<plane>(point3(0, 0, 0), vec3(0, 1, 0), mat(grass_texture), 0.2),
+        make_shared<plane>(point3(0, 0, 0), vec3(0, 1, 0), mat(grass_texture), 0.2),
         make_shared<box>(point3(-40, -0.5, -20), point3(-20, 15, -40), mat(&ground), 1.0, 0.9),
         make_shared<box>(point3(-40.8, 15, -19.2), point3(-19.2, 18, -40.8), mat(color(0.29, 0.71, 0))),
         make_shared<box>(point3(-15, -0.5, -20), point3(50, 5, -40), mat(&ground), 2, 0.2),
         make_shared<box>(point3(-16, 5, -19.2), point3(51, 7, -39.2), mat(color(0.29, 0.71, 0))),
+        make_shared<sphere>(point3(-9.9, 13.5, -0.77), 1, mat(&checker)),
+        make_shared<cylinder>(point3(8, 1.6, -4), 0.5, 1, mat(color(0.6, 0.6, 0.6), 0.8, 0.8, 100)),
+        make_shared<cylinder>(point3(8, 2.1, -4), 0.5, 1.5, mat(yellow, 1.0, 1.0, 1000)),
+
     };
 
     //Add all objects to the manager with their manually assigned IDs
@@ -198,9 +216,13 @@ int main(int argc, char* argv[]) {
         //std::cout << "Added object with ID " << id << ".\n";
     }
 
-    auto torusOBJ = make_shared<torus>(point3(0, 1, 1), 0.5, 0.15, vec3(0.45, 0.0, 0.5), mat(yellow, 0.9, 0.7, 100, 0.6));
+    auto torusOBJ = make_shared<torus>(point3(0, 1, 1), 0.5, 0.15, vec3(0.45, 0.0, 0.5), mat(yellow, 1, 1.0, 1000, 0.6));
     ObjectID torus = world.add(torusOBJ);
-    duplicateObjectArray(world, torus, 4, 2, vec3(1, 0, 0));
+    duplicateObjectArray(world, torus, 4, 2, vec3(1, 0, 0), true);
+
+    auto coneOBJ = make_shared<cone>(point3(-35, 0, -15), point3(-35, 3.5, -15), 0.5, mat(color(0.6, 0.6, 0.6), 0.8, 0.8, 100));
+    ObjectID cone = world.add(coneOBJ);
+    duplicateObjectArray(world, cone, 30, 2.5, vec3(1, 0, 0));
 
     //Mesh Objects
 
@@ -284,8 +306,13 @@ int main(int argc, char* argv[]) {
         return {};
     }
 
-    //Light
-    world.add_directional_light(vec3(-0.6, -0.38, -0.7), 1, color(1, 1, 1));
+    //Lights
+    
+    //Sonic
+    world.add_directional_light(vec3(-0.6, -0.38, -0.7), 0.85, color(1, 1, 1));
+    world.add_point_light(point3(6.2, 0.15, 0.5), 1.3, color(1, 0.87, 0.12));
+
+    ////Garanhuns
     //world.add_directional_light(vec3(-0.6, -0.5, -0.5), 0.9, color(0.28, 0.43, 0.9));
 
     //world.add_point_light(point3(115.4, 4, -35), 1.0, color(1, 0.9, 0.9));
@@ -307,8 +334,8 @@ int main(int argc, char* argv[]) {
     float speed = 1.5f;
     //point3 origin(98,4.8, -17.0);
     //point3 look_at(100 , 5, -21);
-    point3 origin(0, 2.7, 12.8);
-    point3 look_at(0 , 7, -5);
+    point3 origin(-1.4, 3.4, 16.2);
+    point3 look_at(-1.2 , 7.7, -3);
 
 
     Camera camera(
