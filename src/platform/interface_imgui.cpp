@@ -1,5 +1,4 @@
-﻿#define _CRT_SECURE_NO_WARNINGS
-#include "interface_imgui.h"
+﻿#include "interface_imgui.h"
 #include <string>
 
 #ifdef DIFFERENCE

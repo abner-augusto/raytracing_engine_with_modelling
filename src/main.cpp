@@ -139,7 +139,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    SDL_Window* window = CreateWindow(window_width, window_height, "Raytracer CG1 - Abner Augusto");
+    SDL_Window* window = SDL_CreateWindow(window_width, window_height, "Raytracer CG1 - Abner Augusto");
     if (!window) {
         SDL_Quit();
         return -1;

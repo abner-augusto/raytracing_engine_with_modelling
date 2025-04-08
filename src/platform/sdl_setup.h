@@ -5,7 +5,7 @@
 #include "interface_imgui.h"
 
 bool InitializeSDL();
-SDL_Window* CreateWindow(int width, int height, const std::string& title);
+SDL_Window* SDL_CreateWindow(int width, int height, const std::string& title);
 SDL_Renderer* CreateRenderer(SDL_Window* window);
 SDL_Texture* CreateTexture(SDL_Renderer* renderer, int width, int height);
 void Cleanup_SDL(SDL_Window* window, SDL_Renderer* renderer, SDL_Texture* texture);
@@ -19,7 +19,7 @@ bool InitializeSDL() {
     return true;
 }
 
-SDL_Window* CreateWindow(int width, int height, const std::string& title) {
+SDL_Window* SDL_CreateWindow(int width, int height, const std::string& title) {
     SDL_Window* window = SDL_CreateWindow(
         title.c_str(),
         SDL_WINDOWPOS_UNDEFINED,
