@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\abner\source\repos\qbRaytracing\build_vs\CMakeFiles\dc9a90c1e8d8f1e1b388bf13b3c8ca70\generate.stamp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{08BA0F62-59A4-36A4-A1E5-11A52A887556}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

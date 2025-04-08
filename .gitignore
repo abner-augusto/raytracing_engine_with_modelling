@@ -47,10 +47,22 @@
 *.ilk
 *.idb
 *.pdb
-*.txt
 #*.vcxproj
 *.user
+*.opensdf
+*.sdf
+*.VC.db
 
 **/imgui.ini
 
 RayTracer/x64/*
+
+__pycache__/
+
+# CMake build
+/build/
+CMakeFiles/
+CMakeCache.txt
+Makefile
+cmake_install.cmake
+compile_commands.json
