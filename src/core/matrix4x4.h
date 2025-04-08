@@ -4,6 +4,7 @@
 #include <cmath>
 #include <iostream>
 #include <iomanip> 
+#include <cstring>
 
 #include "vec4.h"
 #include "raytracer.h"
