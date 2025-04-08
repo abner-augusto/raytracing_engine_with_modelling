@@ -17,6 +17,7 @@
 #include "squarepyramid.h"
 #include "light.h"
 #include "mesh.h"
+#include "dialog_box.h"
 
 void draw_menu(RenderState& render_state, Camera& camera, SceneManager& world);
 
@@ -40,8 +41,6 @@ void ShowPrimitivesTab(SceneManager& world);
 
 // Displays the "Boolean" tab for applying CSG operations between objects.
 void ShowBooleanTab(SceneManager& world);
-
-std::string OpenFileDialog(const wchar_t* filter);
 
 extern std::optional<ObjectID> selectedObjectID;
 

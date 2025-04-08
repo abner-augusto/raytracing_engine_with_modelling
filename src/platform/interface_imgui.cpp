@@ -1,39 +1,13 @@
 ﻿#define _CRT_SECURE_NO_WARNINGS
 #include "interface_imgui.h"
-#include <windows.h>
-#include <commdlg.h>
 #include <string>
 
 #ifdef DIFFERENCE
 #undef DIFFERENCE
 #endif
 
-
 extern bool renderWireframe;
 extern bool renderWorldAxes;
-
-// Function to open a file dialog and return the selected file path
-std::string OpenFileDialog(const wchar_t* filter) {
-    OPENFILENAMEW ofn; // Use wide-character version
-    wchar_t file[MAX_PATH] = L""; // Wide-character string for file path
-
-    ZeroMemory(&ofn, sizeof(ofn));
-    ofn.lStructSize = sizeof(ofn);
-    ofn.hwndOwner = NULL;
-    ofn.lpstrFilter = filter;
-    ofn.lpstrFile = file;
-    ofn.nMaxFile = MAX_PATH;
-    ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
-
-    if (GetOpenFileNameW(&ofn)) {
-        // Convert wide string to std::string
-        int size_needed = WideCharToMultiByte(CP_UTF8, 0, file, -1, NULL, 0, NULL, NULL);
-        std::string converted_str(size_needed, 0);
-        WideCharToMultiByte(CP_UTF8, 0, file, -1, &converted_str[0], size_needed, NULL, NULL);
-        return converted_str;
-    }
-    return "";
-}
 
 void draw_menu(RenderState& render_state, Camera& camera, SceneManager& world) {
     // Initialize static variables
