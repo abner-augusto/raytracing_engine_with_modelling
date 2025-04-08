@@ -1,12 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 project(RaytracerCG1 LANGUAGES CXX)
 
-find_package(OpenMP REQUIRED)
-
-if(OpenMP_CXX_FOUND)
-    target_link_libraries(${PROJECT_NAME} PUBLIC OpenMP::OpenMP_CXX)
-endif()
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -17,6 +11,7 @@ file(GLOB_RECURSE SRC_FILES
     src/*.h
 )
 
+# Define executable
 add_executable(${PROJECT_NAME} ${SRC_FILES})
 
 # stb_image
@@ -31,6 +26,7 @@ if (WIN32)
     target_include_directories(${PROJECT_NAME} PRIVATE ${SDL2_INCLUDE_DIR})
 
     target_link_libraries(${PROJECT_NAME}
+        PRIVATE
         ${SDL2_LIB_DIR}/SDL2.lib
         ${SDL2_LIB_DIR}/SDL2main.lib
         ${SDL2_LIB_DIR}/SDL2_ttf.lib
@@ -50,10 +46,23 @@ if (WIN32)
     target_compile_definitions(${PROJECT_NAME} PRIVATE _CRT_SECURE_NO_WARNINGS SDL_MAIN_HANDLED)
 else()
     find_package(SDL2 REQUIRED)
-    find_package(SDL2_ttf REQUIRED)
-    target_include_directories(${PROJECT_NAME} PRIVATE ${SDL2_INCLUDE_DIRS} ${SDL2_TTF_INCLUDE_DIRS})
-    target_link_libraries(${PROJECT_NAME} SDL2::SDL2 SDL2::SDL2_ttf)
+    find_path(SDL2_TTF_INCLUDE_DIR SDL_ttf.h PATH_SUFFIXES SDL2)
+    find_library(SDL2_TTF_LIBRARY NAMES SDL2_ttf sdl2_ttf)
+
+    if (SDL2_TTF_INCLUDE_DIR AND SDL2_TTF_LIBRARY)
+        target_include_directories(${PROJECT_NAME} PRIVATE ${SDL2_TTF_INCLUDE_DIR})
+        target_link_libraries(${PROJECT_NAME} PRIVATE SDL2::SDL2 ${SDL2_TTF_LIBRARY})
+    else()
+        message(FATAL_ERROR "SDL2_ttf not found. Please install the sdl2_ttf package.")
+    endif()
+
     target_compile_definitions(${PROJECT_NAME} PRIVATE SDL_MAIN_HANDLED)
+endif()
+
+# Enable OpenMP
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(${PROJECT_NAME} PRIVATE OpenMP::OpenMP_CXX)
 endif()
 
 # ImGui
