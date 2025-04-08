@@ -8,7 +8,7 @@
 #include <sstream>
 
 #include "node.h"
-#include "boundingBox.h"
+#include "boundingbox.h"
 #include "sphere.h"
 #include "vec3.h"
 
