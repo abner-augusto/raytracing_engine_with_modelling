@@ -102,13 +102,16 @@
     <ClInclude Include="C:\Users\abner\source\repos\qbRaytracing\src\material\texture.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="C:\Users\abner\source\repos\qbRaytracing\src\modelling\CSG.h">
+    <ClInclude Include="C:\Users\abner\source\repos\qbRaytracing\src\modelling\csg.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="C:\Users\abner\source\repos\qbRaytracing\src\modelling\csg_intesection.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="C:\Users\abner\source\repos\qbRaytracing\src\modelling\octree.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\abner\source\repos\qbRaytracing\src\platform\dialog_box.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="C:\Users\abner\source\repos\qbRaytracing\src\platform\interface_imgui.h">
