@@ -258,7 +258,12 @@ void draw_menu(RenderState& render_state, Camera& camera, SceneManager& world) {
             static mat default_material;
 
             if (ImGui::Button("Select OBJ File")) {
+                #ifdef _WIN32
                 std::string selected_file = OpenFileDialog(L"Wavefront OBJ (*.obj)\0*.obj\0");
+                #else
+                std::string selected_file = OpenFileDialog("Wavefront OBJ (*.obj) | *.obj");
+                #endif
+
                 if (!selected_file.empty()) {
                     obj_filepath = selected_file;
                 }
@@ -268,7 +273,12 @@ void draw_menu(RenderState& render_state, Camera& camera, SceneManager& world) {
             ImGui::Checkbox("Use MTL File", &use_material);
             if (use_material) {
                 if (ImGui::Button("Select MTL File")) {
+                    #ifdef _WIN32
                     std::string selected_file = OpenFileDialog(L"Material File (*.mtl)\0*.mtl\0");
+                    #else
+                    std::string selected_file = OpenFileDialog("Material File (*.mtl) | *.mtl");
+                    #endif
+
                     if (!selected_file.empty()) {
                         mtl_filepath = selected_file;
                     }

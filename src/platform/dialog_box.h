@@ -19,35 +19,37 @@ inline std::string OpenFileDialog(const wchar_t* filter) {
     ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
 
     if (GetOpenFileNameW(&ofn)) {
-        int size_needed = WideCharToMultiByte(CP_UTF8, 0, file, -1, NULL, 0, NULL, NULL);
+        int size_needed = WideCharToMultiByte(CP_UTF8, 0, file, -1, nullptr, 0, nullptr, nullptr);
         std::string result(size_needed, 0);
-        WideCharToMultiByte(CP_UTF8, 0, file, -1, &result[0], size_needed, NULL, NULL);
+        WideCharToMultiByte(CP_UTF8, 0, file, -1, &result[0], size_needed, nullptr, nullptr);
         return result;
     }
     return "";
 }
 
 #else
-#include <string>
-#include <cstdlib>
 
-inline std::string OpenFileDialog(const char* filter = "*.obj") {
-    const char* cmd =
-        "zenity --file-selection --title=\"Select a File\" --file-filter=\"OBJ files (\*.obj) | *.obj\"";
-    FILE* pipe = popen(cmd, "r");
+#include <cstdlib>
+#include <array>
+
+inline std::string OpenFileDialog(const char* filter_description = "All Files (*.*) | *.*") {
+    std::string cmd = "zenity --file-selection --title=\"Select a File\"";
+    std::array<char, 1024> buffer{};
+    std::string result;
+
+    FILE* pipe = popen(cmd.c_str(), "r");
     if (!pipe) return "";
 
-    char buffer[1024];
-    std::string result = "";
-    while (fgets(buffer, sizeof(buffer), pipe)) {
-        result += buffer;
+    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+        result += buffer.data();
     }
     pclose(pipe);
 
-    // Remove trailing newline if present
+    // Remove trailing newline
     if (!result.empty() && result.back() == '\n') {
         result.pop_back();
     }
+
     return result;
 }
 #endif
