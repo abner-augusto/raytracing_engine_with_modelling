@@ -65,6 +65,10 @@ __pycache__/
 /build_vs/Release/
 /build_vs/assets/
 /build_vs/RaytracerCG1.dir/
+*.dir/
+build_vs/*.dir/
+build_vs/**/*.dir/
+
 CMakeFiles/
 CMakeCache.txt
 Makefile
