@@ -299,4 +299,21 @@ inline ObjectID add_mesh_to_scene(const std::string& filepath, SceneManager& man
     return manager.add(mesh);
 }
 
+// Helper function that spawns an array of a mesh.
+// Each copy is translated in the given direction by 'fixedDistance' meters per step.
+auto static spawnMeshArray(SceneManager& world, const std::string& meshPath, const std::string& mtlPath, int numCopies, float fixedDistance, const vec3& direction) {
+    for (int i = 0; i < numCopies; i++) {
+        // Load a new copy of the mesh
+        ObjectID meshID = add_mesh_to_scene(meshPath, world, mtlPath);
+        if (world.contains(meshID)) {
+            // Calculate translation based on direction vector
+            vec3 offset = direction * (fixedDistance * (i + 1));
+            Matrix4x4 translate = Matrix4x4::translation(offset);
+
+            // Apply transformation to place the mesh
+            world.transform_object(meshID, translate);
+        }
+    }
+}
+
 #endif

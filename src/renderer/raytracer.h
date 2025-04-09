@@ -54,4 +54,52 @@ inline point3 random_position() {
     );
 }
 
+// Helper function that duplicates an existing object in the SceneManager
+// and translates each copy along a specified direction.
+auto static duplicateObjectArray(SceneManager& world, ObjectID originalID, int numCopies, float fixedDistance, const vec3& direction, bool applyRotation = false) {
+    if (!world.contains(originalID)) {
+        std::cerr << "Error: Original ObjectID " << originalID << " not found in SceneManager.\n";
+        return;
+    }
+
+    // Retrieve the original object
+    auto originalObject = world.get(originalID);
+    if (!originalObject) {
+        std::cerr << "Error: Failed to retrieve object with ID " << originalID << ".\n";
+        return;
+    }
+
+    for (int i = 0; i < numCopies; i++) {
+        // Clone the original object
+        std::shared_ptr<hittable> newObject = originalObject->clone();
+        if (!newObject) {
+            std::cerr << "Error: Cloning failed for object ID " << originalID << ".\n";
+            return;
+        }
+
+        // Add the new instance to the scene
+        ObjectID newID = world.add(newObject);
+
+        // Calculate translation offset
+        vec3 offset = direction * (fixedDistance * (i + 1));
+        Matrix4x4 translate = Matrix4x4::translation(offset);
+
+        // Apply optional rotation
+        Matrix4x4 rotate;
+        if (applyRotation) {
+            vec3 rotateDirection = vec3(0, 1, 0); // Example: Y-axis rotation
+            float angle = 10.0f; // Example: Rotation angle increment
+            rotate = rotate.rotateAroundPoint(world.get(newID)->bounding_box().getCenter(), rotateDirection, angle * (i + 5));
+        }
+        else {
+            Matrix4x4 rotate;
+        }
+
+        Matrix4x4 transform = translate * rotate;
+
+        // Apply transformation to the new instance
+        world.transform_object(newID, transform);
+    }
+}
+
 #endif
