@@ -139,13 +139,15 @@ public:
         return objects.find(id) != objects.end();
     }
 
-    // Clears all objects and their octrees.
+    // Clears all objects, lights, octrees, and resets the BVH
     void clear() {
-        objects.clear();
-        used_ids.clear();
-        octrees.clear();
-        root_bvh = nullptr;
+        objects.clear();           // Remove all scene objects
+        used_ids.clear();          // Clear ID tracking
+        octrees.clear();           // Clear any associated octrees
+        lights.clear();            // Remove all lights
+        root_bvh = nullptr;        // Reset BVH tree
     }
+
 
     // Returns a list of (ObjectID, name) pairs for all objects in the scene.
     std::vector<std::pair<ObjectID, std::string>> list_object_names() const {
