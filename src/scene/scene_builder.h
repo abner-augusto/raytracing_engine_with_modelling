@@ -1,32 +1,49 @@
 #pragma once
 
-#include <vector>
-#include <memory>
-#include <utility>
-#include "hittable_manager.h"
+#include "scene.h"
 #include "material.h"
-
-//#include "sphere.h"
-//#include "plane.h"
-//#include "cylinder.h"
-//#include "cone.h"
-//#include "box.h"
-//#include "torus.h"
 
 class SceneBuilder {
 public:
-    static void buildAtividade6Scene(
-        SceneManager& world,
-        const mat& grass_material,
-        const mat& orange_material,
-        const mat& white_material,
-        const mat& brown_material,
-        const mat& green_material,
-        const mat& red_material,
-        const mat& brick_material,
-        const mat& wood_material
-    );
+    SceneBuilder();
+    ~SceneBuilder();
+
+    void buildAtividade6Scene(SceneManager& world);
+    void buildSonicScene(SceneManager& world);
 
 private:
-    static void applySceneTransformations(SceneManager& world);
+    void applyAtividade6Transformations(SceneManager& world);
+
+    // Cores
+    color black;
+    color white;
+    color red;
+    color orange;
+    color green;
+    color blue;
+    color cyan;
+    color brown;
+    color yellow;
+
+    // Texturas
+    image_texture* wood_texture;
+    image_texture* grass_texture;
+    image_texture* brick_texture;
+
+    // Texturas Procedurais
+    checker_texture checker;
+    checker_texture ground;
+
+    // Materiais
+    mat grass_material;
+    mat orange_material;
+    mat white_material;
+    mat brown_material;
+    mat green_material;
+    mat red_material;
+    mat brick_material;
+    mat wood_material;
+    mat checker_material;
+    mat ground_material;
+    mat yellow_material;
 };
