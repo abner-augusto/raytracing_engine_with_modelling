@@ -18,8 +18,9 @@
 #include "light.h"
 #include "mesh.h"
 #include "dialog_box.h"
+#include "scene_builder.h"
 
-void draw_menu(RenderState& render_state, Camera& camera, SceneManager& world);
+void draw_menu(RenderState& render_state, Camera& camera, SceneManager& world, SceneBuilder& builder);
 
 void DrawFpsCounter(float fps);
 

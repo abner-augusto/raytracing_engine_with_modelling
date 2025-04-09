@@ -46,77 +46,12 @@
 #include "interface_imgui.h"
 #include "sdl_setup.h"
 #include "render_state.h"
+#include "scene_builder.h"
 
 RenderState render_state;
 bool renderWireframe = false;
 bool renderWorldAxes = true;
 std::optional<BoundingBox> highlighted_box = std::nullopt;
-
-// Helper function that spawns an array of a mesh.
-// Each copy is translated in the given direction by 'fixedDistance' meters per step.
-auto static spawnMeshArray(SceneManager& world, const std::string& meshPath, const std::string& mtlPath, int numCopies, float fixedDistance, const vec3& direction) {
-    for (int i = 0; i < numCopies; i++) {
-        // Load a new copy of the mesh
-        ObjectID meshID = add_mesh_to_scene(meshPath, world, mtlPath);
-        if (world.contains(meshID)) {
-            // Calculate translation based on direction vector
-            vec3 offset = direction * (fixedDistance * (i + 1));
-            Matrix4x4 translate = Matrix4x4::translation(offset);
-
-            // Apply transformation to place the mesh
-            world.transform_object(meshID, translate);
-        }
-    }
-}
-
-// Helper function that duplicates an existing object in the SceneManager
-// and translates each copy along a specified direction.
-auto static duplicateObjectArray(SceneManager& world, ObjectID originalID, int numCopies, float fixedDistance, const vec3& direction, bool applyRotation = false) {
-    if (!world.contains(originalID)) {
-        std::cerr << "Error: Original ObjectID " << originalID << " not found in SceneManager.\n";
-        return;
-    }
-
-    // Retrieve the original object
-    auto originalObject = world.get(originalID);
-    if (!originalObject) {
-        std::cerr << "Error: Failed to retrieve object with ID " << originalID << ".\n";
-        return;
-    }
-
-    for (int i = 0; i < numCopies; i++) {
-        // Clone the original object
-        std::shared_ptr<hittable> newObject = originalObject->clone();
-        if (!newObject) {
-            std::cerr << "Error: Cloning failed for object ID " << originalID << ".\n";
-            return;
-        }
-
-        // Add the new instance to the scene
-        ObjectID newID = world.add(newObject);
-
-        // Calculate translation offset
-        vec3 offset = direction * (fixedDistance * (i + 1));
-        Matrix4x4 translate = Matrix4x4::translation(offset);
-
-        // Apply optional rotation
-        Matrix4x4 rotate;
-        if (applyRotation) {
-            vec3 rotateDirection = vec3(0, 1, 0); // Example: Y-axis rotation
-            float angle = 10.0f; // Example: Rotation angle increment
-            rotate = rotate.rotateAroundPoint(world.get(newID)->bounding_box().getCenter(), rotateDirection, angle * (i + 5));
-        }
-        else {
-            Matrix4x4 rotate;
-        }
-
-        Matrix4x4 transform = translate * rotate;
-
-        // Apply transformation to the new instance
-        world.transform_object(newID, transform);
-    }
-}
-
 
 int main(int argc, char* argv[]) {
 
@@ -190,139 +125,38 @@ int main(int argc, char* argv[]) {
     color yellow(1, 1, 0);
 
     image_texture* wood_texture = new image_texture("assets/textures/wood_floor.jpg");
-    image_texture* grass_texture = new image_texture("assets/textures/grass.jpg");
+    image_texture* grass_texture = new image_texture ("assets/textures/grass.jpg");
     image_texture* brick_texture = new image_texture("assets/textures/brick.jpg");
     checker_texture checker(black, white, 15);
+    checker_texture checker_floor(black, white, 2);
     checker_texture ground(color(0.43, 0.14, 0), color(0.86, 0.43, 0), 20);
-    mat xadrez(&checker, 0.8, 1.0, 100.0, 0.25);
-    mat sphere_mat(red, 0.8, 1.0, 150.0);
-    mat sphere_mat2(green);
-    mat plane_material(brown, 0.3, 0.3, 2.0);
+    mat xadrez(&checker_floor, 0.8, 1.0, 100.0, 0.25);
     mat reflective_material(black, 0.8, 1.0, 150.0, 0.1);
-    mat voxel_material(color(1, 1, 1));
 
     // Class that holds all objects related to scene
     SceneManager world;
+    SceneBuilder builder;
 
     // Create scenes
     std::vector<std::shared_ptr<hittable>> Scene1 = {
-        std::make_shared<plane>(point3(0, -0.3, 0), vec3(0, 1, 0), mat(grass_texture), 0.4),
-        make_shared<box>(point3(0, -0.5, -200), point3(240, -0.2, -50), mat(white))
-    };
-
-    std::vector<std::shared_ptr<hittable>> Scene2 = {
-        make_shared<plane>(point3(0, 0, 0), vec3(0, 1, 0), mat(grass_texture), 0.2),
-        make_shared<box>(point3(-40, -0.5, -20), point3(-20, 15, -40), mat(&ground), 1.0, 0.9),
-        make_shared<box>(point3(-40.8, 15, -19.2), point3(-19.2, 18, -40.8), mat(color(0.29, 0.71, 0))),
-        make_shared<box>(point3(-15, -0.5, -20), point3(50, 5, -40), mat(&ground), 2, 0.2),
-        make_shared<box>(point3(-16, 5, -19.2), point3(51, 7, -39.2), mat(color(0.29, 0.71, 0))),
-        make_shared<sphere>(point3(-9.9, 13.5, -0.77), 1, mat(&checker)),
-        make_shared<cylinder>(point3(8, 1.6, -4), 0.5, 1, mat(color(0.6, 0.6, 0.6), 0.8, 0.8, 100)),
-        make_shared<cylinder>(point3(8, 2.1, -4), 0.5, 1.5, mat(yellow, 1.0, 1.0, 1000)),
-
+        std::make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), xadrez),
+        make_shared<sphere>(point3(0, 0, -1), 0.45, mat(&checker)),
+        make_shared<cylinder>(point3(-1.0, -0.25, -1), point3(-1.0, 0.35, -1), 0.3, mat(blue)),
+        make_shared<cone>(point3(1, -0.15, -1), point3(1, 0.5, -1.5), 0.3, mat(red)),
+        make_shared<torus>(point3(-2, 0, -1), 0.3, 0.1, vec3(0, 0.5, 0.5), mat(cyan)),
+        make_shared<SquarePyramid>(point3(1.8, -0.3, -1), 0.8, 0.5, mat(green)),
+        make_shared<box>(point3(2.6, 0, -1), 0.7, mat(brick_texture))
     };
 
     //Add all objects to the manager with their manually assigned IDs
-    for (const auto& obj : Scene2) {
+    for (const auto& obj : Scene1) {
         ObjectID id = world.add(obj);
         //std::cout << "Added object with ID " << id << ".\n";
     }
 
-    auto torusOBJ = make_shared<torus>(point3(0, 1, 1), 0.5, 0.15, vec3(0.45, 0.0, 0.5), mat(yellow, 1, 1.0, 1000, 0.6));
-    ObjectID torus = world.add(torusOBJ);
-    duplicateObjectArray(world, torus, 4, 2, vec3(1, 0, 0), true);
-
-    auto coneOBJ = make_shared<cone>(point3(-35, 0, -15), point3(-35, 3.5, -15), 0.5, mat(color(0.6, 0.6, 0.6), 0.8, 0.8, 100));
-    ObjectID cone = world.add(coneOBJ);
-    duplicateObjectArray(world, cone, 30, 2.5, vec3(1, 0, 0));
-
-    //Mesh Objects
-
-    try {
-        //ObjectID mesh = add_mesh_to_scene("models/garanhuns.obj", world, "models/garanhuns.mtl");
-
-        ObjectID sonic = add_mesh_to_scene("assets/models/sonic.obj", world, "assets/models/sonic.mtl");
-        ObjectID totemID = add_mesh_to_scene("assets/models/cenario/totem.obj", world, "assets/models/cenario/totem.mtl");
-        ObjectID loopID = add_mesh_to_scene("assets/models/cenario/loop.obj", world, "assets/models/cenario/loop.mtl");
-        ObjectID palmID = add_mesh_to_scene("assets/models/cenario/palm.obj", world, "assets/models/cenario/palm.mtl");
-
-        if (world.contains(loopID)) {
-            Matrix4x4 loopTranslate = loopTranslate.translation(vec3(0, 1, -6));
-            world.transform_object(loopID, loopTranslate);
-        }
-
-        if (world.contains(palmID)) {
-            Matrix4x4 palmTranslate = palmTranslate.translation(vec3(-20, 0, -12));
-            world.transform_object(palmID, palmTranslate);
-        }
-
-        if (world.contains(totemID)) {
-            Matrix4x4 totemTranslate = totemTranslate.translation(vec3(-10, 0, -1));
-            world.transform_object(totemID, totemTranslate);
-        }
-
-        if (world.contains(sonic)) {
-            point3 sonicCenter = world.get(sonic)->bounding_box().getCenter();
-            Matrix4x4 sonicTranslate = sonicTranslate.translation(vec3(-2, 0.3, 1));
-            Matrix4x4 sonicRotate = sonicRotate.rotateAroundPoint(sonicCenter, vec3(0, 1, 0), 90);
-            Matrix4x4 sonicScale = sonicScale.scaleAroundPoint(sonicCenter, 1.2, 1.2, 1.2);
-            Matrix4x4 sonicTransform = sonicTranslate * sonicScale * sonicRotate;
-            world.transform_object(sonic, sonicTransform);
-        }
-
-        duplicateObjectArray(world, totemID, 1, 20, vec3(1, 0, 0));
-
-        int numCopies = 4;      // Number of palm copies to spawn
-        double distance = 10.0; // Distance in meters between each palm
-
-        for (int i = 0; i < numCopies; i++) {
-            // Ensure the original object exists in the world
-            if (!world.contains(palmID)) {
-                std::cerr << "Error: Palm object with ID " << palmID << " not found in world." << std::endl;
-                break; // Exit loop if the object doesn't exist
-            }
-
-            // Clone the original palm object
-            auto originalObject = world.get(palmID);
-            auto newObject = originalObject->clone();
-
-            // Alternate scale: if index is even, use 1.5; if odd, use 1.0.
-            double scaleFactor = (i % 2 == 0) ? 1.5 : 1.0;
-
-            // Create a translation matrix to place the new palm instance
-            Matrix4x4 translate = Matrix4x4::translation(vec3(distance * (i + 1), 0.0, 0.0));
-
-            // Compute scaling around the center of the mesh's bounding box
-            Matrix4x4 scale = scale.scaleAroundPoint(
-                originalObject->bounding_box().getCenter(),
-                scaleFactor, scaleFactor, scaleFactor
-            );
-
-            // Combine translation and scaling into a single transformation
-            Matrix4x4 transform = translate * scale;
-
-            // Add the cloned object to the world and apply transformation
-            ObjectID newPalmID = world.add(newObject); // Add new instance to world
-            world.transform_object(newPalmID, transform);
-        }
-
-        auto palm1 = world.get(palmID)->clone();
-        ObjectID palm1ID = world.add(palm1);
-        Matrix4x4 palmTranslate = palmTranslate.translation(vec3(5, 0, 10));
-        world.transform_object(palm1ID, palmTranslate);
-        duplicateObjectArray(world, palm1ID, 1, 30, vec3(1, 0, 0));
-
-    }
-    catch (const std::exception& e) {
-        std::cerr << "Error loading model: " << e.what() << " - Skipping this model." << std::endl;
-        return {};
-    }
-
     //Lights
-    
-    //Sonic
     world.add_directional_light(vec3(-0.6, -0.38, -0.7), 0.85, color(1, 1, 1));
-    world.add_point_light(point3(6.2, 0.15, 0.5), 1.3, color(1, 0.87, 0.12));
+    world.add_point_light(vec3(-1, 0, 0.5), 1.0, color(0, 0.45, 0.64));
 
     ////Garanhuns
     //world.add_directional_light(vec3(-0.6, -0.5, -0.5), 0.9, color(0.28, 0.43, 0.9));
@@ -346,8 +180,8 @@ int main(int argc, char* argv[]) {
     float speed = 1.5f;
     //point3 origin(98,4.8, -17.0);
     //point3 look_at(100 , 5, -21);
-    point3 origin(-1.4, 3.4, 16.2);
-    point3 look_at(-1.2 , 7.7, -3);
+    point3 origin(-2.0, 0.7, 3.0);
+    point3 look_at(0.5, 0.15, -0.5);
 
 
     Camera camera(
@@ -367,7 +201,7 @@ int main(int argc, char* argv[]) {
     //BG Color (custom for garanhuns)
     //camera.set_BGhorizon(color(0.95, 0.45, 0.25));
     //camera.set_BGtop(color(0.07, 0.27, 0.64));
-
+    camera.set_BGtop(color(0.3, 0.58, 1));
 
     //Build a BVH Tree
     world.buildBVH();
@@ -397,9 +231,7 @@ int main(int argc, char* argv[]) {
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
-        draw_menu(render_state,
-            camera,
-            world);
+        draw_menu(render_state, camera, world, builder);
 
         DrawFpsCounter(fps);
 

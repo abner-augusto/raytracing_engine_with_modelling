@@ -8,7 +8,7 @@
 extern bool renderWireframe;
 extern bool renderWorldAxes;
 
-void draw_menu(RenderState& render_state, Camera& camera, SceneManager& world) {
+void draw_menu(RenderState& render_state, Camera& camera, SceneManager& world, SceneBuilder& builder) {
     // Initialize static variables
     static bool isCameraSpace = camera.CameraSpaceStatus();
     static point3 previous_origin = camera.get_origin();
@@ -20,13 +20,15 @@ void draw_menu(RenderState& render_state, Camera& camera, SceneManager& world) {
     static bool renderMenuOpen = false;
     static bool importMenuOpen = false;
     static bool projectionsMenuOpen = false;
+    static bool sceneMenuOpen = false;
 
     // Calculate total width needed for buttons
     float buttonSpacing = 5.0f;
     float cameraWidth = ImGui::CalcTextSize("Camera").x + 20.0f;  // Add padding
     float renderWidth = ImGui::CalcTextSize("Render").x + 20.0f;
     float importWidth = ImGui::CalcTextSize("Import").x + 20.0f;
-    float totalWidth = cameraWidth + renderWidth + importWidth + (buttonSpacing * 2) + 10.0f;
+    float sceneWidth = ImGui::CalcTextSize("Load Scenes").x + 20.0f;
+    float totalWidth = cameraWidth + renderWidth + importWidth + sceneWidth + (buttonSpacing * 2) + 15.0f;
 
     // Create a custom window to act as our menu bar
     ImGui::SetNextWindowPos(ImVec2(0, 0));
@@ -69,6 +71,14 @@ void draw_menu(RenderState& render_state, Camera& camera, SceneManager& world) {
             importMenuOpen = !importMenuOpen;
             cameraMenuOpen = false;
             renderMenuOpen = false;
+        }
+
+        ImGui::SameLine(0, buttonSpacing);
+        if (ImGui::Button("Load Scenes", ImVec2(sceneWidth, 0))) {
+            sceneMenuOpen = !sceneMenuOpen;
+            cameraMenuOpen = false;
+            renderMenuOpen = false;
+            importMenuOpen = false;
         }
 
         ImGui::EndGroup();
@@ -305,6 +315,32 @@ void draw_menu(RenderState& render_state, Camera& camera, SceneManager& world) {
             ImGui::End();
         }
     }
+
+    if (sceneMenuOpen) {
+        ImGui::SetNextWindowPos(ImVec2(cameraWidth + renderWidth + importWidth + (buttonSpacing * 3), menuBarHeight));
+        if (ImGui::Begin("SceneMenu", &sceneMenuOpen, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize)) {
+            if (ImGui::Button("Sonic Scene")) {
+                world.clear();
+                builder.buildSonicScene(world);
+                world.add_directional_light(vec3(-0.6, -0.38, -0.7), 0.85, color(1, 1, 1));
+                world.add_point_light(point3(6.2, 0.15, 0.5), 1.3, color(1, 0.87, 0.12));
+                camera.set_origin(point3(-1.4, 3.4, 16.2));
+                camera.set_look_at(point3(-1.2, 7.7, -3));
+                world.buildBVH();
+            }
+            if (ImGui::Button("Atividade 6 Scene")) {
+                world.clear();
+                builder.buildAtividade6Scene(world);
+                world.add_directional_light(vec3(0.38, -0.77, -0.51), 0.65, color(1, 1, 1));
+                world.add_point_light(point3(0.0, 3, -4), 1.2, color(1.0, 0.82, 0.20));
+                camera.set_origin(point3(-4.1, 4.3, 6.9));
+                camera.set_look_at(point3(-1.8, 3.7, 3.0));
+                world.buildBVH();
+            }
+            ImGui::End();
+        }
+    }
+
 }
 
 void DrawFpsCounter(float fps) {
@@ -340,6 +376,8 @@ void ShowHittableManagerUI(SceneManager& world, Camera& camera) {
     // Set window position to upper right corner
     ImVec2 screenSize = ImGui::GetIO().DisplaySize;
     ImGui::SetNextWindowPos(ImVec2(screenSize.x, 0), ImGuiCond_Always, ImVec2(1.0f, 0.0f));
+    ImGui::SetNextWindowSize(ImVec2(330, 215), ImGuiCond_FirstUseEver);
+
 
     ImGui::Begin("SceneManager Objects");
 
@@ -1510,14 +1548,14 @@ void ShowInfoWindow(SceneManager& world) {
             ShowGeometryTab(world);
             ImGui::EndTabItem();
         }
-        //if (ImGui::BeginTabItem("Add Objects")) {
-        //    ShowPrimitivesTab(world);
-        //    ImGui::EndTabItem();
-        //}
-        //if (ImGui::BeginTabItem("Boolean")) {
-        //    ShowBooleanTab(world);
-        //    ImGui::EndTabItem();
-        //}
+        if (ImGui::BeginTabItem("Add Objects")) {
+            ShowPrimitivesTab(world);
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Boolean")) {
+            ShowBooleanTab(world);
+            ImGui::EndTabItem();
+        }
         ImGui::EndTabBar();
     }
 
