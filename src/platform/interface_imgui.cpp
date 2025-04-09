@@ -1,4 +1,5 @@
 ﻿#include "interface_imgui.h"
+#include "plane.h"
 #include <string>
 
 #ifdef DIFFERENCE
@@ -335,6 +336,16 @@ void draw_menu(RenderState& render_state, Camera& camera, SceneManager& world, S
                 world.add_point_light(point3(0.0, 3, -4), 1.2, color(1.0, 0.82, 0.20));
                 camera.set_origin(point3(-4.1, 4.3, 6.9));
                 camera.set_look_at(point3(-1.8, 3.7, 3.0));
+                world.buildBVH();
+            }
+            if (ImGui::Button("Clear Scene")) {
+                world.clear();
+                world.add(std::make_shared<plane>(point3(0, -0.5, 0), vec3(0, 1, 0), 
+                                                  mat(new checker_texture(color(vec3(1,1,1)),
+                                                  color(vec3(0, 0, 0)), 2), 0.8, 1.0, 100.0, 0.25)));
+                world.add_directional_light(vec3(0.38, -0.77, -0.51), 0.65, color(1, 1, 1));
+                camera.set_origin(point3(-2.0, 0.7, 3.0));
+                camera.set_look_at(point3(0.5, 0.15, -0.5));
                 world.buildBVH();
             }
             ImGui::End();
