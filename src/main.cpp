@@ -177,7 +177,7 @@ int main(int argc, char* argv[]) {
     double viewport_height = 2.0;
     auto viewport_width = aspect_ratio * viewport_height;
     auto samples_per_pixel = 5; 
-    float speed = 1.5f;
+    float speed = 0.5f;
     //point3 origin(98,4.8, -17.0);
     //point3 look_at(100 , 5, -21);
     point3 origin(-2.0, 0.7, 3.0);
