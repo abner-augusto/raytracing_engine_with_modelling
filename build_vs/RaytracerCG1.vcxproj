@@ -451,6 +451,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClInclude Include="C:\Users\abner\source\repos\qbRaytracing\src\modelling\csg.h" />
     <ClInclude Include="C:\Users\abner\source\repos\qbRaytracing\src\modelling\csg_intesection.h" />
     <ClInclude Include="C:\Users\abner\source\repos\qbRaytracing\src\modelling\octree.h" />
+    <ClInclude Include="C:\Users\abner\source\repos\qbRaytracing\src\platform\asset_path.h" />
     <ClInclude Include="C:\Users\abner\source\repos\qbRaytracing\src\platform\dialog_box.h" />
     <ClCompile Include="C:\Users\abner\source\repos\qbRaytracing\src\platform\interface_imgui.cpp" />
     <ClInclude Include="C:\Users\abner\source\repos\qbRaytracing\src\platform\interface_imgui.h" />

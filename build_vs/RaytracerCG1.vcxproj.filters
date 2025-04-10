@@ -111,6 +111,9 @@
     <ClInclude Include="C:\Users\abner\source\repos\qbRaytracing\src\modelling\octree.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="C:\Users\abner\source\repos\qbRaytracing\src\platform\asset_path.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="C:\Users\abner\source\repos\qbRaytracing\src\platform\dialog_box.h">
       <Filter>Header Files</Filter>
     </ClInclude>
