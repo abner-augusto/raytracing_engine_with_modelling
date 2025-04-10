@@ -7,6 +7,7 @@
 #include "sphere.h"
 #include "torus.h"
 #include "mesh.h"
+#include "asset_path.h"
 
 SceneBuilder::SceneBuilder()
     : black(0.0, 0.0, 0.0),
@@ -18,9 +19,9 @@ SceneBuilder::SceneBuilder()
     cyan(0.0, 1.0, 0.9),
     brown(0.69, 0.49, 0.38),
     yellow(1, 1, 0),
-    wood_texture(new image_texture("assets/textures/wood_floor.jpg")),
-    grass_texture(new image_texture("assets/textures/grass.jpg")),
-    brick_texture(new image_texture("assets/textures/brick.jpg")),
+    wood_texture(new image_texture(AssetPath::Resolve("textures/wood_floor.jpg"))),
+    grass_texture(new image_texture(AssetPath::Resolve("textures/grass.jpg"))),
+    brick_texture(new image_texture(AssetPath::Resolve("textures/brick.jpg"))),
     checker(black, white, 15),
     ground(color(0.43, 0.14, 0), color(0.86, 0.43, 0), 20),
     grass_material(grass_texture),
@@ -210,10 +211,10 @@ void SceneBuilder::buildSonicScene(SceneManager& world) {
     //Mesh Objects
 
     try {
-        ObjectID sonic = add_mesh_to_scene("assets/models/sonic.obj", world, "assets/models/sonic.mtl");
-        ObjectID totemID = add_mesh_to_scene("assets/models/cenario/totem.obj", world, "assets/models/cenario/totem.mtl");
-        ObjectID loopID = add_mesh_to_scene("assets/models/cenario/loop.obj", world, "assets/models/cenario/loop.mtl");
-        ObjectID palmID = add_mesh_to_scene("assets/models/cenario/palm.obj", world, "assets/models/cenario/palm.mtl");
+        ObjectID sonic = add_mesh_to_scene(AssetPath::Resolve("models/sonic.obj"), world, AssetPath::Resolve("models/sonic.mtl"));
+        ObjectID totemID = add_mesh_to_scene(AssetPath::Resolve("models/cenario/totem.obj"), world, AssetPath::Resolve("models/cenario/totem.mtl"));
+        ObjectID loopID = add_mesh_to_scene(AssetPath::Resolve("models/cenario/loop.obj"), world, AssetPath::Resolve("models/cenario/loop.mtl"));
+        ObjectID palmID = add_mesh_to_scene(AssetPath::Resolve("models/cenario/palm.obj"), world, AssetPath::Resolve("models/cenario/palm.mtl"));
 
         if (world.contains(loopID)) {
             Matrix4x4 loopTranslate = loopTranslate.translation(vec3(0, 1, -6));

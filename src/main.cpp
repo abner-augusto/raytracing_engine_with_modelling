@@ -47,6 +47,7 @@
 #include "sdl_setup.h"
 #include "render_state.h"
 #include "scene_builder.h"
+#include "asset_path.h"
 
 RenderState render_state;
 bool renderWireframe = false;
@@ -103,7 +104,8 @@ int main(int argc, char* argv[]) {
     ImGui_ImplSDLRenderer2_Init(renderer);
     ImGui::StyleColorsDark();
 
-    TTF_Font* font = TTF_OpenFont("assets/fonts/Roboto-Medium.ttf", 16);
+    TTF_Font* font = TTF_OpenFont(AssetPath::Resolve("fonts/Roboto-Medium.ttf").c_str(), 16);
+
     if (font == nullptr) {
         std::cerr << "Failed to load font! TTF_Error: " << TTF_GetError() << std::endl;
         SDL_DestroyRenderer(renderer);
@@ -124,9 +126,9 @@ int main(int argc, char* argv[]) {
     color brown(0.69, 0.49, 0.38);
     color yellow(1, 1, 0);
 
-    image_texture* wood_texture = new image_texture("assets/textures/wood_floor.jpg");
-    image_texture* grass_texture = new image_texture ("assets/textures/grass.jpg");
-    image_texture* brick_texture = new image_texture("assets/textures/brick.jpg");
+    image_texture* wood_texture = new image_texture(AssetPath::Resolve("textures/wood_floor.jpg"));
+    image_texture* grass_texture = new image_texture (AssetPath::Resolve("textures/grass.jpg"));
+    image_texture* brick_texture = new image_texture(AssetPath::Resolve("textures/brick.jpg"));
     checker_texture checker(black, white, 15);
     checker_texture checker_floor(black, white, 2);
     checker_texture ground(color(0.43, 0.14, 0), color(0.86, 0.43, 0), 20);
